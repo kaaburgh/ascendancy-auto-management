@@ -51,7 +51,9 @@ python3 tools/fetch_free_targets.py --verify # re-verify offline
 
 Files land in the git-ignored `binaries/`. The tool only ever downloads artifacts pinned in `tools/free-target-sources.json`, verifies the archive and the extracted executable against exact sizes and SHA-256 hashes, and writes nothing when any check fails. It requires only stdlib Python and HTTPS egress to `archive.org` and `*.archive.org`.
 
-The retail game **data** files are a different matter: the game is not sold on any current storefront, so actually *running* it needs the maintainer's own copy. Only the free executables may be added to the manifest — never full-game images or abandonware repacks.
+The retail game **data** files are a different matter: a retail installation requires the maintainer's own copy, since the game is not sold on any current storefront. But that does not mean cloud cannot run the game at all — an officially distributed **playable demo** exists and is a lawfully redistributable candidate for a cloud runtime fixture. It must be investigated before runtime work is declared local-only. That evaluation is [`ROADMAP.md`](./ROADMAP.md)'s CF3.
+
+Only freely distributed artifacts may be added to the manifest — never full-game images, retail distributions, or abandonware repacks.
 
 Details, provenance and hashes: [`docs/re/targets.md`](./docs/re/targets.md) and [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
 

@@ -145,7 +145,7 @@ Established:
 
 Rejected / bounded:
 
-- the **retail game data files are not obtainable in cloud** and the repository must not try. This is a constraint handed to CF3/CF4, not a blocker for static RE.
+- the **retail game data files are not available as a lawful public dependency**, and the repository must not obtain them from abandonware or full retail distributions. This is a constraint handed to CF3/CF4, not a blocker for static RE. CF1 did **not** investigate the freely distributed official playable demo as a runtime fixture; that is CF3's, and CF1 must not be cited as ruling out a cloud runtime path.
 - the **retail unpatched `ASCEND.EXE`** is not freely distributed. It is an optional third reference, not a prerequisite.
 - CF1 settled the **packaging** relationship between the bug patch and the Antagonizer (both standalone executables), **not** their **build lineage**. Whether the pair is build-comparable is still open and is required evidence for T1 before a baseline is named.
 - `web.archive.org` was **blocked by egress policy** in the sandbox where this ran even though `archive.org` was reachable. Do not build tooling on a Wayback fallback without re-probing.
@@ -229,11 +229,25 @@ A fresh cloud environment can run the static-analysis pipeline without manual GU
 - **Gates:** RE4, RE5, P2, V1
 - **Question:** Can the target DOS game, or at minimum the required state-tracing/debugging experiments, execute reproducibly inside Codex or Claude cloud?
 
-> **Starting condition from CF1:** cloud has the game **executables** but not the **retail data files**, and the game is not sold on any current storefront, so there is no lawful cloud route to a runnable installation. CF3 must therefore answer a narrower question than "can the emulator run the game in cloud": can the *instrumentation* be built and smoke-tested in cloud against a safe fixture, with only the scenario run needing the maintainer's installation? Do not spend effort re-testing whether the data files can be downloaded — CF1 settled that they cannot.
+> **Starting condition from CF1:** cloud has the game **executables**. Retail game data are **not available as a lawful public dependency**, and the repository must not obtain them from abandonware or full retail distributions.
+>
+> However — and CF1 did **not** investigate this — a freely distributed official **playable demo** of Ascendancy exists (`reported`, maintainer). It may contain enough game data and functionality for runtime and debugging work, which would make a cloud runtime fixture possible.
+>
+> **Before classifying any target runtime task as `LOCAL ONLY`, CF3 must evaluate the demo.** A `LOCAL ONLY` decision that has not tested the demo is not a completed investigation, and CF1's findings must not be cited as evidence that no lawful cloud runtime path exists — CF1 established target-executable availability and nothing about the demo.
 
 ### Required investigation
 
-Investigate a non-interactive or scriptable emulator/debugger setup capable of the evidence this project needs. Relevant capabilities include:
+**Evaluate the official playable demo as a cloud runtime fixture. Do this first — it decides whether the rest of this item is a cloud or local question:**
+
+- reproducibly acquire it from an authorized/legitimate redistribution source, hash-pinned and fail-closed, in the manner CF1 established for the executables. Abandonware repacks and full retail distributions are not acceptable sources;
+- run it headlessly/scriptably;
+- verify whether planet management and self-management exist in it at all — a demo with the colony screens cut is a different proposition from one that merely limits turns or star systems;
+- test whether the canonical `ANTAG.EXE` can run against the demo's data files;
+- if it cannot, determine which runtime RE experiments can still be performed against the demo's own `ASCEND.EXE`, and which genuinely require the retail installation.
+
+Record the outcome even if negative: a demo that lacks the relevant screens is exactly the kind of result that must be preserved so the next agent does not retry it.
+
+Then investigate a non-interactive or scriptable emulator/debugger setup capable of the evidence this project needs. Relevant capabilities include:
 
 - launching a DOS protected-mode application in the cloud environment;
 - deterministic mounting/configuration;
@@ -246,8 +260,9 @@ Do not count “the emulator package installs” as success. The result must be 
 
 ### Deliverables
 
-- `docs/experiments/CF3-cloud-runtime-debugging.md`;
+- `docs/experiments/CF3-cloud-runtime-debugging.md`, including the demo evaluation and its result whether positive or negative;
 - reusable environment/config/scripts if cloud execution is viable;
+- a fail-closed acquisition path for the demo if it proves usable, following the CF1 pattern;
 - a smoke test using a safe fixture, and target-game smoke test if CF1 provides target access;
 - updates converting RE4, RE5, P2 and other CF3-owned gated tasks to `CLOUD` or `LOCAL ONLY`.
 
@@ -256,6 +271,8 @@ If runtime work becomes local-only, create/identify a one-shot local experiment 
 ### Acceptance criteria
 
 The roadmap has an evidence-backed execution decision for runtime/debugging tasks and a reproducible handoff in either direction.
+
+Any `LOCAL ONLY` classification is only valid once the playable demo has actually been evaluated as a cloud runtime fixture and the reason it is insufficient is recorded. "The retail installation is not publicly available" is **not** on its own a sufficient basis for `LOCAL ONLY`.
 
 ---
 

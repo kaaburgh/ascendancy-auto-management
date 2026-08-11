@@ -17,6 +17,8 @@ Can a clean Codex or Claude cloud environment obtain the exact Antagonizer targe
 - **H3** — Some target bytes are lawfully and directly fetchable in cloud because the publisher distributed them free of charge.
 - **H4** — Everything needed, including the retail game data, is fetchable in cloud.
 
+Scope note added after review: these hypotheses are about **retail** artifacts. This experiment did not consider the freely distributed official playable demo as an alternative source of runnable game data, so nothing here bears on whether a cloud runtime fixture is possible. See the interpretation and CF3.
+
 ## What the target actually is
 
 This was the decisive discovery, and it changes the shape of the whole track.
@@ -39,7 +41,9 @@ The official bug patch works the same way. Its bundled `patch.txt` says:
 So both free downloads are **complete standalone game executables** that sit beside the retail `ASCEND.EXE` and read the retail data files. That splits the acquisition problem cleanly in two:
 
 - the **executable** — the only thing static reverse engineering needs — was published free by the rights holder;
-- the **retail game data** — needed only to actually *run* the game — was not.
+- the **retail game data** — needed to run the full retail game — was not.
+
+The second half of that split is narrower than it first appears, and this experiment did not pursue it: "no lawful public source of *retail* data" is not the same as "no lawful source of *runnable* data". An officially distributed playable demo ships its own data files, and evaluating it is CF3's first step.
 
 ### Structural confirmation (static)
 
@@ -66,7 +70,7 @@ The announcement states the module was free to customers, that there are two ver
 
 `logicfactory.com` no longer serves this content — as of this experiment it is a parked domain listed for sale via `spaceship.com`. The surviving copies used here are hosted on the Internet Archive under the `classicpcgames` collection, credited to The Logic Factory.
 
-The DOS game itself is not sold digitally on any current storefront, so a maintainer wanting to *run* the game needs their own retail copy. That is a constraint on CF3/CF4, not on CF1.
+The DOS game itself is not sold digitally on any current storefront, so a *retail* installation requires the maintainer's own copy. That is a constraint on CF3/CF4, not on CF1 — and it is not the whole picture: an officially distributed playable demo exists, which CF3 must evaluate as a cloud runtime fixture before concluding anything about local-only runtime work.
 
 ## Procedure
 
@@ -153,19 +157,21 @@ output path traversal, and unsafe destinations.
 
 ## Interpretation
 
-**H3 is supported. H1 and H2 are rejected for the executable; H4 is rejected for the game data.**
+**H3 is supported. H1 and H2 are rejected for the executable.** For game data, **retail** data are not known to be lawfully and reproducibly obtainable — but H4 is *not* settled: CF1 did not investigate the freely distributed official playable demo as a runtime fixture, so this experiment cannot conclude that no lawful cloud route to runnable game data exists.
 
 - The Antagonizer production target **is** directly obtainable in cloud, hash-pinned, from two independent mirrors.
 - A vanilla-lineage reference **is** directly obtainable in cloud: the publisher's official bug-patch executable, a complete game binary carrying a publisher-documented version string (1.6.5 English / 1.8.5 non-English).
 - The **retail unpatched `ASCEND.EXE`** is not freely distributed and is not in cloud. It is a *nice-to-have* third reference, not a prerequisite.
 
 Note carefully what this experiment did **not** establish. It settled the *packaging* relationship between the bug patch and the Antagonizer — both are standalone executables rather than a patch stacked on a base — and nothing about their **build lineage**. Whether the two were compiled from comparable source snapshots is open, and it matters: an ill-matched pair makes a whole-image differential show unrelated bug fixes alongside the AI changes, which would corrupt RE1's candidate ranking while still looking plausible. The English pair's ~2-month timestamp gap is a live reason for doubt. T1 owes that lineage evidence before naming a baseline; this record supplies only availability and provenance.
-- The **retail game data files** are not obtainable in cloud, and the repository must not try. Every task needing them is a runtime task already owned by CF3/CF4.
+- The **retail game data files** are not available as a lawful public dependency, and the repository must not obtain them from abandonware or full retail distributions. Every task needing them is a runtime task already owned by CF3/CF4.
+- **Unexamined and potentially decisive:** an officially distributed **playable demo** of Ascendancy exists (`reported`, maintainer) and is a lawfully redistributable candidate cloud runtime fixture. This experiment did not look at it. Nothing in this record may be used to argue that runtime work must be local-only — that conclusion requires evaluating the demo, which is CF3's first required step.
 
 ### Deliberately not done
 
 - No proprietary or restricted bytes were added to git. `binaries/` is git-ignored (`git check-ignore` confirms `/binaries/`) and the four executables exist only in the ephemeral sandbox.
-- No abandonware full-game source was used, and none may be added to the manifest. `myabandonware.com` was reachable from this sandbox; that is a capability, not a permission.
+- No abandonware full-game source was used, and none may be added to the manifest. `myabandonware.com` was reachable from this sandbox; that is a capability, not a permission. This holds for the demo too: a legitimate demo must come from an authorized redistribution source, not from a repack site.
+- **The officially distributed playable demo was not evaluated.** This is a genuine gap in coverage rather than a scoped-out nicety, because it may be the difference between cloud and local-only runtime work. CF1's question was target-executable acquisition, and the demo is a runtime-fixture question, so it belongs to CF3 — where it is now the first required step. Do not read this record as having ruled it out.
 - No target-metadata capture tool was written: that is T0, and duplicating it here would pre-empt it.
 - No canonical target was *selected* and `docs/re/targets.md` was left without canonical entries: choosing the M1 target is T1's decision, and this record supplies the provenance it needs.
 
@@ -178,7 +184,7 @@ Local only, under the git-ignored `binaries/`: `ANTAG_EN.EXE`, `ANTAG_INTL.EXE`,
 Cloud acquisition covers static RE completely, so the handoff surface is small. A maintainer-side export is needed **only** for:
 
 1. **Retail `ASCEND.EXE` fingerprint** — optional. Wanted only if a task must compare against the shipped retail build rather than the official bug-patch build. Deliverable: metadata only (SHA-256, size, filename, version label, header facts), never the file. The tool that produces this record is T0's deliverable; T1 consumes it.
-2. **A runnable game installation** — required for RE4, RE5, P2, V1. Deliverable and mechanism are CF3/CF4's to define, because they depend on whether the emulator runs in cloud at all. CF1's contribution is the constraint: the free executables are enough to *analyse*, never enough to *run*.
+2. **A runnable game installation** — needed for RE4, RE5, P2, V1 *only to the extent that the playable demo turns out to be insufficient*. Deliverable and mechanism are CF3/CF4's to define, and CF3 must evaluate the demo before assuming a maintainer-side installation is required at all. CF1's contribution is narrower than it may look: the four free executables are enough to *analyse*, and are not accompanied by data files, but CF1 did not test whether the demo supplies data files that make them *run*.
 
 Constraints that apply to any such export: repo-safe metadata and bounded logs only; no game data files, no copyrighted assets, no full executables committed to git; raw material stays under the ignored `artifacts/`, `captures/`, `binaries/`, `reference/`, `game/` roots.
 
@@ -193,4 +199,6 @@ Constraints that apply to any such export: repo-safe metadata and bounded logs o
 
 CF1's blocking role is discharged: the sequence `T1 → T2 → RE1 → RE2/RE3` no longer needs maintainer-supplied bytes. The remaining gate on that path is CF2 (a headless static-analysis toolchain), which is now the highest-information next task — and it can use real target bytes rather than the synthetic fixtures its description allowed for.
 
-The open question CF1 cannot answer: whether the game can be *executed* in cloud at all, given that the retail data files are unobtainable there. That is CF3, and it should treat "cloud has the executables but not the data" as its starting condition.
+The open question CF1 cannot answer: whether the game can be *executed* in cloud. CF1 established only that cloud has the target executables and that retail data are not a lawful public dependency. It did **not** examine the officially distributed playable demo, which ships its own data files and is a lawfully redistributable candidate runtime fixture.
+
+CF3 owns that question, and it should start there rather than from an assumption of local-only. Concretely: acquire the demo from an authorized redistribution source under the same fail-closed discipline used here, run it headlessly, check whether planet management and self-management are present, and test whether the canonical `ANTAG.EXE` runs against the demo's data files. If it cannot, establish which runtime experiments are still possible against the demo's own `ASCEND.EXE`. A `LOCAL ONLY` classification that skipped this step should be treated as incomplete, not as a finding.

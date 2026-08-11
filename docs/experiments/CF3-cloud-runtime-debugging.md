@@ -1,15 +1,15 @@
 # CF3 — cloud runtime/debugging investigation
 
 - Date: 2026-08-11
-- Status: **Investigation incomplete — demo package validated statically; runtime blocked by missing emulator in this sandbox**
+- Status: **Investigation incomplete — demo runtime/UI path demonstrated in cloud; full-build-on-demo-data fails on a concrete missing retail-data file; debugger/state tracing still open**
 - Execution classification: remains `CLOUD RESEARCH`
-- Evidence categories: real-file static + package documentation + cloud-environment runtime/tool availability
+- Evidence categories: real-file runtime + host filesystem instrumentation + real-file static + package documentation
 
 ## Question
 
-Can the Ascendancy demo, and ideally the canonical Antagonizer executable against the demo data set, run reproducibly in cloud infrastructure with enough observability for RE4/RE5?
+Can the Ascendancy demo, and ideally the canonical Antagonizer executable, run reproducibly in cloud infrastructure with enough observability for RE4/RE5?
 
-## Demo input now available
+## Exact demo input
 
 The maintainer supplied the complete downloadable demo package:
 
@@ -17,102 +17,153 @@ The maintainer supplied the complete downloadable demo package:
 - size `8978479`
 - SHA-256 `eb18315e744bf53be4dc5d8533f80d317e073661e86acb2ebba3241ae67f9e79`
 - 19 ZIP members
+- inner `ASCEND.EXE`: `582147` bytes, SHA-256 `0183b75cb44ce52b52ba57baf2b9521e21a7611e487a1ebb5b768067441960a9`
 
-Its internal `ASCEND.EXE` is `582147` bytes with SHA-256 `0183b75cb44ce52b52ba57baf2b9521e21a7611e487a1ebb5b768067441960a9`, exactly matching the demo executable previously supplied separately.
+The inner executable exactly matches the standalone demo executable supplied earlier. Detailed package/container/static-analysis evidence is in [`CF3-demo-executable-static-preflight.md`](./CF3-demo-executable-static-preflight.md).
 
-Detailed package/container/static-analysis evidence is in [`CF3-demo-executable-static-preflight.md`](./CF3-demo-executable-static-preflight.md).
+## Cloud runtime environment
 
-## Feature suitability
+The base Debian 13 (`trixie`) sandbox had `Xvfb`, SDL2, `scrot` 1.12.1, Python with Xlib/XTEST bindings, and GCC 14.2.0, but no DOS emulator. Network/DNS to `deb.debian.org` was unavailable, so the maintainer supplied the required Debian packages as task attachments.
 
-The package itself materially improves the CF3 outlook.
+They were **extracted locally with `dpkg-deb -x`; nothing was installed into the system**:
 
-The README explicitly documents:
+| Package | Version | SHA-256 |
+| --- | --- | --- |
+| `dosbox` | `0.74-3-5+b1` amd64 | `d9c17b9280bdd3ffb611467673b011800cd4a1ddf5294baa7b1c60b0025e1ef2` |
+| `libsdl1.2debian` | `1.2.68-3` amd64 | `64622c268b2bd343caa50cf8541629a624838b40d91ab99e7d97853424648d7d` |
+| `libsdl-sound1.2` | `1.0.3-9+b5` amd64 | `71004f35c8852e0d98d96ef8df07f00804b4726512f06b8d545325dc7f914b8e` |
+| `libsdl-net1.2` | `1.2.8-6+b2` amd64 | `931fd22d0554c2160e9f3914c7de0f035ba1f168fc173f9c793221898642191d` |
+| `libmikmod3` | `3.3.13-1` amd64 | `6d991a9a8d915af9ae5b4f2ac763a0755b6d987b7d1a4679c01eb2b5b88288ae` |
+
+With the extracted library directories in `LD_LIBRARY_PATH`, `ldd` on the supplied DOSBox binary had no unresolved dependencies and `dosbox -version` reported `DOSBox version 0.74-3`.
+
+Runtime configuration deliberately removed audio as a confounder:
+
+```ini
+[dosbox]
+machine=svga_s3
+memsize=16
+
+[sdl]
+fullscreen=false
+output=surface
+
+[mixer]
+nosound=true
+
+[midi]
+mpu401=none
+mididevice=none
+
+[sblaster]
+sbtype=none
+```
+
+The run used `SDL_AUDIODRIVER=dummy`, an `Xvfb :99` 1024x768x24 display, and mounted the extracted demo directory read/write as DOS drive C. No `SETSOUND` step, `DIG.INI`, or `ASCEND.CFG` was required to reach the tested screens with emulated sound disabled.
+
+## Demo runtime result — positive
+
+The demo is now **observed running**, not merely documented as suitable.
+
+A deterministic input/capture sequence reached all of the following:
+
+1. DOS/4GW protected-mode startup and the `Ascendancy Demo Version` console banner;
+2. the demo's `Press a key to continue...` screen;
+3. the graphical Ascendancy main menu;
+4. `New Game` setup;
+5. the Minions species-introduction screen;
+6. the live galaxy map;
+7. the `Planets` list showing the starting occupied planet and project status;
+8. the planet surface/status screen for that colony.
+
+Input was driven through XTEST and captures were taken from Xvfb with `scrot`. Mouse input selected `New Game`, `Begin New Game`, closed the species-introduction screen, selected `Planets`, and opened the starting planet. Keyboard injection was independently verified in graphics mode: `Escape` from the planet surface returned to the planet list.
+
+This is direct runtime evidence that the demo contains and can execute the planet-management path needed for later experiments. It also demonstrates that a cloud process can drive this DOS UI and capture bounded framebuffer evidence.
+
+## `M` self-management toggle observation
+
+The demo README documents:
 
 ```text
 <M>         toggle research and planet self-management
 ```
 
-and the supplied resources contain Planet Status/Planet Display/Research UI help text. Thus the demo is not merely a title-screen or combat-only build: the package documentation says the exact self-management behavior relevant to M1 exists.
+`M` was sent through the same XTEST path on both the galaxy map and planet-surface screen. A screenshot before the key, after the first `M`, and after a second `M` was compared pixel-for-pixel. On both tested screens the framebuffer was identical (`0` changed pixels).
 
-This satisfies the roadmap requirement to **evaluate whether the demo has the relevant feature at all** at the package/static level. Runtime confirmation is still required before later RE tasks depend on it.
+This **does not mean the key is ignored**. `Escape` proves keyboard injection works in graphics mode, and the documented `M` behavior may change internal management/research state without drawing an acknowledgement on those screens. Therefore the `M` behavior still needs a state/turn-effect experiment rather than a screenshot-only assertion.
 
-## Package completeness preflight
+## `ANTAG_EN.EXE + demo data` runtime result — negative, with exact first failure
 
-`COB.CFG` names:
+The exact English Antagonizer target was tested against an otherwise unchanged copy of the demo data:
+
+- `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`
+- launched as `ANTAG.EXE` from the demo directory
+- same `COB.CFG`, `ASCEND00.COB`, `ASCEND01.COB`, `ASCEND02.COB`, `DOS4GW.EXE`, and other demo files
+
+Observed behavior: DOS/4GW starts, then the executable returns silently to the DOS prompt before reaching an Ascendancy UI/banner.
+
+To avoid guessing, a small host-side `LD_PRELOAD` filesystem probe was built around DOSBox. The reusable source is [`../../tools/dosbox_fsprobe.c`](../../tools/dosbox_fsprobe.c). It records DOSBox host filesystem calls for the mounted directory without modifying guest state.
+
+The Antagonizer trace reaches:
 
 ```text
-ascend00.cob
-ascend01.cob
-ascend02.cob
+COB.CFG              opened
+ASCEND00.COB         opened
+ASCEND01.COB         opened
+ASCEND02.COB         opened
+STATIC.TXT           fopen64 mode=rb -> ENOENT
 ```
 
-and all three archives are present. The package also contains `DOS4GW.EXE`, `SETSOUND.EXE`, `UVCONFIG.EXE`, Miles DIG drivers and the driver list.
+The demo package contains no `STATIC.TXT`.
 
-The README says to run `SETSOUND` after unzipping and describes `DIG.INI` / `ASCEND.CFG` among installed files; those two files are not present in the supplied ZIP. This is treated as setup/runtime configuration, not as proof the package is incomplete, because the downloader instructions explicitly include a configuration step. That behavior has not yet been run under DOS.
+Static strings independently agree with the runtime result: `static.txt` is present in `ANTAG_EN.EXE`, `ANTAG_INTL.EXE`, `PATCH_EN.EXE`, and `PATCH_INTL.EXE`, but is absent from the demo `ASCEND.EXE`.
 
-## Static `ANTAG.EXE` compatibility preflight
+## Control experiment — official patch fails at the same boundary
 
-The demo executable and the four full-build executables share the same top-level external runtime/configuration filenames (`cob.cfg`, `ascend.cfg`, DIG/MDI configuration, DOS4GW, VESA/UniVBE handling).
+`PATCH_EN.EXE` SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` was run against the same demo data as a control.
 
-Nothing at that top-level file-contract layer rules out trying `ANTAG.EXE` in the demo directory. Conversely, no static result proves that all resources/data indices required by Antagonizer exist in the cut-down demo archives. Runtime remains the decisive experiment.
+It follows the same host-file sequence and also fails on:
 
-## Cloud environment probe
+```text
+STATIC.TXT           fopen64 mode=rb -> ENOENT
+```
 
-The current sandbox was checked directly for:
+before returning to DOS.
 
-- `dosbox`
-- `dosbox-x`
-- `dosbox-staging`
-- `dosemu` / `dosemu2`
-- `qemu-system-i386` / `qemu-i386`
-- Wine
+Therefore the first observed incompatibility is **not Antagonizer-specific**. It is a full-build-versus-demo-data boundary shared by the official patch and Antagonizer. This materially updates the earlier static preflight: the demo data set is sufficient for the demo executable, but not sufficient as-is for these full-build executables.
 
-None is installed.
+No empty/synthetic `STATIC.TXT` was created. Doing so would turn a concrete missing-input result into an uncontrolled parser/content experiment and could hide the next real dependency.
 
-Relevant available pieces:
+## What file input is now needed
 
-- Debian 13 (`trixie`)
-- `Xvfb`
-- SDL2 runtime
+To continue the full-build runtime experiment, the preferred input is an authorized copy of the **complete installed retail/full-build data directory** (or an archive of it), excluding nothing merely because it appears unrelated. That avoids a one-file-at-a-time chain if `STATIC.TXT` is only the first demo/full-data difference.
 
-The apt sources are configured for normal Debian trixie repositories, but `apt-get update` fails because the sandbox cannot resolve `deb.debian.org`. Therefore an emulator could not be installed through the normal package-manager path in this run.
+If that is not available, the minimum next input is the original `STATIC.TXT` from the matching installed game data. The next run should leave all other inputs unchanged, re-run the filesystem probe, and either reach the UI or identify the next exact missing/read failure.
 
-This is a **specific cloud-image/network limitation**, not a demonstrated architectural blocker. Do not mark RE4/RE5/P2/V1 `LOCAL ONLY` from this experiment.
+Do **not** substitute a fabricated `STATIC.TXT`, abandonware/full-retail download, or inferred contents.
 
-## Minimal next cloud experiment
+## Current cloud-feasibility decision
 
-A cloud image with DOSBox (or another scriptable DOS protected-mode emulator) already installed, or with working Debian-package egress, should run the supplied exact demo package first.
+CF3 remains **Investigation first / CLOUD RESEARCH**, but the reason is now much narrower.
 
-The minimum information-gain sequence is:
+Established:
 
-1. mount the exact extracted demo directory read/write;
-2. configure or disable sound non-interactively enough to pass startup;
-3. launch the demo with a virtual X display / deterministic video configuration;
-4. establish that it reaches the main game rather than returning an immediate VESA/data/config error;
-5. navigate to a planet and exercise the documented `M` self-management toggle;
-6. capture a bounded screenshot/log/state artifact;
-7. replace only `ASCEND.EXE` with hash-pinned `ANTAG_EN.EXE` while leaving the demo data unchanged and repeat startup;
-8. if Antagonizer fails, capture the exact error and file/resource access context rather than concluding generally that the demo is incompatible.
+- DOS protected-mode Ascendancy runs in this cloud sandbox when DOSBox is supplied as local packages;
+- the official demo boots with its exact supplied data;
+- Xvfb + scripted XTEST input can reach the actual galaxy, planet list, and planet surface;
+- framebuffer captures are reproducible enough for bounded visual evidence;
+- host-side file-access instrumentation can identify guest resource/file failures;
+- `ANTAG_EN` and `PATCH_EN` cannot use the demo data set as-is because both first fail reading missing `STATIC.TXT`.
 
-One successful run should produce a self-contained artifact containing emulator/version, exact executable/data hashes, configuration, stdout/stderr, screenshots or frame capture, and any diagnostic trace used.
+Still open:
 
-## Current decision
+- observe the actual state/turn effect of the documented `M` self-management toggle;
+- boot the canonical full-build/Antagonizer against authorized full game data;
+- establish memory/state tracing, breakpoints/watchpoints, or an equivalent debugger/instrumentation path for RE4/RE5;
+- only then convert CF3-owned gated tasks to `CLOUD` or `LOCAL ONLY`.
 
-CF3 remains **Investigation first / CLOUD RESEARCH**.
+This result is already sufficient to reject two stale conclusions: cloud DOS execution is **not** blocked by the base image, and `ANTAG.EXE + demo data` is **not** an untested compatibility hypothesis anymore. The demo is a viable cloud runtime/UI fixture for its own executable; the remaining target-runtime dependency is full-build data plus deeper state instrumentation.
 
-Positive evidence:
+## Safety / repository policy
 
-- exact full demo package is now available;
-- package documentation explicitly includes planet self-management;
-- required planet-management UI material is present;
-- executable/data top-level contract is coherent;
-- the demo executable belongs to the same LE/Watcom/DOS4G family as the CF1 targets.
-
-Unresolved only because this sandbox lacks a runnable DOS emulator and cannot install one through its blocked apt DNS path:
-
-- actual demo boot;
-- actual self-management interaction;
-- `ANTAG.EXE + demo data` runtime compatibility;
-- debugger/instrumentation capability.
-
-This is substantially narrower than the original CF3 unknown: the remaining question is now emulator/runtime execution, not demo availability or feature presence.
+No executable, Debian package, ZIP, COB, screenshot, or other copyrighted game/demo asset is committed. The repository stores only hashes, aggregate observations, experiment procedure, and non-game diagnostic source.

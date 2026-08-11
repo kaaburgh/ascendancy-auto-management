@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "targets": [
+    {
+      "capture": {
+        "command": "python3 tools/inspect_target.py SYNTHETIC.EXE --id synthetic-le --label 'synthetic example; not a game binary'",
+        "path_policy": "input/output paths are reduced to basenames to avoid leaking host paths",
+        "tool": "inspect_target.py",
+        "version": "1.0.0"
+      },
+      "container": {
+        "architecture": "x86 (Intel 80386)",
+        "detected_format": "DOS MZ + Linear Executable (LE)",
+        "extender": {
+          "evidence": "ASCII marker DOS/4GW found in DOS stub",
+          "name": "DOS/4GW"
+        },
+        "le": {
+          "byte_order": 0,
+          "bytes_on_last_page": 1024,
+          "cpu_name": "Intel 80386",
+          "cpu_type": 2,
+          "data_pages_offset": "0x00002000",
+          "entry_object": 3,
+          "entry_offset": "0x12345678",
+          "fixup_page_table_offset": "0x00000130",
+          "fixup_record_table_offset": "0x00000140",
+          "fixup_section_size": 80,
+          "format_level": 0,
+          "import_module_count": 2,
+          "import_module_table_offset": "0x00000150",
+          "import_procedure_table_offset": "0x00000160",
+          "loader_section_size": 96,
+          "magic": "LE",
+          "module_flags": "0xaabbccdd",
+          "module_pages": 9,
+          "module_version": 16909060,
+          "object_count": 5,
+          "object_page_map_offset": "0x000000d0",
+          "object_table_offset": "0x000000b0",
+          "os_name": null,
+          "os_type": 3,
+          "page_size": 4096,
+          "stack_object": 4,
+          "stack_offset": "0x87654321",
+          "word_order": 0
+        },
+        "mz": {
+          "bytes_in_last_page": 4660,
+          "header_paragraphs": 4,
+          "initial_cs": 17476,
+          "initial_ip": 13107,
+          "initial_sp": 8738,
+          "initial_ss": 4369,
+          "magic": "MZ",
+          "overlay_number": 0,
+          "pages_in_file": 7,
+          "relocation_count": 2,
+          "relocation_table_offset": 64,
+          "secondary_header_offset": 128
+        }
+      },
+      "filename": "SYNTHETIC.EXE",
+      "id": "synthetic-le",
+      "label": "synthetic example; not a game binary",
+      "sha256": "40305812383f6527df58b6ad05e80943c355e20b51d2f1d209cf6c7b73845467",
+      "size": 292,
+      "warnings": []
+    }
+  ]
+}

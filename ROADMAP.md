@@ -112,9 +112,9 @@ The expected critical path is:
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
-**Current front of the path:** CF1 is complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`), **CF3**, and **T0**.
+**Current front of the path:** CF1 and T0 are complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`), **CF3**, and **T1**.
 
-T1 is now classified `CLOUD` but is **not yet selectable**: it depends on T0, which is still `Open`. It becomes available as soon as T0 completes.
+T1 is now selectable because both of its dependencies, CF1 and T0, are complete. T0 established only the target-fingerprint contract; canonical target/baseline selection and build-lineage evidence remain entirely T1 work.
 
 ---
 
@@ -312,13 +312,32 @@ A future agent does not have to rediscover how to validate the UI. The roadmap c
 
 ## T0 — Define target policy and metadata capture tooling
 
-- **Status:** Open
+- **Status:** **Completed and verified** — deterministic synthetic fixture coverage establishes the T0 capture contract; no target-runtime claim is made.
 - **Execution:** CLOUD
 - **Priority:** High
 - **Category:** Tooling / compatibility
 - **Origin:** High-level step 1
 - **Depends on:** None
 - **Goal:** Define how the project names, fingerprints, and records candidate vanilla and Antagonizer executables before any offsets or patch decisions are accepted.
+
+### Outcome
+
+T0 now has a stdlib-only target inspector, versioned machine-readable schema, synthetic example, deterministic malformed-input/format tests, and a human policy in [`docs/re/targets.md`](./docs/re/targets.md).
+
+Established (`synthetic` / tooling):
+
+- `tools/inspect_target.py` fingerprints an arbitrary external file by SHA-256/size without editing code and records a caller-supplied stable id/label;
+- it detects DOS `MZ` and shallow `LE` container/header metadata when structurally present, reports architecture only for explicitly recognized LE CPU types, and records positive DOS/4G-family stub-marker evidence without treating marker absence as proof;
+- malformed/truncated headers are bounded and surfaced as warnings rather than converted into guessed facts;
+- capture JSON is deterministic for the same bytes/logical invocation and strips host directory names from the recorded command;
+- `tools/target-manifest.schema.json` defines schema v1 and `docs/re/target-manifest.example.json` provides a repository-safe synthetic example;
+- `docs/re/targets.md` defines stable-id, manifest, interpretation, canonical-entry and evidence boundaries.
+
+Deliberately not established by T0:
+
+- no canonical Antagonizer target or comparison baseline was selected — T1 still owns that decision and its build-lineage evidence;
+- no object/page-table walking, disassembly, function discovery, xrefs, strings pipeline or binary-diff workflow was implemented — that remains CF2/T2 scope;
+- no game binary was executed and no target runtime behavior was validated.
 
 ### Work
 
@@ -355,7 +374,7 @@ Another agent or maintainer can point the tool at candidate binaries and produce
 - **Priority:** Critical
 - **Category:** Target baseline
 - **Origin:** High-level step 1
-- **Depends on:** T0 (**still `Open`** — T1 is not selectable until it completes), CF1 (complete)
+- **Depends on:** T0 (complete), CF1 (complete)
 - **Goal:** Replace release-name assumptions with exact target identities and provenance.
 
 ### Candidate set (established by CF1)

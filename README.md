@@ -61,6 +61,27 @@ Only freely distributed artifacts may be added to the acquisition manifest — n
 
 Acquisition provenance: [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
 
+### Analysing them
+
+The targets are DOS Linear Executable (`LE`) images with a bound Rational DOS/4G extender, built with Watcom C/C++32. None of the tools preinstalled in the tested cloud image lays that container out — `objdump` rejects it outright and `file` only classifies it — so the repository carries its own parser. LE-aware dumpers do exist in the wider ecosystem, notably Open Watcom's `wdump`; Open Watcom's structure/linker/dumper sources are used as an independent layout oracle rather than making the whole compiler suite a required dependency.
+
+> **CF2 correction note:** review found that the first parser revision used LE header `+0x70` (`impmod_off`) as the enumerated-page base. Open Watcom establishes absolute `page_off @ +0x80`. The parser, fixtures and tests were corrected, all four pinned real targets were re-analysed with the current branch semantics, and the old disassembly/diff numbers were replaced rather than offset-adjusted. The execution-method note and exact reconstructed-object regression hashes are in [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md); layout evidence is in [`docs/experiments/CF2-wdump-layout-correction.md`](./docs/experiments/CF2-wdump-layout-correction.md). Do not copy the pre-correction CF2 numbers from git history or review comments.
+
+The intended pipeline needs only the Python standard library and `objdump`; no GUI, no JVM, no `pip install`:
+
+```sh
+python3 tools/le_image.py info binaries/ANTAG_EN.EXE       # container and load map
+python3 tools/le_image.py strings binaries/ANTAG_EN.EXE    # strings with virtual addresses
+python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary # candidate functions, call graph
+python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
+```
+
+`le_disasm` now emits a versioned inventory with the target SHA-256, reconstructed-object SHA-256, parser-layout identity, and three signature levels. `le_diff` fails closed on stale or incompatible JSON and uses a conservative four-class comparison: exact matches preserve every operand; `reference_only_differences` differ only in in-image references after masking and may contain either relocation noise or real callee/global/table retargets; `constant_only_differences` have the same instruction shape but different remaining constants and may contain either DS-relative movement or genuine threshold/flag changes; only the remainder is structural.
+
+On the corrected English pair the current classes are **72 exact matches / 613 reference-only / 525 constant-only / 116 / 87 structural** (Antagonizer / patch). The international pair is **72 / 611 / 520 / 123 / 93**. The earlier post-layout-correction headline of `685 strict` English and `683 strict` international was itself too aggressive: those aggregates masked changed in-image references and split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. Structural and constant-only counts are unchanged. These are analysis leads, not verified behavioral differences.
+
+Read the limits in [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) before trusting any candidate function boundary: the inventory comes from a linear sweep with boundaries inferred from direct call targets, so it produces regions/leads, not verified functions; functions reached only indirectly may be folded into a preceding candidate span.
+
 ## Cloud-first development
 
 This repository is intentionally organized so that as much work as possible can be performed by coding agents in **Codex cloud** or **Claude cloud**.

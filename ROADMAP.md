@@ -77,7 +77,7 @@ A cloud agent must **never** select a `GATED` or `LOCAL ONLY` item. It may impro
 
 ## Target strategy and current assumptions
 
-The intended production target is the **Antagonizer** executable because the project wants to extend its existing planetary self-management rather than rebuild vanilla AI behavior. T1 has now selected the exact English Antagonizer build as the canonical M1 production target and the English official bug-patch build as the canonical differential baseline.
+The intended production target is the **Antagonizer** executable because the project wants to extend its existing planetary self-management rather than rebuild vanilla AI behavior. T1 selected the exact English Antagonizer build as the canonical M1 production target and the English official bug-patch build as the canonical differential baseline.
 
 ### Established by CF1/T0/T1 (static / reported)
 
@@ -90,13 +90,26 @@ The intended production target is the **Antagonizer** executable because the pro
 - T1 strongly supports direct build-lineage comparability between the Antagonizer and bug-patch families: the same locale-layout delta and the same Antagonizer↔bug-patch object/string-anchor transformation repeat in English and International pairs. Exact source-control revision identity is not proven.
 - The International pair remains cross-locale corroboration/future compatibility input, not M1 support.
 
+### Established by CF2 (static; clean-checkout validated)
+
+Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md), and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
+
+- **Load layout.** LE format level 0, little-endian, CPU `0x02` (80386), 4096-byte pages, all page-map entries plain "legal" pages, no debug info. Exactly two objects per image: object 1 code at base `0x10000` (flags `0x2045`), object 2 data (flags `0x2043`) at `0x90000` for the Antagonizer and `0x80000` for the bug patch. Open Watcom's absolute enumerated-page `page_off @ +0x80` is `0x18000` for the Antagonizer pair and `0x17600` for the patch pair; enumerated page data ends exactly at EOF in all four targets. The old ~11 KB trailing-region claim was a parser artifact from treating `impmod_off @ +0x70` as the page base.
+- **Build toolchain.** Watcom C/C++32 under the Rational DOS/4G extender. Corrected `ANTAG_EN` VAs are Watcom runtime banner `0x783b6` and `RATIONAL DOS/4G` `0x9563c`.
+- **Headless static analysis.** A dependency-light cloud pipeline exists using the standard library plus GNU `objdump`. With corrected reconstructed objects, `ANTAG_EN` yields 144696 decoded instructions, 1326 candidate regions, 7472 direct in-object call sites, and 4259 call-graph edges.
+- **Conservative differential.** English Antagonizer ↔ patch: **72 exact / 613 reference-only / 525 constant-only / 116 / 87 structural**. International: **72 / 611 / 520 / 123 / 93**. The earlier post-layout-correction `685 strict` and `683 strict` aggregates were too permissive because they masked changed in-image references; they split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. Structural and constant-only counts are unchanged.
+- **Artifact provenance.** `le_disasm` inventory JSON is schema-versioned and records the source hash, reconstructed-object hash, parser-layout identity, and signature model. `le_diff` rejects legacy/unversioned/pre-`+0x80` inventories rather than silently comparing them.
+- **Clean-checkout validation.** GitHub Actions run `31534837880` validated PR head `67631baa78aada001103b58659364c8908e538db` via merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`: 205 unit tests passed, all four pinned targets were fetched/re-verified, all eight reconstructed-object hashes matched, and the repository `le_disasm.py`/`le_diff.py` pipeline finished `CF2 real-target regression: PASS`.
+
 ### Still assumptions
 
 These are project directions, not yet binary facts. Do not assume:
 
-- the runtime load layout, segment/selector mapping, or DOS extender runtime behavior merely from LE header metadata;
-- that the size difference between the Antagonizer and bug-patch images is explained only by the AI changes;
-- that every whole-image difference is Antagonizer AI behavior; RE1 must retain unrelated bug-fix/configuration drift as a confound and prefer cross-locale or semantic corroboration;
+- the runtime segment/selector mapping or DOS extender runtime behavior merely from the static LE load layout;
+- that the 19440-byte growth of the Antagonizer's code object is explained only by the AI changes;
+- that every whole-image difference is Antagonizer AI behavior; despite T1's strong lineage evidence, RE1 must retain unrelated bug-fix/configuration drift as a confound and prefer cross-locale or independent semantic/runtime corroboration;
+- **the calling convention.** Watcom's default 32-bit convention is register-based (`__watcall`: EAX/EDX/EBX/ECX), but this build could have been configured for stack calling. RE2/RE3 must confirm it at known-arity real call sites before argument interpretation or hook design depends on it;
+- that a candidate boundary from `tools/le_disasm.py` is a real function boundary — starts are derived from direct calls by linear sweep and indirect-only callees can be folded into preceding spans;
 - that a particular address or function is stable between the baseline and Antagonizer;
 - that the auto-management state is a field in the planet object;
 - that the existing UI toggle directly writes the persistent state;
@@ -116,9 +129,9 @@ The expected critical path is:
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
-**Current front of the path:** CF1, T0 and T1 are complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`) and **CF3**. T2 becomes selectable once CF2 resolves its execution/toolchain contract.
+**Current front of the path:** CF1, CF2, T0 and T1 are complete. The immediately selectable independent items are **T2** and **CF3**. RE1/RE2/RE3 remain downstream of T2.
 
-T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint without implementing the static-RE pipeline owned by CF2/T2.
+T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint. T2 is now selectable as `CLOUD`; RE1 becomes selectable after T2 completes, with RE2/RE3 downstream of RE1.
 
 ---
 
@@ -153,9 +166,9 @@ Rejected / bounded:
 - the **retail unpatched `ASCEND.EXE`** is not freely distributed. It is an optional third reference, not a prerequisite.
 - CF1 settled the **packaging** relationship between the bug patch and the Antagonizer (both standalone executables), **not** their **build lineage**. T1 subsequently resolved the baseline decision with stronger cross-locale static lineage evidence; see [`docs/experiments/T1-canonical-target-selection.md`](./docs/experiments/T1-canonical-target-selection.md).
 - `web.archive.org` was **blocked by egress policy** in the sandbox where this ran even though `archive.org` was reachable. Do not build tooling on a Wayback fallback without re-probing.
-- abandonware full-game sources must never be added to the manifest, regardless of reachability.
+- abandonware full-game sources must never be added to the acquisition manifest, regardless of reachability.
 
-Consequence for the roadmap: T1 becomes `CLOUD`; T2 and RE1 stay gated on **CF2 only**; CF3 starts from "cloud has the executables but not the data".
+Consequence for the roadmap: target acquisition no longer blocks T1/T2/RE1; T1 is complete, and CF3 starts from "cloud has the executables but not the data".
 
 ### Required investigation
 
@@ -186,39 +199,82 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 
 ## CF2 — Investigate cloud static reverse-engineering workflow
 
-- **Status:** Investigation first
+- **Status:** **Completed and verified** — clean-checkout validation passed for PR head `67631baa78aada001103b58659364c8908e538db` / merge-ref `d0f0342f24274a9afd2575555324acf16eed4961` in GitHub Actions run `31534837880`: 205 unit tests passed and the separate real-target job completed `CF2 real-target regression: PASS`. See [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / static RE
 - **Origin:** High-level step 2
-- **Depends on:** None. CF1 is complete, so **real target bytes are available in cloud** — use them rather than the synthetic fixtures this item originally allowed for. Fetch with `python3 tools/fetch_free_targets.py`.
+- **Depends on:** None. CF1 and T1 are complete, so the exact canonical pair and all four corroboration targets are available in cloud; use real bytes rather than synthetic fixtures when the task asks for real-target evidence.
 - **Gates:** T2, RE1, RE2, RE3
 - **Question:** Can the static analysis needed for this milestone be run headlessly and reproducibly in Codex or Claude cloud rather than requiring an interactive local Ghidra session?
 
-> **Input from CF1/T1:** the canonical pair is fixed and the targets are DOS `MZ` + Linear Executable (`LE`) images with a bound DOS/4G-family runtime, not PE files. The toolchain must handle LE/DOS-extender images; a PE-only pipeline will not do. T1 deliberately did not implement this reusable pipeline.
+### Outcome
 
-### Required investigation
+**Yes, with the standard library and GNU binutils.** No GUI, JVM, Ghidra LE loader, or `pip install` is required.
 
-Establish the minimum viable toolchain for:
+The decisive negative result remains: GNU `objdump` does not read the LE container itself (`file format not recognized`), while it disassembles flat i386 ranges correctly with `-b binary -m i386 --adjust-vma`. The gap was the container reader, not the disassembler.
 
-- identifying the executable/container format and architecture;
-- producing normalized disassembly/function metadata;
-- extracting strings and cross-reference-like relationships where supported;
-- comparing vanilla and Antagonizer at function/region level;
-- exporting results to stable text/JSON artifacts suitable for review and later cloud tasks.
+Built and fail-closed:
 
-Ghidra headless is an obvious candidate but is not mandated. A smaller toolchain is preferable if it produces sufficient evidence. Interactive GUI-only workflows do not satisfy this task.
+- `tools/le_image.py` — LE container parser/reconstructor using Open Watcom's packed `os2_flat_header`; authoritative absolute `page_off @ +0x80`; `info` / `extract` / `strings` / `verify`;
+- `tools/le_disasm.py` — drives `objdump`, derives candidate starts/call graph, and writes schema-versioned inventories with exact, reference and shape signatures plus reconstructed-object/parser provenance;
+- `tools/le_diff.py` — rejects incompatible/stale inventories and performs exact → reference-only → constant-only matching before structural leftovers;
+- `tools/le_fixture.py` — synthetic LE builder, including malformed images;
+- `scripts/validate_cf2_real_targets.py` — invokes the repository CLIs against all four pinned real targets and asserts object fingerprints plus headline metrics.
+
+Review of Open Watcom source exposed the original parser's `+0x70` mistake. With `page_off @ +0x80`, all page ranges end exactly at EOF and every declared entry starts with `EB 76` immediately before the Watcom runtime banner. Reconstructed-object hashes in `CF2-real-target-regeneration.md` gate future parser drift.
+
+Corrected real-target inventory:
+
+- `ANTAG_EN`: 144696 decoded instructions, 1326 candidate regions, 7472 direct call sites, 4259 call-graph edges;
+- `ANTAG_INTL`: 144691 / 1326 / 7477 / 4260;
+- `PATCH_EN`: 139093 / 1297 / 7251 / 4162;
+- `PATCH_INTL`: 139129 / 1296 / 7255 / 4162.
+
+Current conservative differential:
+
+- **English:** 72 exact, 613 reference-only, 525 constant-only, 116 / 87 structural. Exact matches: 50 moved / 22 same candidate address. Structural-only matched-byte fraction `0.765115 / 0.798235`; 11 Antagonizer-only structural spans exceed 2000 bytes.
+- **International:** 72 exact, 611 reference-only, 520 constant-only, 123 / 93 structural. Exact matches: 50 moved / 22 same. Structural-only fraction `0.759166 / 0.792016`; 12 Antagonizer-only structural spans exceed 2000 bytes.
+
+The post-layout-correction `685 strict` English and `683 strict` international counts are also superseded as claims of identity: they masked changed in-image references and split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. The earlier `620 / 507 / 115 / 87` and `144684 / 1242 / 7252 / 4089` values came from the shifted `+0x70` object stream.
+
+Limits that downstream work must retain:
+
+- linear sweep can decode embedded data;
+- candidate starts are direct-call-derived regions, not verified functions; indirect-only callees are folded into preceding spans;
+- 11 EN / 12 INTL structural Antagonizer-only spans exceed 2000 bytes, so the structural count is not a changed-function count;
+- reference-only differences mix benign relocation with possible callee/global/table retargets;
+- constant-only differences mix DS-relative layout movement with genuine thresholds/flags and are the largest unresolved English bucket;
+- structural matched-byte fraction ignores both unresolved middle buckets;
+- despite T1's strong direct-lineage evidence, whole-image differences may still contain unrelated bug-fix/configuration drift and need cross-locale or semantic corroboration.
+
+The Antagonizer code object remains exactly 19440 bytes larger than the corresponding patch code object in both locales. This is a measured layout fact only.
+
+**Calling-convention implication, not established:** Watcom defaults suggest `__watcall`, but RE2/RE3 must confirm argument passing at real known-arity call sites before any interpretation or later trampoline depends on it.
+
+### Clean-checkout validation evidence
+
+The authoritative commands are:
+
+```sh
+python -m unittest discover -s tests -v
+python scripts/validate_cf2_real_targets.py --fetch
+```
+
+They passed in GitHub Actions run `31534837880` for PR head `67631baa78aada001103b58659364c8908e538db` (merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`). The unit job ran 205 tests and finished `OK`. The real-target job fetched and re-verified all four pinned executables, checked all eight reconstructed-object hashes, invoked repository `le_disasm.py` for all four targets, invoked repository `le_diff.py` for both product pairs plus both locale sanity pairs, and finished `CF2 real-target regression: PASS`.
+
+Future CF2 pipeline code changes must continue to satisfy the same workflow; this passing run is the evidence that closed the current implementation's completion gate.
 
 ### Deliverables
 
 - reproducible scripts/configuration under `tools/` or `scripts/`;
-- a synthetic or redistributable smoke-test fixture and CI-compatible test where practical;
+- synthetic fixture coverage plus real-target regression;
 - `docs/experiments/CF2-cloud-static-re.md` with tested tool versions and known limitations;
-- updates converting CF2-owned gated tasks to `CLOUD` or `LOCAL ONLY`.
+- updates converting CF2-owned static-analysis tasks to their resolved `CLOUD` execution path.
 
 ### Acceptance criteria
 
-A fresh cloud environment can run the static-analysis pipeline without manual GUI steps, or the investigation demonstrates a concrete blocker and supplies a minimal local export workflow whose output is consumable by CLOUD tasks.
+**Met.** A fresh cloud environment can run the static-analysis pipeline without manual GUI steps, and the clean-checkout repository CLIs reproduced the pinned object hashes/inventory/diff metrics on all four real targets in Actions run `31534837880`.
 
 ---
 
@@ -339,7 +395,7 @@ Established (`synthetic` / tooling):
 
 Deliberately not established by T0:
 
-- no canonical Antagonizer target or comparison baseline was selected — T1 later made that decision from real candidate bytes and lineage evidence;
+- no canonical Antagonizer target or comparison baseline was selected by T0 — T1 later made that decision from real candidate bytes and lineage evidence;
 - no object/page-table walking, disassembly, function discovery, xrefs, strings pipeline or binary-diff workflow was implemented — that remains CF2/T2 scope;
 - no game binary was executed and no target runtime behavior was validated.
 
@@ -454,11 +510,11 @@ The retail unpatched `ASCEND.EXE` is not freely distributed and remains an optio
 ## T2 — Produce a reproducible static-analysis bundle
 
 - **Status:** Investigation first
-- **Execution:** GATED — **CF2 only**. CF1 is resolved: target bytes are cloud-fetchable via `tools/fetch_free_targets.py`, and T1 fixed the canonical pair, so the remaining question is the headless toolchain.
+- **Execution:** **CLOUD** — set by CF2's completed feasibility result. T1 and CF2 are complete; T2 is selectable.
 - **Priority:** High
 - **Category:** Tooling / static RE
 - **Origin:** High-level step 2
-- **Depends on:** T1 (complete), CF2
+- **Depends on:** T1 (complete), CF2 (complete)
 - **Goal:** Make target static analysis reproducible enough that later agents do not depend on one person's interactive RE database.
 
 ### Work
@@ -469,11 +525,13 @@ Useful outputs may include:
 
 - segment/section/load maps;
 - strings and references where available;
-- normalized function/start-address inventories;
+- normalized candidate/start-address inventories;
 - imports/runtime/library indicators if applicable;
 - call edges or other comparable relationships;
 - disassembly/decompiler snippets only where needed and legally appropriate;
 - tool versions and exact commands.
+
+**Independent format-oracle check required by CF2 review:** obtain/run Open Watcom `wdump` (or the corresponding official Open Watcom executable dumper) on all four hash-pinned CF1 targets, compare its object/page/header output with `python tools/le_image.py info --json`, and record exact agreements/disagreements. CF2 established the field semantics from Open Watcom source; T2 must turn that into a target-level independent tool-output cross-check rather than citing source agreement as if `wdump` had already been run on the binaries.
 
 Avoid bulk committing copyrighted disassembly if a smaller derived representation is sufficient.
 
@@ -481,11 +539,11 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 - scripts to regenerate the bundle;
 - repo-safe derived artifacts under `docs/re/` or another documented location;
-- `docs/experiments/T2-static-analysis-bundle.md`.
+- `docs/experiments/T2-static-analysis-bundle.md` including the `wdump` comparison.
 
 ### Acceptance criteria
 
-A later CLOUD task can reason about target structure and reproduce the relevant derived outputs without relying on undocumented local GUI state.
+A later CLOUD task can reason about target structure and reproduce the relevant derived outputs without relying on undocumented local GUI state, and the LE load-map facts have an independent target-level `wdump` comparison.
 
 ---
 
@@ -494,40 +552,51 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
 - **Status:** Investigation first
-- **Execution:** GATED — **CF2 only**. CF1 is resolved: both sides of the diff are cloud-fetchable, and T1 fixed their exact hashes.
+- **Execution:** **CLOUD** — set by completed CF2. Both sides are cloud-fetchable, T1 fixed their exact hashes, and `tools/le_diff.py` performs the comparison. Still dependency-blocked on T2.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
 - **Origin:** High-level step 3 and the decision to use vanilla as a reference
 - **Depends on:** T2
 - **Question:** Which code/data regions changed between canonical vanilla-lineage baseline and Antagonizer, and which changes are plausible candidates for the documented improvement in planetary self-management?
 
-> **Refinement from T1:** canonical target is `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`; canonical baseline is English `PATCH.EXE`/`PATCH_EN.EXE` SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` (publisher-documented 1.6.5). The International pair is corroboration input, not an additional supported M1 target.
+> **Canonical pair from T1:** target is `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`; baseline is English `PATCH.EXE` / `PATCH_EN.EXE` SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` (publisher-documented 1.6.5). The International pair is corroboration input, not an additional supported M1 target.
 >
 > **Lineage constraint from T1:** cross-locale object-layout and unique-string displacement evidence strongly supports directly comparable Antagonizer↔bug-patch lineage, but exact same-revision source identity is not proven. A whole-image differential is valid for **candidate ranking**, not for attributing every difference to AI. Prefer changes that reproduce in the International pair or have independent semantic/runtime evidence. Keep unrelated bug-fix/configuration drift as an expected confound.
 >
-> The size delta is not established as AI-only. The Antagonizer image is larger, which is consistent with added behavior but also with other build changes. Test it; do not assume it.
+> **Do not interpret candidate counts as function counts.** `le_disasm` candidate boundaries come from direct calls plus a seed; indirect-only callees are folded into preceding spans. In the English product diff 11 of 116 Antagonizer-only structural spans exceed 2000 bytes and the largest is ~7964 bytes. `116 structural` therefore means 116 regions/leads, not 116 changed functions.
+
+### Required inputs from CF2
+
+RE1 must inspect **all unresolved classes**, not only structural leftovers:
+
+- `reference_only_differences`: 613 EN / 611 INTL. In-image operands changed. Some will be benign relocation; some may be true callee/global/state/table retargets. A changed reference is not an identical candidate.
+- `constant_only_differences`: 525 EN / 520 INTL. This is the largest unresolved English semantic bucket. DS-relative layout movement and genuine thresholds/biases/flags are mixed; an Antagonizer change implemented by retuning constants can live here.
+- structural regions: 116 / 87 EN and 123 / 93 INTL, with the large-span caveat above.
+- exact matches: only 72 in each product pair under the conservative operand-preserving definition.
+
+If the two unresolved middle buckets remain too noisy, parsing LE fixup records is the clean next discriminator for loader-patched operands. Do not solve this by masking more values and calling the result identical.
 
 ### Work
 
-Use normalized/static analysis rather than raw byte diff alone. Rank candidate changed functions/regions using evidence such as strings, call relationships, data references, UI proximity, or known self-management behavior. Do not name a candidate `ManagePlanet` merely because it looks plausible.
+Use normalized/static analysis rather than raw byte diff alone. Rank candidate regions using strings, call relationships, data references, UI proximity, cross-locale consistency, or known self-management behavior. Do not name a candidate `ManagePlanet` merely because it looks plausible.
 
 ### Deliverables
 
-- `docs/re/vanilla-antagonizer-diff.md` with a ranked candidate map;
+- `docs/re/vanilla-antagonizer-diff.md` with a ranked candidate map across reference-only, constant-only and structural evidence;
 - machine-readable diff output or scripts where useful;
 - explicit hypotheses and confidence level;
 - negative findings that materially narrow the search.
 
 ### Acceptance criteria
 
-The next RE tasks have a bounded set of candidate regions and a reproducible explanation of why they are candidates. No candidate is presented as confirmed behavior without supporting evidence.
+The next RE tasks have a bounded set of candidate regions and a reproducible explanation of why they are candidates. No candidate is presented as a confirmed function/behavior without supporting evidence.
 
 ---
 
 ## RE2 — Identify the existing auto-management UI/state seam statically
 
 - **Status:** Investigation first
-- **Execution:** GATED — CF2/T2 must resolve the analysis path
+- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2; still dependency-blocked on T2 and RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / planet state / UI
 - **Origin:** High-level steps 3–4
@@ -536,7 +605,9 @@ The next RE tasks have a bounded set of candidate regions and a reproducible exp
 
 ### Work
 
-Trace the control from whatever static anchors are available: rendering/input handlers, strings/resources, candidate call sites, selected-planet references, and state reads/writes. Keep competing hypotheses alive if static evidence cannot distinguish them.
+**First calling-convention check:** before interpreting argument/register roles from candidate call sites, select at least one real call with independently inferable arity/semantics and establish whether the surrounding code follows Watcom register calling (`__watcall`) or stack-based calling. Record the evidence; do not inherit the compiler default as a game fact.
+
+Then trace the control from static anchors: rendering/input handlers, strings/resources, candidate call sites, selected-planet references, and state reads/writes. Keep competing hypotheses alive if static evidence cannot distinguish them.
 
 At minimum attempt to identify:
 
@@ -548,19 +619,20 @@ At minimum attempt to identify:
 ### Deliverables
 
 - `docs/re/auto-management-ui-state.md`;
+- calling-convention observation tied to exact target/call sites;
 - annotated candidate sites tied to exact target hash;
 - a minimal runtime experiment specification for RE4 that maximizes information gain.
 
 ### Acceptance criteria
 
-RE4 can be executed as a bounded experiment rather than an open-ended debugger session.
+RE4 can be executed as a bounded experiment rather than an open-ended debugger session, and static argument interpretation is not resting on an unverified ABI assumption.
 
 ---
 
 ## RE3 — Identify the per-turn self-management decision path statically
 
 - **Status:** Investigation first
-- **Execution:** GATED — CF2/T2 must resolve the analysis path
+- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2; still dependency-blocked on T2 and RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / turn processing
 - **Origin:** High-level step 3
@@ -568,6 +640,8 @@ RE4 can be executed as a bounded experiment rather than an open-ended debugger s
 - **Question:** Which call path reads planet self-management state and decides/builds the next automatic planet action during turn processing?
 
 ### Work
+
+Before assigning meaning to registers/stack slots, reuse or independently confirm RE2's calling-convention evidence at a relevant known-arity call site.
 
 Use the differential map and state candidates from RE2 to find reads/callers that occur in turn-processing or colony-management paths. Distinguish:
 
@@ -581,12 +655,13 @@ Do not require full reconstruction of the AI algorithm. M1 only needs a safe sea
 ### Deliverables
 
 - `docs/re/auto-management-turn-path.md`;
+- calling-convention evidence or an explicit cross-reference to the RE2 evidence used;
 - candidate call graph/data-flow description tied to target hash;
 - a minimal runtime confirmation plan for RE5.
 
 ### Acceptance criteria
 
-There is a falsifiable hypothesis for where mode state is consumed each turn and how existing self-management is reached.
+There is a falsifiable hypothesis for where mode state is consumed each turn and how existing self-management is reached, with ABI interpretation backed by evidence.
 
 ---
 

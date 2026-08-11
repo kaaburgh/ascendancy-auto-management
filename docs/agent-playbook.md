@@ -6,16 +6,18 @@ This document expands the repository-wide rules in [`AGENTS.md`](../AGENTS.md). 
 
 `ROADMAP.md` is normalized into agent-sized items with evidence, dependencies, execution classifications and acceptance criteria. Read it for live status; it is the sequencing source.
 
-Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. T1 then selected the exact English Antagonizer build as the canonical M1 target and the English official bug-patch build as its comparison baseline. See [`re/targets.md`](./re/targets.md), [`re/target-manifest.json`](./re/target-manifest.json), and [`experiments/T1-canonical-target-selection.md`](./experiments/T1-canonical-target-selection.md).
+Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. T1 selected the exact English Antagonizer build as the canonical M1 target and the English official bug-patch build as its comparison baseline. See [`re/targets.md`](./re/targets.md), [`re/target-manifest.json`](./re/target-manifest.json), and [`experiments/T1-canonical-target-selection.md`](./experiments/T1-canonical-target-selection.md).
+
+Static analysis is solved at the implementation/feasibility level too: CF2 supplies a headless cloud pipeline needing only the standard library and `objdump`. `tools/le_image.py` supplies the LE container bridge missing from the tools preinstalled in the tested cloud image, `tools/le_disasm.py` derives candidate regions and a call graph, and `tools/le_diff.py` compares builds with conservative exact/reference/constant/structural classes. CF2 is still **Validation pending** until its clean-checkout real-target regression passes; do not confuse an implemented pipeline with a completed validation gate. Capabilities and — importantly — limits are in [`experiments/CF2-cloud-static-re.md`](./experiments/CF2-cloud-static-re.md).
 
 Canonical identities:
 
 - M1 target: `ANTAG_EN.EXE`, SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`;
 - comparison baseline: `PATCH_EN.EXE`, SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`.
 
-T1 established strong build-lineage comparability from cross-locale structural evidence, but it did not prove an identical source-control revision. A later whole-image differential is therefore a candidate-ranking aid, not evidence that every difference is Antagonizer AI behavior. Prefer cross-locale corroboration or independent semantic/runtime evidence.
+T1 established strong build-lineage comparability from cross-locale structural evidence, but it did not prove an identical source-control revision. Whole-image differential output is therefore a candidate-ranking aid, not evidence that every difference is Antagonizer AI behavior. Prefer cross-locale corroboration or independent semantic/runtime evidence.
 
-The reusable static-analysis toolchain remains CF2/T2 work. Do not duplicate it merely because T1 used bounded header/object/string observations to select the baseline.
+No T2 analysis bundle has been committed yet and no function identity is established. CF2 inventories contain candidate addresses derived by linear sweep, never named behaviors. Do not invent identities, and do not treat a candidate boundary as a real function.
 
 ## Repository map
 
@@ -72,17 +74,19 @@ Start from behavior and data flow, not guessed function names.
 Useful evidence includes:
 
 - imported APIs and exports where the format/runtime exposes them;
-- executable/object layout, relocations, strings and resources;
+- executable sections/objects, relocations/fixups, strings and resources;
 - xrefs and call graphs;
 - memory writes caused by a UI action;
 - debugger watchpoints;
 - before/after memory snapshots;
-- file traces;
+- file/API traces;
 - stack traces;
 - save-game diffs;
 - graphics/input instrumentation where relevant.
 
 Record raw observation separately from interpretation.
+
+**Do not validate a derived mapping with values produced by that same mapping.** Such a check can be completely vacuous rather than merely weak: for example, taking a string VA from this parser and feeding it back through `verify --anchor` will agree with itself for any page-data offset. A validation value must be pinned independently of the field under test — for example by a header relationship such as the declared entry point, an external implementation/dumper, or a raw byte search with a separately derived VA — or by a structural invariant whose totals must close exactly. The `page_off` correction in [`experiments/CF2-wdump-layout-correction.md`](./experiments/CF2-wdump-layout-correction.md) is the worked example.
 
 ### 3. Form competing hypotheses
 
@@ -103,7 +107,7 @@ Prefer a diagnostic build/tool before a permanent patch when causality is not es
 Good boundaries include:
 
 - a specific runtime/API call;
-- a known indirect-call or table entry;
+- a known indirect-call or dispatch-table entry;
 - a memory field with a validated owning object;
 - a call site identified by signature plus surrounding invariants;
 - a file/save serialization boundary;
@@ -183,11 +187,13 @@ Minimum:
 Minimum:
 
 - deterministic fixture tests;
-- zero-match and ambiguous-match tests;
+- zero-match and ambiguous-match tests where applicable;
 - malformed-input handling;
-- exact supported input assumptions documented.
+- exact supported input assumptions documented;
+- serialized analysis artifacts carry enough schema/parser/input provenance to reject stale incompatible data;
+- when real target bytes are available, at least one clean-checkout end-to-end regression uses the repository commands rather than a hand-reproduced implementation.
 
-### Runtime hook / proxy DLL / injected diagnostic
+### Runtime hook / injected diagnostic
 
 Minimum:
 

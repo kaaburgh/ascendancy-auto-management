@@ -100,6 +100,24 @@ Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/
 - **Conservative differential.** English Antagonizer ↔ patch: **72 exact / 613 reference-only / 525 constant-only / 116 / 87 structural**. International: **72 / 611 / 520 / 123 / 93**. The earlier post-layout-correction `685 strict` and `683 strict` aggregates were too permissive because they masked changed in-image references; they split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. Structural and constant-only counts are unchanged.
 - **Artifact provenance.** `le_disasm` inventory JSON is schema-versioned and records the source hash, reconstructed-object hash, parser-layout identity, and signature model. `le_diff` rejects legacy/unversioned/pre-`+0x80` inventories rather than silently comparing them.
 
+### External RE corpus discovered: FoxAhead/IDA-Projects (external static; validation pending T3)
+
+A substantial public reverse-engineering corpus exists at `FoxAhead/IDA-Projects/Ascendancy/`. The roadmap audit pins upstream repository commit `77d43c6c52c1560b7068490dcf315e284914379e`; T3 must pin the exact Ascendancy tree/files it consumes rather than following mutable `main`.
+
+High-value observations that T3 must reproduce and independently validate before later tasks promote them to project facts:
+
+- upstream `Ascendancy/ANTAG.EXE` is byte-identical to the canonical English Antagonizer target: Git blob SHA-1 `504886b8c7a9abd6e7c5add3c3ff3e7b289cfae2`, corresponding to the canonical SHA-256 `8d91e89e…` and CRC32 `0x7A9B321B`;
+- upstream `Ascendancy/patch.exe` is byte-identical to the canonical English bug-patch baseline: Git blob SHA-1 `9b9794c9966546e0512663261b56fa808fee9e7c`, corresponding to SHA-256 `7c944866…` and CRC32 `0x8AB98421`;
+- the attached/CF1 International pair (`9d44b1ca…`, `16fa81fc…`) remains useful independent cross-locale corroboration; no byte-identical International target was identified in the pinned FoxAhead Ascendancy tree during this roadmap audit;
+- `Ascendancy/IDA Plugin/ascendancy/config.yaml` labels the exact English files `ANTAG.EXE` as `v1.6.10` and `PATCH.EXE` as `v1.6.5`, with the same CRC32 values. Treat the Antagonizer version label as external provenance until T3 records how it is supported;
+- the corpus includes a large IDA/Hex-Rays body of work rather than only one pseudocode file: dated C decompilations through `ANTAG.EXE20251010.c`, `ANTAG.EXE.h`, ASM/IDC exports, `Functions.xlsx`, an Ascendancy IDA plugin, Watcom type/signature material, library `.LIB/.PAT/.SIG/.lst` artifacts, and analyst notes describing Watcom/IDA setup;
+- the latest external decompilation contains direct M1-relevant hypotheses: a `T_Planet` field named `Unknown_5A`; a UI write that toggles `V_Game.pCurPlanet->Unknown_5A`; a nearby `"Self Managed"` display condition; save/read-write references to the same field; and turn-processing logic that checks the field before calling an externally named `Q_Race_ManagePlanetDevelopment_sub_3D8F0` at VA `0x3D8F0` when no construction is active;
+- the same corpus names useful lower-level construction anchors including `Q_Planet_StartConstruction_sub_34774` and `Q_Planet_BuildAtOptimalLocation_sub_34AE4`;
+- FoxAhead's notes configure IDA for Fastcall and the generated C uses `__fastcall`, but that is analyst/decompiler configuration, not independent proof of the real ABI. RE2/RE3 still require a known-arity call-site check;
+- the pinned repository root contains no `LICENSE` or README granting reuse rights. Until licensing/permission is clarified, **do not vendor or bulk-copy** FoxAhead's generated C/ASM/IDC, spreadsheets, signatures, or binary files into this repository. Use pinned upstream references and commit only independently generated facts, crosswalks, small necessary excerpts where legally appropriate, and our own reproducible analysis.
+
+The external corpus is therefore a **high-value hypothesis and symbol source**, not an authority that outranks exact-target evidence. T3 exists specifically to turn useful upstream annotations into independently checked, hash-bound project evidence.
+
 ### Still assumptions
 
 These are project directions, not yet binary facts. Do not assume:
@@ -107,30 +125,35 @@ These are project directions, not yet binary facts. Do not assume:
 - the runtime segment/selector mapping or DOS extender runtime behavior merely from the static LE load layout;
 - that the 19440-byte growth of the Antagonizer's code object is explained only by the AI changes;
 - that every whole-image difference is Antagonizer AI behavior; despite T1's strong lineage evidence, RE1 must retain unrelated bug-fix/configuration drift as a confound and prefer cross-locale or independent semantic/runtime corroboration;
-- **the calling convention.** Watcom's default 32-bit convention is register-based (`__watcall`: EAX/EDX/EBX/ECX), but this build could have been configured for stack calling. RE2/RE3 must confirm it at known-arity real call sites before argument interpretation or hook design depends on it;
+- **the calling convention.** Watcom defaults plus FoxAhead's Fastcall-configured IDA/decompiler output strongly suggest a register convention, but this is not independent binary proof. RE2/RE3 must confirm it at known-arity real call sites before argument interpretation or hook design depends on it;
 - that a candidate boundary from `tools/le_disasm.py` is a real function boundary — starts are derived from direct calls by linear sweep and indirect-only callees can be folded into preceding spans;
 - that a particular address or function is stable between the baseline and Antagonizer;
-- that the auto-management state is a field in the planet object;
-- that the existing UI toggle directly writes the persistent state;
+- that FoxAhead's names, types, comments or inferred semantics are original symbols or ground truth. In particular, `T_Planet.Unknown_5A` at the apparent `+0x5A` field and `Q_Race_ManagePlanetDevelopment_sub_3D8F0` are high-value external hypotheses until T3/RE2/RE3 independently validate the corresponding bytes, relationships and meaning;
+- that the existing UI toggle directly writes the authoritative runtime state merely because the external decompilation shows a candidate write; RE4 still establishes runtime semantics and ownership;
 - that the safest implementation is an on-disk patch, runtime hook, loader, TSR, or any other specific mechanism.
 
-All binary-specific findings must name the exact target hash.
+All binary-specific findings must name the exact target hash. External FoxAhead-derived statements must additionally name the pinned upstream commit/file unless the fact has been independently reproduced and promoted into this repository's own evidence.
 
 ---
 
 ## Dependency overview
 
-The expected critical path is:
+The expected M1 critical path is now split so the external corpus can remove unnecessary broad-search dependencies:
 
-`CF1/CF2/CF3 → T1/T2 → RE1 → RE2 + RE3 → RE4 + RE5 → A1/A2 → P1/P2 → UI1/UI2 → V1 → M1`
+- `T1 → T3` validates and indexes the exact-target FoxAhead corpus immediately in cloud;
+- `CF2 → T2` finishes our independent reproducible static-analysis bundle;
+- `T2 + T3 → RE2 + RE3` validates the focused UI/state and per-turn seams in parallel;
+- `RE1` runs in parallel as broader Antagonizer↔bug-patch corroboration and no longer blocks RE2/RE3 if T3's focused anchors validate;
+- `CF3 + RE2 → RE4`, then `CF3 + RE3 + RE4 → RE5`;
+- `RE4 + RE5 → A1/A2 → P1/P2 → UI1/UI2 → V1 → M1`.
 
 `CF4` may run after `CF3` and gates visual/end-to-end UI validation.
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
-**Current front of the path:** CF1, T0 and T1 are complete. CF2's implementation and real-target expected values are complete, but its final clean-checkout repository-CLI regression is still the completion gate. **CF3** remains independently selectable. T2 becomes selectable once CF2 returns to `Completed and verified`.
+**Current front of the path:** CF1, T0 and T1 are complete. CF2's implementation and real-target expected values are complete in PR #4, but its final clean-checkout repository-CLI regression is still the completion gate. Treat CF2 as logically implemented for planning, but do not duplicate its work or mark its dependent completion gates satisfied until #4 is green and merged. **T3 is independently selectable now** because it depends only on completed T1 and public/hash-checkable upstream artifacts. **CF3** also remains independently selectable. T2 becomes selectable once CF2 returns to `Completed and verified`.
 
-T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint. T2 is `CLOUD` but dependency-blocked only by the final CF2 validation; RE1/RE2/RE3 remain downstream of T2.
+The important sequencing change is that a future cloud agent should not begin RE2/RE3 by rediscovering planet/UI/AI candidates from the entire binary. T3 first validates and packages the FoxAhead anchors; RE2/RE3 then independently prove or reject those anchors using our exact-target toolchain. Broad RE1 remains valuable but is no longer a mandatory search gate for M1.
 
 ---
 
@@ -530,6 +553,8 @@ Useful outputs may include:
 
 **Independent format-oracle check required by CF2 review:** obtain/run Open Watcom `wdump` (or the corresponding official Open Watcom executable dumper) on all four hash-pinned CF1 targets, compare its object/page/header output with `python tools/le_image.py info --json`, and record exact agreements/disagreements. CF2 established the field semantics from Open Watcom source; T2 must turn that into a target-level independent tool-output cross-check rather than citing source agreement as if `wdump` had already been run on the binaries.
 
+If T3 has completed, include its small independently verified FoxAhead crosswalk as an **annotation layer** over the project's own bundle. Do not make T2 reproducibility depend on IDA databases, Hex-Rays, or bulk upstream generated source. T2 and T3 are intentionally parallelizable; each must remain useful if the other upstream/tooling source disappears.
+
 Avoid bulk committing copyrighted disassembly if a smaller derived representation is sufficient.
 
 ### Deliverables
@@ -544,21 +569,82 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 
 ---
 
-# Track RE — Understand existing self-management
-
-## RE1 — Build a vanilla ↔ Antagonizer differential map
+## T3 — Validate and index the FoxAhead Ascendancy RE corpus
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — set by CF2 once its final validation gate passes. Both sides are cloud-fetchable, T1 fixed their exact hashes, and `tools/le_diff.py` performs the comparison. Still dependency-blocked on T2.
+- **Execution:** **CLOUD**
+- **Priority:** Critical
+- **Category:** Reverse engineering / external corpus validation
+- **Origin:** Discovery of `FoxAhead/IDA-Projects/Ascendancy/`
+- **Depends on:** T1 (complete)
+- **Gates:** RE2, RE3; supplies focused anchors to RE1 but does not depend on CF2/T2
+- **Question:** Which FoxAhead annotations are demonstrably tied to our exact canonical binaries, how do their address/type conventions map to our own toolchain, and which M1-relevant hypotheses can be promoted into independently verified static evidence?
+
+### Starting evidence to reproduce
+
+Use upstream commit `77d43c6c52c1560b7068490dcf315e284914379e` as the audit starting point, then pin the exact relevant file/tree object IDs in the experiment record.
+
+The roadmap audit found:
+
+- `Ascendancy/ANTAG.EXE` ↔ canonical `ANTAG_EN.EXE`: exact file identity (`sha256 8d91e89e…`, Git blob `504886b8…`, CRC32 `0x7A9B321B`);
+- `Ascendancy/patch.exe` ↔ canonical `PATCH_EN.EXE`: exact file identity (`sha256 7c944866…`, Git blob `9b9794c9…`, CRC32 `0x8AB98421`);
+- FoxAhead's `config.yaml` labels those files `ANTAG.EXE v1.6.10` and `PATCH.EXE v1.6.5`;
+- the two CF1 International files have their known hashes but no exact copy was identified in the pinned upstream tree;
+- high-value external symbol/type hypotheses include `T_Planet.Unknown_5A`, `V_Game.pCurPlanet`, `Q_Race_ManagePlanetDevelopment_sub_3D8F0`, `Q_Planet_StartConstruction_sub_34774`, `Q_Planet_BuildAtOptimalLocation_sub_34AE4`, and the `"Self Managed"` UI path.
+
+These are **inputs**, not T3 acceptance evidence.
+
+### Work
+
+1. **Pin and inventory the corpus.** Record the upstream commit plus hashes/object IDs for only the files actually used. Classify the large corpus by purpose: target binaries, IDA/decompiler exports, type information, function tables/spreadsheets, IDA automation, compiler/library signatures, and analyst notes. Do not require a future agent to browse the entire directory again.
+2. **Prove exact target identity.** Recompute SHA-256/size/CRC32 for the upstream English `ANTAG.EXE` and `patch.exe` and match them to T1. Record that the International pair is independent corroboration unless an exact upstream counterpart is subsequently found.
+3. **Establish the coordinate-system crosswalk.** Determine how FoxAhead's reported VAs/function suffixes map to LE object-relative offsets and the CF2 reconstructed-image VA convention. Validate at least three unrelated anchors by raw instruction/byte windows and direct-call relationships. Explicitly reconcile any small apparent discrepancies such as FoxAhead `config.yaml`'s `start: 0x783B4` versus CF2's Watcom runtime-banner VA `0x783B6`; do not paper over them.
+4. **Evaluate ABI evidence.** Record what comes from Watcom defaults, FoxAhead's IDA setup notes, decompiler `__fastcall` declarations, and independently observed call sites. The first three are hypothesis/supporting evidence; only the last can establish this binary's actual argument convention for our purposes.
+5. **Build a focused M1 crosswalk.** Starting from the external candidates, independently verify the exact instructions/xrefs/data relationships for:
+   - candidate `T_Planet + 0x5A` state storage (`Unknown_5A` upstream name);
+   - the selected-planet UI toggle and `"Self Managed"` rendering path;
+   - save/read-write references that may constrain state lifetime;
+   - the per-race/per-planet turn guard using the candidate state;
+   - the call into the candidate planet-development manager near `0x3D8F0`;
+   - lower-level build/construction entry points that bound later patch/instrumentation experiments.
+6. **Separate names from facts.** For every crosswalk entry record: exact target hash, upstream file/commit and upstream name, our independently observed address/bytes/xrefs, evidence category, confidence, and whether the semantic name itself remains unverified.
+7. **Keep the repository license-safe and reproducible.** The pinned FoxAhead repository exposes no project-level license grant. Do not commit bulk C/ASM/IDC exports, spreadsheets, IDA databases, library archives, signatures, or copied target binaries. Prefer a small script that fetches hash-pinned upstream inputs into an ignored cache and emits only independently generated metadata/crosswalk facts. If upstream licensing is later clarified, update this rule explicitly rather than assuming permission.
+
+### Deliverables
+
+- `docs/experiments/T3-foxahead-corpus-validation.md` with pinned upstream provenance, identity checks, corpus inventory, address/ABI validation and negative findings;
+- `docs/re/foxahead-crosswalk.json` (or an equally reviewable machine-readable format) containing only bounded independently checked facts/pointers, not bulk upstream source;
+- a small reproducible cloud script under `tools/` or `scripts/` for fetching/verifying the selected upstream files and regenerating the crosswalk inputs where practical;
+- updates to RE1/RE2/RE3 if any advertised anchor fails validation or reveals a better dependency split.
+
+### Acceptance criteria
+
+- a fresh cloud agent can reproduce the exact-target identity and address crosswalk without IDA GUI state;
+- at least the UI/state and turn-manager M1 anchors are either independently validated against `ANTAG_EN.EXE` or explicitly rejected with evidence;
+- upstream semantic names remain labelled as external hypotheses unless independently established;
+- no bulk unlicensed FoxAhead-generated code/data or game binaries are copied into this repository;
+- RE2 and RE3 can start from a bounded set of exact-target anchors instead of rediscovering them across the whole executable.
+
+---
+
+# Track RE — Understand existing self-management
+
+## RE1 — Build and reconcile the vanilla ↔ Antagonizer differential map
+
+- **Status:** Investigation first
+- **Execution:** **CLOUD** — set by CF2 once its final validation gate passes. Both sides are cloud-fetchable, T1 fixed their exact hashes, and `tools/le_diff.py` performs the comparison. Still dependency-blocked on T2 and T3.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
 - **Origin:** High-level step 3 and the decision to use vanilla as a reference
-- **Depends on:** T2
-- **Question:** Which code/data regions changed between canonical vanilla-lineage baseline and Antagonizer, and which changes are plausible candidates for the documented improvement in planetary self-management?
+- **Depends on:** T2, T3
+- **Role in M1:** Parallel corroboration and broader context. If T3's focused UI/state/turn anchors validate, RE1 is **not** a prerequisite for RE2/RE3. If T3 rejects those anchors, update the roadmap and restore an appropriate search dependency rather than silently falling back to broad guessing.
+- **Question:** Which code/data regions changed between canonical vanilla-lineage baseline and Antagonizer, how do they relate to independently validated FoxAhead anchors, and which changes plausibly explain the documented improvement in planetary self-management?
 
 > **Canonical pair from T1:** target is `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`; baseline is English `PATCH.EXE` / `PATCH_EN.EXE` SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` (publisher-documented 1.6.5). The International pair is corroboration input, not an additional supported M1 target.
 >
 > **Lineage constraint from T1:** cross-locale object-layout and unique-string displacement evidence strongly supports directly comparable Antagonizer↔bug-patch lineage, but exact same-revision source identity is not proven. A whole-image differential is valid for **candidate ranking**, not for attributing every difference to AI. Prefer changes that reproduce in the International pair or have independent semantic/runtime evidence. Keep unrelated bug-fix/configuration drift as an expected confound.
+>
+> **External-anchor constraint from T3:** FoxAhead names/types are not source truth. Use only T3 entries that independently validate their exact address/bytes/xrefs; then ask where those anchors land in the baseline and in each CF2 diff class. An upstream name is a search accelerator, not acceptance evidence.
 >
 > **Do not interpret candidate counts as function counts.** `le_disasm` candidate boundaries come from direct calls plus a seed; indirect-only callees are folded into preceding spans. In the English product diff 11 of 116 Antagonizer-only structural spans exceed 2000 bytes and the largest is ~7964 bytes. `116 structural` therefore means 116 regions/leads, not 116 changed functions.
 
@@ -575,77 +661,85 @@ If the two unresolved middle buckets remain too noisy, parsing LE fixup records 
 
 ### Work
 
-Use normalized/static analysis rather than raw byte diff alone. Rank candidate regions using strings, call relationships, data references, UI proximity, cross-locale consistency, or known self-management behavior. Do not name a candidate `ManagePlanet` merely because it looks plausible.
+Start by projecting T3's independently validated M1 anchors into the patch baseline and both locale-pair diffs. This can quickly distinguish “same generic game mechanism” from Antagonizer-specific changes and can seed function-boundary correction around known real routines.
+
+Then use normalized/static analysis rather than raw byte diff alone to rank the remaining candidate regions using strings, call relationships, data references, UI proximity, cross-locale consistency, or known self-management behavior. Do not name a candidate `ManagePlanet` merely because FoxAhead did; retain the external name separately from our evidence-backed description until semantics are established.
 
 ### Deliverables
 
-- `docs/re/vanilla-antagonizer-diff.md` with a ranked candidate map across reference-only, constant-only and structural evidence;
+- `docs/re/vanilla-antagonizer-diff.md` with a ranked candidate map across reference-only, constant-only and structural evidence, including where T3 anchors land;
 - machine-readable diff output or scripts where useful;
 - explicit hypotheses and confidence level;
 - negative findings that materially narrow the search.
 
 ### Acceptance criteria
 
-The next RE tasks have a bounded set of candidate regions and a reproducible explanation of why they are candidates. No candidate is presented as a confirmed function/behavior without supporting evidence.
+The project has a reproducible broader explanation of how the focused M1 anchors relate to vanilla/Antagonizer differences and a bounded map for future M2/deeper AI work. No candidate is presented as a confirmed function/behavior solely from an external symbol name or a diff-class match.
 
 ---
 
 ## RE2 — Identify the existing auto-management UI/state seam statically
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by CF2 once its final gate passes; still dependency-blocked on T2 and RE1
+- **Execution:** **CLOUD** — the analysis path is resolved by CF2 once its final gate passes; dependency-blocked on T2 and T3, but no longer on broad RE1 if T3's focused anchors validate
 - **Priority:** Critical
 - **Category:** Reverse engineering / planet state / UI
 - **Origin:** High-level steps 3–4
-- **Depends on:** T2, RE1
-- **Question:** What code path handles the existing per-planet self-management control, and what state representation is most likely changed or consulted?
+- **Depends on:** T2, T3
+- **Question:** Does the exact canonical binary independently support FoxAhead's candidate `T_Planet + 0x5A` self-management state and UI write/read path, and what state representation is actually changed or consulted?
 
 ### Work
 
-**First calling-convention check:** before interpreting argument/register roles from candidate call sites, select at least one real call with independently inferable arity/semantics and establish whether the surrounding code follows Watcom register calling (`__watcall`) or stack-based calling. Record the evidence; do not inherit the compiler default as a game fact.
+Use T3's crosswalk as a bounded hypothesis set, not as truth.
 
-Then trace the control from static anchors: rendering/input handlers, strings/resources, candidate call sites, selected-planet references, and state reads/writes. Keep competing hypotheses alive if static evidence cannot distinguish them.
+**First calling-convention check:** before interpreting argument/register roles from candidate call sites, select at least one real call with independently inferable arity/semantics and establish whether the surrounding code follows the register convention suggested by FoxAhead/Watcom or a stack-based convention. Record the binary evidence; do not inherit either the compiler default or IDA's Fastcall setting as a game fact.
 
-At minimum attempt to identify:
+Then independently trace and verify:
 
-- candidate UI input handler(s);
-- candidate selected-planet/object relationship;
-- candidate auto-management read/write location(s);
-- candidate code sites suitable for runtime instrumentation in RE4.
+- the candidate selected-planet relationship corresponding to external `V_Game.pCurPlanet`;
+- the exact instruction that externally decompiles as `V_Game.pCurPlanet->Unknown_5A = ~V_Game.pCurPlanet->Unknown_5A` and whether the apparent field offset is really `+0x5A` in our target coordinate system;
+- the `"Self Managed"` rendering/read path and whether it tests the same storage;
+- other reads/writes, including the external `Q_Planet_ReadWrite_sub_370B8` hypothesis, that constrain ownership/lifetime;
+- any alternative interpretation that fits the bytes equally well;
+- candidate code sites suitable for runtime watchpoint/instrumentation in RE4.
+
+Do not infer “boolean persisted self-management state” only from a convenient decompiler field name. Static evidence should establish object relationship, offset and read/write sites; RE4 establishes runtime semantics on multiple planets.
 
 ### Deliverables
 
 - `docs/re/auto-management-ui-state.md`;
 - calling-convention observation tied to exact target/call sites;
-- annotated candidate sites tied to exact target hash;
+- independently annotated state/UI sites tied to exact target hash and cross-referenced to (but not copied from) T3 upstream annotations;
 - a minimal runtime experiment specification for RE4 that maximizes information gain.
 
 ### Acceptance criteria
 
-RE4 can be executed as a bounded experiment rather than an open-ended debugger session, and static argument interpretation is not resting on an unverified ABI assumption.
+RE4 can be executed as a bounded watchpoint/state-transition experiment rather than an open-ended debugger session; the candidate state offset and UI relationship are independently established or rejected; and static argument interpretation is not resting on an unverified ABI or external decompiler label.
 
 ---
 
 ## RE3 — Identify the per-turn self-management decision path statically
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by CF2 once its final gate passes; still dependency-blocked on T2 and RE1
+- **Execution:** **CLOUD** — the analysis path is resolved by CF2 once its final gate passes; dependency-blocked on T2 and T3, but can run in parallel with RE2 and no longer requires broad RE1 if T3's focused anchors validate
 - **Priority:** Critical
 - **Category:** Reverse engineering / turn processing
 - **Origin:** High-level step 3
-- **Depends on:** T2, RE1
-- **Question:** Which call path reads planet self-management state and decides/builds the next automatic planet action during turn processing?
+- **Depends on:** T2, T3
+- **Question:** Does the canonical binary independently confirm the external per-race/per-planet guard and call into the candidate `Q_Race_ManagePlanetDevelopment_sub_3D8F0`, and where is the smallest real seam that consumes player-planet self-management state each turn?
 
 ### Work
 
-Before assigning meaning to registers/stack slots, reuse or independently confirm RE2's calling-convention evidence at a relevant known-arity call site.
+Before assigning meaning to registers/stack slots, independently confirm the calling convention at a relevant known-arity call site. If RE2 has already landed equivalent evidence, reuse it explicitly; otherwise record evidence that RE2 can reference later.
 
-Use the differential map and state candidates from RE2 to find reads/callers that occur in turn-processing or colony-management paths. Distinguish:
+Use T3's bounded anchors to verify the external hypothesis rather than rediscovering the entire AI:
 
-- “is this planet automated?” state checks;
-- decision/policy code;
-- action execution/build-queue code;
-- generic AI code shared with non-player empires, if evidence supports such sharing.
+- locate the per-race/per-planet loop and independently decode the guard externally represented as `race != player || candidate_state || V_SelfPlayMode`;
+- verify the adjacent `buildingPlanetItemIndex == 0xFF` condition and direct call target near external VA `0x3D8F0`;
+- determine whether the candidate manager truly reaches the lower-level planet build/construction routines, using call/xref evidence rather than semantic naming alone;
+- separate “is this planet automated?” state checks from policy/decision code and from generic action-execution code;
+- determine what is shared with AI-controlled empires versus player self-management;
+- if RE2 has already established the state field, reconcile the two analyses; if not, leave exact cross-references so RE2 can do so without repeating the whole trace.
 
 Do not require full reconstruction of the AI algorithm. M1 only needs a safe seam that lets two profile identities continue to invoke existing self-management.
 
@@ -653,12 +747,12 @@ Do not require full reconstruction of the AI algorithm. M1 only needs a safe sea
 
 - `docs/re/auto-management-turn-path.md`;
 - calling-convention evidence or an explicit cross-reference to the RE2 evidence used;
-- candidate call graph/data-flow description tied to target hash;
+- independently verified call graph/data-flow description tied to target hash and external crosswalk IDs;
 - a minimal runtime confirmation plan for RE5.
 
 ### Acceptance criteria
 
-There is a falsifiable hypothesis for where mode state is consumed each turn and how existing self-management is reached, with ABI interpretation backed by evidence.
+There is a falsifiable, exact-target hypothesis for where candidate mode state is consumed each turn and how existing self-management reaches planet-development actions. The key guard/call relationship is independently established or rejected, and ABI interpretation is backed by binary evidence rather than FoxAhead naming/configuration.
 
 ---
 

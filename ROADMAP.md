@@ -112,7 +112,9 @@ The expected critical path is:
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
-**Current front of the path:** CF1 is complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`), **CF3**, **T0**, and **T1**.
+**Current front of the path:** CF1 is complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`), **CF3**, and **T0**.
+
+T1 is now classified `CLOUD` but is **not yet selectable**: it depends on T0, which is still `Open`. It becomes available as soon as T0 completes.
 
 ---
 
@@ -335,7 +337,7 @@ Another agent or maintainer can point the tool at candidate binaries and produce
 - **Priority:** Critical
 - **Category:** Target baseline
 - **Origin:** High-level step 1
-- **Depends on:** T0, CF1 (complete)
+- **Depends on:** T0 (**still `Open`** — T1 is not selectable until it completes), CF1 (complete)
 - **Goal:** Replace release-name assumptions with exact target identities and provenance.
 
 ### Candidate set (established by CF1)

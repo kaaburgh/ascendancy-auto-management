@@ -56,6 +56,23 @@ def sha256_file(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
+def is_bare_filename(name: str) -> bool:
+    """True when ``name`` is a plain filename under POSIX *and* Windows rules.
+
+    Both must be checked. ``PurePosixPath`` treats ``..\\tracked.exe`` and
+    ``C:\\tracked.exe`` as single components, but the destination is joined with
+    a native ``Path``, so on Windows a backslash or drive prefix would escape
+    the git-ignored output directory. This tool is expected to run on the
+    maintainer's Windows machine as well as in cloud.
+    """
+    if not name:
+        return False
+    return (
+        pathlib.PurePosixPath(name).name == name
+        and pathlib.PureWindowsPath(name).name == name
+    )
+
+
 def load_manifest(path: pathlib.Path) -> list[dict]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -88,7 +105,7 @@ def load_manifest(path: pathlib.Path) -> list[dict]:
             raise FetchError(f"duplicate manifest output name: {entry['output']!r}")
         if not entry["sources"]:
             raise FetchError(f"manifest entry {entry['id']!r} has no sources")
-        if pathlib.PurePosixPath(entry["output"]).name != entry["output"]:
+        if not is_bare_filename(entry["output"]):
             raise FetchError(
                 f"manifest entry {entry['id']!r} output must be a bare filename, "
                 f"got {entry['output']!r}"

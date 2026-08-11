@@ -314,8 +314,27 @@ class TestManifestValidation(FixtureCase):
         self.assertFails("--manifest", str(path), "--list")
 
     def test_output_path_traversal_is_rejected(self) -> None:
-        manifest = self.manifest(output="../escaped.exe")
-        self.assertFails("--manifest", str(manifest), "--list")
+        # Windows separators and drive prefixes must be rejected too: they look
+        # like bare filenames to PurePosixPath but escape the destination once
+        # joined with a native Path on Windows.
+        for output in (
+            "../escaped.exe",
+            "nested/dir.exe",
+            "/absolute.exe",
+            "..\\escaped.exe",
+            "C:\\escaped.exe",
+            "C:escaped.exe",
+            "nested\\dir.exe",
+            "",
+        ):
+            with self.subTest(output=output):
+                manifest = self.manifest(output=output)
+                self.assertFails("--manifest", str(manifest), "--list")
+
+    def test_bare_filename_accepts_plain_names(self) -> None:
+        for output in ("ANTAG_EN.EXE", "patch.exe", "a.b.c"):
+            with self.subTest(output=output):
+                self.assertTrue(fft.is_bare_filename(output))
 
     def test_source_missing_required_key_is_rejected(self) -> None:
         source = self.source(self.archive_path)

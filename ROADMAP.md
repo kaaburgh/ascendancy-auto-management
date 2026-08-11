@@ -90,7 +90,7 @@ The intended production target is the **Antagonizer** executable because the pro
 - T1 strongly supports direct build-lineage comparability between the Antagonizer and bug-patch families: the same locale-layout delta and the same Antagonizer↔bug-patch object/string-anchor transformation repeat in English and International pairs. Exact source-control revision identity is not proven.
 - The International pair remains cross-locale corroboration/future compatibility input, not M1 support.
 
-### Established by CF2 (static; final clean-checkout gate pending)
+### Established by CF2 (static; clean-checkout validated)
 
 Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md), and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
 
@@ -99,6 +99,7 @@ Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/
 - **Headless static analysis.** A dependency-light cloud pipeline exists using the standard library plus GNU `objdump`. With corrected reconstructed objects, `ANTAG_EN` yields 144696 decoded instructions, 1326 candidate regions, 7472 direct in-object call sites, and 4259 call-graph edges.
 - **Conservative differential.** English Antagonizer ↔ patch: **72 exact / 613 reference-only / 525 constant-only / 116 / 87 structural**. International: **72 / 611 / 520 / 123 / 93**. The earlier post-layout-correction `685 strict` and `683 strict` aggregates were too permissive because they masked changed in-image references; they split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. Structural and constant-only counts are unchanged.
 - **Artifact provenance.** `le_disasm` inventory JSON is schema-versioned and records the source hash, reconstructed-object hash, parser-layout identity, and signature model. `le_diff` rejects legacy/unversioned/pre-`+0x80` inventories rather than silently comparing them.
+- **Clean-checkout validation.** GitHub Actions run `31534837880` validated PR head `67631baa78aada001103b58659364c8908e538db` via merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`: 205 unit tests passed, all four pinned targets were fetched/re-verified, all eight reconstructed-object hashes matched, and the repository `le_disasm.py`/`le_diff.py` pipeline finished `CF2 real-target regression: PASS`.
 
 ### Still assumptions
 
@@ -128,9 +129,9 @@ The expected critical path is:
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
-**Current front of the path:** CF1, T0 and T1 are complete. CF2's implementation and real-target expected values are complete, but its final clean-checkout repository-CLI regression is still the completion gate. **CF3** remains independently selectable. T2 becomes selectable once CF2 returns to `Completed and verified`.
+**Current front of the path:** CF1, CF2, T0 and T1 are complete. The immediately selectable independent items are **T2** and **CF3**. RE1/RE2/RE3 remain downstream of T2.
 
-T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint. T2 is `CLOUD` but dependency-blocked only by the final CF2 validation; RE1/RE2/RE3 remain downstream of T2.
+T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint. T2 is now selectable as `CLOUD`; RE1 becomes selectable after T2 completes, with RE2/RE3 downstream of RE1.
 
 ---
 
@@ -198,7 +199,7 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 
 ## CF2 — Investigate cloud static reverse-engineering workflow
 
-- **Status:** **Validation pending** — implementation, synthetic regression and corrected real-target expected values are complete; do not restore `Completed and verified` until `scripts/validate_cf2_real_targets.py --fetch` passes from a clean checkout of the current PR head. See [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
+- **Status:** **Completed and verified** — clean-checkout validation passed for PR head `67631baa78aada001103b58659364c8908e538db` / merge-ref `d0f0342f24274a9afd2575555324acf16eed4961` in GitHub Actions run `31534837880`: 205 unit tests passed and the separate real-target job completed `CF2 real-target regression: PASS`. See [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / static RE
@@ -207,7 +208,7 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 - **Gates:** T2, RE1, RE2, RE3
 - **Question:** Can the static analysis needed for this milestone be run headlessly and reproducibly in Codex or Claude cloud rather than requiring an interactive local Ghidra session?
 
-### Outcome so far
+### Outcome
 
 **Yes, with the standard library and GNU binutils.** No GUI, JVM, Ghidra LE loader, or `pip install` is required.
 
@@ -251,27 +252,29 @@ The Antagonizer code object remains exactly 19440 bytes larger than the correspo
 
 **Calling-convention implication, not established:** Watcom defaults suggest `__watcall`, but RE2/RE3 must confirm argument passing at real known-arity call sites before any interpretation or later trampoline depends on it.
 
-### Clean-checkout completion gate
+### Clean-checkout validation evidence
 
-CF2 returns to `Completed and verified` only after a clean checkout of the current head passes:
+The authoritative commands are:
 
 ```sh
 python -m unittest discover -s tests -v
 python scripts/validate_cf2_real_targets.py --fetch
 ```
 
-The second command fetches/verifies all four CF1 binaries, checks all eight reconstructed-object hashes, invokes repository `le_disasm.py` for all four, and invokes repository `le_diff.py` for both product pairs plus locale sanity pairs. `.github/workflows/tests.yml` contains an explicit `CF2 real-target regression` job for the same gate.
+They passed in GitHub Actions run `31534837880` for PR head `67631baa78aada001103b58659364c8908e538db` (merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`). The unit job ran 205 tests and finished `OK`. The real-target job fetched and re-verified all four pinned executables, checked all eight reconstructed-object hashes, invoked repository `le_disasm.py` for all four targets, invoked repository `le_diff.py` for both product pairs plus both locale sanity pairs, and finished `CF2 real-target regression: PASS`.
+
+Future CF2 pipeline code changes must continue to satisfy the same workflow; this passing run is the evidence that closed the current implementation's completion gate.
 
 ### Deliverables
 
 - reproducible scripts/configuration under `tools/` or `scripts/`;
 - synthetic fixture coverage plus real-target regression;
 - `docs/experiments/CF2-cloud-static-re.md` with tested tool versions and known limitations;
-- updates converting CF2-owned gated tasks to `CLOUD` only once the completion gate passes.
+- updates converting CF2-owned static-analysis tasks to their resolved `CLOUD` execution path.
 
 ### Acceptance criteria
 
-A fresh cloud environment can run the static-analysis pipeline without manual GUI steps **and** the current-head repository CLIs reproduce the pinned object hashes/inventory/diff metrics on all four real targets.
+**Met.** A fresh cloud environment can run the static-analysis pipeline without manual GUI steps, and the clean-checkout repository CLIs reproduced the pinned object hashes/inventory/diff metrics on all four real targets in Actions run `31534837880`.
 
 ---
 
@@ -507,11 +510,11 @@ The retail unpatched `ASCEND.EXE` is not freely distributed and remains an optio
 ## T2 — Produce a reproducible static-analysis bundle
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — set by CF2's feasibility result. T1 is complete; T2 remains dependency-blocked only until CF2 returns to `Completed and verified` after its clean-checkout gate.
+- **Execution:** **CLOUD** — set by CF2's completed feasibility result. T1 and CF2 are complete; T2 is selectable.
 - **Priority:** High
 - **Category:** Tooling / static RE
 - **Origin:** High-level step 2
-- **Depends on:** T1 (complete), CF2
+- **Depends on:** T1 (complete), CF2 (complete)
 - **Goal:** Make target static analysis reproducible enough that later agents do not depend on one person's interactive RE database.
 
 ### Work
@@ -549,7 +552,7 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — set by CF2 once its final validation gate passes. Both sides are cloud-fetchable, T1 fixed their exact hashes, and `tools/le_diff.py` performs the comparison. Still dependency-blocked on T2.
+- **Execution:** **CLOUD** — set by completed CF2. Both sides are cloud-fetchable, T1 fixed their exact hashes, and `tools/le_diff.py` performs the comparison. Still dependency-blocked on T2.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
 - **Origin:** High-level step 3 and the decision to use vanilla as a reference
@@ -593,7 +596,7 @@ The next RE tasks have a bounded set of candidate regions and a reproducible exp
 ## RE2 — Identify the existing auto-management UI/state seam statically
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by CF2 once its final gate passes; still dependency-blocked on T2 and RE1
+- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2; still dependency-blocked on T2 and RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / planet state / UI
 - **Origin:** High-level steps 3–4
@@ -629,7 +632,7 @@ RE4 can be executed as a bounded experiment rather than an open-ended debugger s
 ## RE3 — Identify the per-turn self-management decision path statically
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by CF2 once its final gate passes; still dependency-blocked on T2 and RE1
+- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2; still dependency-blocked on T2 and RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / turn processing
 - **Origin:** High-level step 3

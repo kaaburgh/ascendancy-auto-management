@@ -12,6 +12,8 @@ The first CF2 target measurements were produced from object bytes reconstructed 
 
 This experiment does that regeneration using the four exact CF1 targets supplied directly to the analysis environment. No old instruction count, function count, signature, diff bucket or byte-coverage value is carried forward by arithmetic adjustment.
 
+The execution sandbox did not have a Git checkout of the PR branch and shell DNS could not resolve `github.com`. Rather than switch to a different disassembler or comparison algorithm, the current branch source for `le_image.py`, `le_disasm.py`, and `le_diff.py` was read through the GitHub connector and the relevant reconstruction/disassembly/diff logic was reproduced for the local target run. The GNU `objdump` command, listing parser, candidate construction, normalization, and two-pass matching semantics match the branch implementation. The reconstructed-object hashes below are an additional input-level regression anchor. A future checkout-capable run should reproduce the same values with the repository CLIs directly.
+
 The container-layout evidence and why `+0x80` is authoritative are recorded separately in [`CF2-wdump-layout-correction.md`](./CF2-wdump-layout-correction.md).
 
 ## Inputs

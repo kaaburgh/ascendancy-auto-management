@@ -8,6 +8,7 @@ wording, so a binutils upgrade does not break them.
 
 from __future__ import annotations
 
+import hashlib
 import pathlib
 import shutil
 import sys
@@ -38,6 +39,9 @@ class TestAnalyse(unittest.TestCase):
         self.path.write_bytes(le_fixture.build())
         self.report = le_disasm.analyse(self.path, None, OBJDUMP)
 
+    def test_inventory_schema_is_recorded(self) -> None:
+        self.assertEqual(le_disasm.INVENTORY_SCHEMA, self.report["schema"])
+
     def test_source_metadata_is_recorded(self) -> None:
         source = self.report["source"]
         self.assertEqual("fixture.le", source["name"])
@@ -45,10 +49,19 @@ class TestAnalyse(unittest.TestCase):
         self.assertEqual(BASE, source["base_address"])
         self.assertEqual(BASE, source["entry_address"])
         self.assertEqual(64, len(source["sha256"]))
+        self.assertEqual(64, len(source["object_sha256"]))
+        self.assertEqual(le_disasm.PARSER_LAYOUT_ID, source["parser_layout"])
+        self.assertEqual(0x80, source["page_offset_header_offset"])
+
+    def test_object_fingerprint_matches_reconstructed_bytes(self) -> None:
+        image = le_disasm.le_image.load(self.path)
+        expected = hashlib.sha256(image.object_bytes(1)).hexdigest()
+        self.assertEqual(expected, self.report["source"]["object_sha256"])
 
     def test_tool_provenance_is_recorded(self) -> None:
         self.assertIn("objdump", self.report["tool"]["objdump"].lower())
         self.assertEqual("i386", self.report["tool"]["arch"])
+        self.assertIn("reference_signature", self.report["tool"]["normalization"])
 
     def test_instructions_were_decoded(self) -> None:
         self.assertGreater(self.report["instruction_count"], 0)
@@ -60,7 +73,6 @@ class TestAnalyse(unittest.TestCase):
 
     def test_call_targets_become_candidate_functions(self) -> None:
         addresses = {f["address"] for f in self.report["functions"]}
-        # sample_code calls +0x80 and +0xC0.
         self.assertIn(BASE + 0x80, addresses)
         self.assertIn(BASE + 0xC0, addresses)
 
@@ -82,9 +94,11 @@ class TestAnalyse(unittest.TestCase):
             with self.subTest(address=function["address"]):
                 self.assertGreater(function["end"], function["address"])
 
-    def test_every_function_has_a_signature(self) -> None:
+    def test_every_function_has_three_signatures(self) -> None:
         for function in self.report["functions"]:
             self.assertEqual(64, len(function["signature"]))
+            self.assertEqual(64, len(function["reference_signature"]))
+            self.assertEqual(64, len(function["shape_signature"]))
 
     def test_mnemonic_histogram_is_present(self) -> None:
         mnemonics = dict(self.report["top_mnemonics"])
@@ -101,7 +115,6 @@ class TestRefusals(unittest.TestCase):
         self.path.write_bytes(le_fixture.build())
 
     def test_data_object_is_refused(self) -> None:
-        # Presenting a data object as code would produce confident nonsense.
         with self.assertRaises(DisasmError) as caught:
             le_disasm.analyse(self.path, 2, OBJDUMP)
         self.assertIn("not executable", str(caught.exception))
@@ -134,15 +147,7 @@ class TestRefusals(unittest.TestCase):
 
 @unittest.skipUnless(OBJDUMP, "objdump is not installed")
 class TestInstructionLengths(unittest.TestCase):
-    """Lengths come from address deltas, not from objdump's byte column.
-
-    objdump wraps the byte listing at 7 bytes per line and the continuation
-    lines carry no disassembly text, so counting printed bytes undercounts
-    every instruction longer than 7 bytes.
-    """
-
     def test_long_instruction_length_is_not_truncated(self) -> None:
-        # 9-byte mov, then two nops: objdump prints the mov's bytes over 2 lines.
         data = b"\x66\xc7\x80\x44\x33\x22\x11\x66\x55\x90\x90"
         instructions = le_disasm.disassemble(data, BASE, OBJDUMP)
         self.assertEqual(3, len(instructions))
@@ -164,58 +169,92 @@ class TestInstructionLengths(unittest.TestCase):
 
 
 class TestNormalize(unittest.TestCase):
-    # Ranges standing in for a code object and a data object.
     RANGES = ((0x10000, 0x82736), (0x90000, 0x138220))
 
-    def norm(self, text: str) -> str:
-        return le_disasm.normalize(text, self.RANGES)
+    def refs(self, text: str) -> str:
+        return le_disasm.normalize_references(text, self.RANGES)
 
-    def test_in_range_addresses_are_masked(self) -> None:
-        self.assertEqual("call ADDR", self.norm("call   0x783b4"))
+    def test_exact_normalization_preserves_in_image_references(self) -> None:
+        self.assertEqual("call 0x783b4", le_disasm.normalize("call   0x783b4"))
+        self.assertNotEqual(
+            le_disasm.normalize("call 0x11111"),
+            le_disasm.normalize("call 0x22222"),
+        )
 
-    def test_shifted_calls_normalize_identically(self) -> None:
-        # Relocation tolerance: the same call to a different target matches.
-        self.assertEqual(self.norm("call 0x11111"), self.norm("call 0x22222"))
+    def test_reference_normalization_masks_in_range_addresses(self) -> None:
+        self.assertEqual("call ADDR", self.refs("call   0x783b4"))
+        self.assertEqual(self.refs("call 0x11111"), self.refs("call 0x22222"))
 
-    def test_semantic_constants_are_preserved(self) -> None:
-        # The critical property. Masking every hex operand would make a
-        # threshold change invisible and drop it from the candidate list.
-        self.assertNotEqual(self.norm("cmp eax,0x1"), self.norm("cmp eax,0x2"))
-        self.assertEqual("cmp eax,0x1", self.norm("cmp    eax,0x1"))
+    def test_semantic_constants_are_preserved_before_shape_pass(self) -> None:
+        self.assertNotEqual(self.refs("cmp eax,0x1"), self.refs("cmp eax,0x2"))
+        self.assertEqual("cmp eax,0x1", self.refs("cmp    eax,0x1"))
 
     def test_frame_displacements_are_preserved(self) -> None:
         self.assertEqual(
             "mov ebx,DWORD PTR [ebp+0x8]",
-            self.norm("mov    ebx,DWORD PTR [ebp+0x8]"),
+            self.refs("mov    ebx,DWORD PTR [ebp+0x8]"),
         )
         self.assertNotEqual(
-            self.norm("mov ebx,DWORD PTR [ebp+0x8]"),
-            self.norm("mov ebx,DWORD PTR [ebp+0xc]"),
+            self.refs("mov ebx,DWORD PTR [ebp+0x8]"),
+            self.refs("mov ebx,DWORD PTR [ebp+0xc]"),
         )
 
-    def test_data_addresses_are_masked(self) -> None:
-        # An immediate pointing into the data object relocates between builds.
-        self.assertEqual("mov eax,ADDR", self.norm("mov eax,0x98267"))
+    def test_data_addresses_are_only_masked_in_reference_signature(self) -> None:
+        text = "mov eax,0x98267"
+        self.assertEqual(text, le_disasm.normalize(text))
+        self.assertEqual("mov eax,ADDR", self.refs(text))
 
     def test_out_of_range_large_constants_are_preserved(self) -> None:
-        self.assertEqual("mov eax,0xdeadbeef", self.norm("mov eax,0xdeadbeef"))
+        self.assertEqual("mov eax,0xdeadbeef", self.refs("mov eax,0xdeadbeef"))
 
     def test_registers_are_preserved(self) -> None:
-        self.assertNotEqual(self.norm("mov eax,0x1"), self.norm("mov ebx,0x1"))
+        self.assertNotEqual(self.refs("mov eax,0x1"), self.refs("mov ebx,0x1"))
 
     def test_whitespace_is_collapsed(self) -> None:
-        self.assertEqual("push ebp", self.norm("push    ebp"))
+        self.assertEqual("push ebp", le_disasm.normalize("push    ebp"))
 
-    def test_without_ranges_nothing_is_masked(self) -> None:
-        # Callers must pass ranges to get relocation tolerance; the default is
-        # deliberately lossless rather than silently over-masking.
-        self.assertEqual("call 0x783b4", le_disasm.normalize("call   0x783b4"))
+    def test_reference_normalization_without_ranges_is_lossless(self) -> None:
+        self.assertEqual(
+            "call 0x783b4", le_disasm.normalize_references("call   0x783b4")
+        )
+
+    def test_shape_normalization_masks_all_hex_values(self) -> None:
+        self.assertEqual(
+            le_disasm.normalize_shape("cmp eax,0x1"),
+            le_disasm.normalize_shape("cmp eax,0x2"),
+        )
+
+
+class TestReferenceRetargetsAreVisible(unittest.TestCase):
+    def test_in_image_retarget_changes_exact_signature_only(self) -> None:
+        # Keep both targets present as candidates on both sides, but swap the
+        # call order. Candidate boundaries are therefore identical and the only
+        # difference in the entry candidate is which valid callee each site uses.
+        left = [
+            (BASE, 5, "call 0x10080"),
+            (BASE + 5, 5, "call 0x100c0"),
+            (BASE + 10, 1, "ret"),
+            (BASE + 0x80, 1, "ret"),
+            (BASE + 0xC0, 1, "ret"),
+        ]
+        right = [
+            (BASE, 5, "call 0x100c0"),
+            (BASE + 5, 5, "call 0x10080"),
+            (BASE + 10, 1, "ret"),
+            (BASE + 0x80, 1, "ret"),
+            (BASE + 0xC0, 1, "ret"),
+        ]
+        ranges = ((BASE, BASE + 0x200),)
+        l = le_disasm.build_inventory(left, BASE, BASE, BASE, BASE + 0x200, ranges)
+        r = le_disasm.build_inventory(right, BASE, BASE, BASE, BASE + 0x200, ranges)
+        lf = l["functions"][0]
+        rf = r["functions"][0]
+        self.assertNotEqual(lf["signature"], rf["signature"])
+        self.assertEqual(lf["reference_signature"], rf["reference_signature"])
 
 
 @unittest.skipUnless(OBJDUMP, "objdump is not installed")
 class TestConstantChangesAreVisible(unittest.TestCase):
-    """A constant-only difference must survive into the diff as a candidate."""
-
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
@@ -225,7 +264,6 @@ class TestConstantChangesAreVisible(unittest.TestCase):
         image = bytearray(le_fixture.build())
         header = le_disasm.le_image.LEImage(bytes(image), name)
         offset = header.page_file_offset(header.objects[0].first_page) + 0x40
-        # cmp eax, imm32 ; ret  — differs only in the compared constant.
         body = b"\x3d" + immediate.to_bytes(4, "little") + b"\xc3"
         image[offset : offset + len(body)] = body
         path = self.tmp / name
@@ -237,20 +275,13 @@ class TestConstantChangesAreVisible(unittest.TestCase):
         two = self.build_with_threshold("two.le", 2)
         left = le_disasm.analyse(one, None, OBJDUMP)
         right = le_disasm.analyse(two, None, OBJDUMP)
-
         signatures_left = {f["signature"] for f in left["functions"]}
         signatures_right = {f["signature"] for f in right["functions"]}
-        self.assertNotEqual(
-            signatures_left,
-            signatures_right,
-            "a constant-only change must not produce identical signatures",
-        )
+        self.assertNotEqual(signatures_left, signatures_right)
 
 
 @unittest.skipUnless(OBJDUMP, "objdump is not installed")
 class TestAlternateObjectSeeding(unittest.TestCase):
-    """Selecting a non-entry executable object must stay inside that object."""
-
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)

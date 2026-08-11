@@ -1,0 +1,28 @@
+# Proprietary/local target material
+/binaries/
+/reference/
+/game/
+
+# Diagnostic and target-machine output
+/artifacts/
+/captures/
+/dumps/
+*.dmp
+*.mdmp
+
+# Reverse-engineering workspace files
+/ghidra/
+.ghidra/
+*.gpr
+*.rep
+
+# Build output
+/build/
+/out/
+/dist/
+
+# Editor/OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

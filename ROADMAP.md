@@ -1,3 +1,15 @@
+# Ascendancy Auto-Management Roadmap
+
+This file is the live project backlog and sequencing source.
+
+The roadmap below is still the initial high-level sketch. It is intentionally preserved without inventing reverse-engineering facts that have not been established yet. Before implementation work starts, normalize these entries into agent-sized investigation/implementation items using [`docs/roadmap-authoring.md`](./docs/roadmap-authoring.md).
+
+Future PRs must update the relevant roadmap item in the same change whenever they change its status, evidence, dependencies, supported binaries, direction, or acceptance criteria. Negative results and disproved premises should remain visible as `Dropped`, `Superseded`, or corrected items rather than disappearing.
+
+---
+
+## Initial milestone sketch (to be normalized)
+
 ## План до milestone «можно выбрать из двух профилей автоматизации»
 
 1. **Зафиксировать целевую версию игры**

@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "description": "Freely redistributed Ascendancy executables that a cloud agent may download. Every entry must be an executable the publisher (The Logic Factory) released free of charge. Retail game data, retail ASCEND.EXE, full-game images and abandonware repacks must never be added here. See docs/experiments/CF1-cloud-target-access.md.",
+  "entries": [
+    {
+      "id": "antagonizer-en",
+      "role": "antagonizer-candidate",
+      "locale": "english",
+      "output": "ANTAG_EN.EXE",
+      "member_size": 610863,
+      "member_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+      "notes": "Antagonizer AI module for English copies of Ascendancy. Bundled README.TXT states: copy ANTAG.EXE into the Ascendancy directory and type ANTAG. No version string is documented by the publisher. Zip member timestamp 1995-11-20 16:51:20.",
+      "sources": [
+        {
+          "url": "https://archive.org/download/antag/antag.zip",
+          "archive_size": 303982,
+          "archive_sha256": "c7c15113f8d839b9b73df33f14211967bfe6b1494218ff2f780a7c8108afd076",
+          "member": "ANTAG.EXE"
+        },
+        {
+          "url": "https://archive.org/download/ANTAG_ZIP/ANTAG.ZIP",
+          "archive_size": 303731,
+          "archive_sha256": "ff0c59ab4de584b8f7f599ae26dc35337b923dde507da8568cea2e3c7531e932",
+          "member": "ANTAG.EXE"
+        }
+      ]
+    },
+    {
+      "id": "antagonizer-intl",
+      "role": "antagonizer-candidate",
+      "locale": "non-english",
+      "output": "ANTAG_INTL.EXE",
+      "member_size": 610863,
+      "member_sha256": "9d44b1cafe9181b3bb526afb6daa2cc0cbb7c5c30fce5172f9a8a9e0b54dce0c",
+      "notes": "Antagonizer AI module for non-English copies of Ascendancy. Shipped as F_ANTAG.EXE in one repack and as ANTAG.EXE in another; both members are byte-identical. Zip member timestamp 1995-11-20 17:56:42.",
+      "sources": [
+        {
+          "url": "https://archive.org/download/antag/f_antag.zip",
+          "archive_size": 304104,
+          "archive_sha256": "11852930d99739633b1d50e906af901436e3731533b51fc5dafbe3f7d293a2c2",
+          "member": "F_ANTAG.EXE"
+        },
+        {
+          "url": "https://archive.org/download/ANTAG_F_ZIP/ANTAG_F.ZIP",
+          "archive_size": 303851,
+          "archive_sha256": "152bdba3341bcd422a2cf9ea8ae3737d563d80d9bdd61362146668bd7b71add9",
+          "member": "ANTAG.EXE"
+        }
+      ]
+    },
+    {
+      "id": "bugpatch-en",
+      "role": "official-bugpatch-candidate",
+      "locale": "english",
+      "output": "PATCH_EN.EXE",
+      "member_size": 587451,
+      "member_sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b",
+      "notes": "Official Ascendancy bug patch executable for English copies. Bundled patch.txt states this is version 1.6.5 and that 'patch v' displays the version. Zip member timestamp 1996-01-25 12:54:10.",
+      "sources": [
+        {
+          "url": "https://archive.org/download/f_ascpat/ascpatch.zip",
+          "archive_size": 291060,
+          "archive_sha256": "bf6a928166952e19a7a87da094f7b680fec19052a0b13ad4e46e34417d917596",
+          "member": "patch.exe"
+        }
+      ]
+    },
+    {
+      "id": "bugpatch-intl",
+      "role": "official-bugpatch-candidate",
+      "locale": "non-english",
+      "output": "PATCH_INTL.EXE",
+      "member_size": 587451,
+      "member_sha256": "16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b",
+      "notes": "Official Ascendancy bug patch executable for non-English copies. Bundled patch.txt states this is version 1.8.5 and that 'f_patch v' displays the version. Zip member timestamp 1995-11-20 17:09:06.",
+      "sources": [
+        {
+          "url": "https://archive.org/download/f_ascpat/f_ascpat.zip",
+          "archive_size": 292359,
+          "archive_sha256": "56ad8a1b5f7b0620ff8ec36a64cd43fe548daabe480e5b8cbe96e773ca1f2a39",
+          "member": "F_PATCH.EXE"
+        }
+      ]
+    }
+  ]
+}

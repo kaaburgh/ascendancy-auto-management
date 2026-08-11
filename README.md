@@ -39,6 +39,24 @@ The current direction is:
 
 The canonical Antagonizer/patch combination and exact hashes are roadmap work, not assumptions baked into the implementation.
 
+### Obtaining the candidate executables
+
+The Antagonizer is a **standalone complete game executable** that runs in place of the retail `ASCEND.EXE`, and The Logic Factory released it — and the official bug patch — free of charge in 1995. Those executables are therefore fetchable directly, which means static reverse engineering needs no handoff of proprietary files:
+
+```sh
+python3 tools/fetch_free_targets.py          # fetch and verify every candidate
+python3 tools/fetch_free_targets.py --list   # ids, sizes and pinned hashes
+python3 tools/fetch_free_targets.py --verify # re-verify offline
+```
+
+Files land in the git-ignored `binaries/`. The tool only ever downloads artifacts pinned in `tools/free-target-sources.json`, verifies the archive and the extracted executable against exact sizes and SHA-256 hashes, and writes nothing when any check fails. It requires only stdlib Python and HTTPS egress to `archive.org` and `*.archive.org`.
+
+The retail game **data** files are a different matter: a retail installation requires the maintainer's own copy, since the game is not sold on any current storefront. But that does not mean cloud cannot run the game at all — an officially distributed **playable demo** exists and is a lawfully redistributable candidate for a cloud runtime fixture. It must be investigated before runtime work is declared local-only. That evaluation is [`ROADMAP.md`](./ROADMAP.md)'s CF3.
+
+Only freely distributed artifacts may be added to the manifest — never full-game images, retail distributions, or abandonware repacks.
+
+Details, provenance and hashes: [`docs/re/targets.md`](./docs/re/targets.md) and [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
+
 ## Cloud-first development
 
 This repository is intentionally organized so that as much work as possible can be performed by coding agents in **Codex cloud** or **Claude cloud**.

@@ -4,13 +4,15 @@ This document expands the repository-wide rules in [`AGENTS.md`](../AGENTS.md). 
 
 ## Current repository state
 
-The repository is at bootstrap stage. The current `ROADMAP.md` is an initial milestone sketch; it has not yet been normalized into agent-sized items with evidence, dependencies, and acceptance criteria.
+`ROADMAP.md` is normalized into agent-sized items with evidence, dependencies, execution classifications and acceptance criteria. Read it for live status; it is the sequencing source.
 
-Do not invent implementation details to make the roadmap look complete. The next roadmap pass should turn each item into a falsifiable investigation or bounded implementation task using [`roadmap-authoring.md`](./roadmap-authoring.md).
+Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. See [`re/targets.md`](./re/targets.md) for the candidate set and [`experiments/CF1-cloud-target-access.md`](./experiments/CF1-cloud-target-access.md) for provenance.
+
+No canonical target has been selected (T1) and no static-analysis toolchain exists yet (CF2), so there are no established addresses, offsets, or function identities in this repository. Do not invent them.
 
 ## Repository map
 
-The intended layout is:
+The layout is:
 
 - `ROADMAP.md` — live backlog, status, sequencing, and decisions;
 - `AGENTS.md` — canonical repository-wide rules;
@@ -51,7 +53,7 @@ Before publishing addresses, offsets, signatures, or patches, record the exact t
 - filename and product/version label;
 - SHA-256;
 - file size;
-- PE timestamp/image base/architecture where useful;
+- container/header facts where useful. For this project's targets that means DOS `MZ` stub plus Linear Executable (`LE`) and DOS extender metadata, **not** PE fields — see [`re/targets.md`](./re/targets.md);
 - provenance notes that do not redistribute the file.
 
 No hardcoded offset is "the Ascendancy offset". It is an offset for a named binary/hash.

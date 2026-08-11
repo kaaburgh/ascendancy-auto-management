@@ -79,11 +79,21 @@ A cloud agent must **never** select a `GATED` or `LOCAL ONLY` item. It may impro
 
 The intended production target is the **Antagonizer** executable because the project wants to extend its existing planetary self-management rather than rebuild vanilla AI behavior. The original/vanilla executable is useful as a reference for differential analysis.
 
-These are project directions, not yet binary facts. Until the target-baseline tasks complete, do not assume:
+### Established by CF1 (static / reported)
 
-- the exact Antagonizer release/patch combination;
-- the executable format, load layout, architecture details, or DOS extender behavior;
-- that a particular address or function is stable between vanilla and Antagonizer;
+- The Antagonizer is a **standalone complete game executable** (`ANTAG.EXE`), copied beside the retail `ASCEND.EXE` and run instead of it. It is not a patcher, not a data file, and not stacked on top of a base executable.
+- The publisher's official bug patch has the same shape: `PATCH.EXE` (version 1.6.5, English) and `F_PATCH.EXE` (version 1.8.5, non-English) are also standalone full builds.
+- Both were distributed free of charge by The Logic Factory and are lawfully fetchable in cloud; the retail game **data** files are not.
+- Container format: DOS `MZ` stub at offset 0, Linear Executable (`LE`) image at `e_lfanew = 0x2a50`, bound DOS/4G extender. Not PE.
+
+### Still assumptions
+
+These are project directions, not yet binary facts. Until the remaining target-baseline tasks complete, do not assume:
+
+- which of the four CF1 candidates is the canonical M1 target and baseline (T1 decides);
+- the load layout, segment/selector mapping, architecture details beyond the LE container, or DOS extender runtime behavior;
+- that the size difference between the Antagonizer and bug-patch images is explained by the AI changes;
+- that a particular address or function is stable between the baseline and Antagonizer;
 - that the auto-management state is a field in the planet object;
 - that the existing UI toggle directly writes the persistent state;
 - that the safest implementation is an on-disk patch, runtime hook, loader, TSR, or any other specific mechanism.
@@ -102,13 +112,15 @@ The expected critical path is:
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
+**Current front of the path:** CF1 is complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`), **CF3**, **T0**, and **T1**.
+
 ---
 
 # Track CF — Cloud feasibility
 
 ## CF1 — Investigate cloud access to exact target executables
 
-- **Status:** Investigation first
+- **Status:** **Completed and verified** — see [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md). Evidence: `runtime` for cloud reachability and the end-to-end fetch (observed in a Claude cloud sandbox), `static` for the hashes and container format, `reported` for publisher distribution intent.
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / target acquisition
@@ -116,6 +128,27 @@ Cloud-feasibility tasks are intentionally near the front so later work is not un
 - **Depends on:** None
 - **Gates:** T1, T2, RE1 and every later task that requires direct target bytes
 - **Question:** Can a clean Codex or Claude cloud environment obtain the exact Antagonizer target and vanilla reference in a lawful, reproducible way without committing proprietary binaries to this repository?
+
+### Outcome
+
+**Yes, for the executables.** The decisive finding is what the Antagonizer *is*: not an in-place patcher but a **complete standalone game executable** (`ANTAG.EXE`) that is copied next to the retail `ASCEND.EXE` and reads the retail data files. The publisher's official bug patch is the same shape (`PATCH.EXE`, version 1.6.5 English / `F_PATCH.EXE`, 1.8.5 non-English). Both were released free of charge by The Logic Factory in 1995 and survive on the Internet Archive.
+
+Established:
+
+- the Antagonizer executable is fetchable in cloud, hash-pinned, from **two independently uploaded mirrors that contain byte-identical payloads** (static: `sha256 8d91e89e…` English, `9d44b1ca…` non-English, 610863 bytes each);
+- a **vanilla-lineage reference is also fetchable in cloud**: the official bug-patch executable (`7c944866…` English, `16fa81fc…` non-English, 587451 bytes each);
+- all four are DOS `MZ` stubs wrapping a Linear Executable image with a bound DOS/4G extender, carrying the game's own 1995 copyright banner (static);
+- `tools/fetch_free_targets.py` + `tools/free-target-sources.json` reproduce this fail-closed into the git-ignored `binaries/`, and were run end to end in cloud;
+- a clean environment needs only HTTPS egress to `archive.org` and `*.archive.org` (downloads redirect to per-node hosts) and stdlib Python 3.11+.
+
+Rejected / bounded:
+
+- the **retail game data files are not obtainable in cloud** and the repository must not try. This is a constraint handed to CF3/CF4, not a blocker for static RE.
+- the **retail unpatched `ASCEND.EXE`** is not freely distributed. It is an optional third reference, not a prerequisite — the diff RE1 wants is Antagonizer ↔ same-lineage non-Antagonizer build, which the bug-patch executable provides.
+- `web.archive.org` was **blocked by egress policy** in the sandbox where this ran even though `archive.org` was reachable. Do not build tooling on a Wayback fallback without re-probing.
+- abandonware full-game sources must never be added to the manifest, regardless of reachability.
+
+Consequence for the roadmap: T1 becomes `CLOUD`; T2 and RE1 stay gated on **CF2 only**; CF3 starts from "cloud has the executables but not the data".
 
 ### Required investigation
 
@@ -151,9 +184,11 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 - **Priority:** Critical
 - **Category:** Cloud enablement / static RE
 - **Origin:** High-level step 2
-- **Depends on:** None; use redistributable/synthetic fixtures if CF1 is incomplete
+- **Depends on:** None. CF1 is complete, so **real target bytes are available in cloud** — use them rather than the synthetic fixtures this item originally allowed for. Fetch with `python3 tools/fetch_free_targets.py`.
 - **Gates:** T2, RE1, RE2, RE3
 - **Question:** Can the static analysis needed for this milestone be run headlessly and reproducibly in Codex or Claude cloud rather than requiring an interactive local Ghidra session?
+
+> **Input from CF1:** the targets are DOS `MZ` stubs wrapping a Linear Executable (`LE`) image with a bound DOS/4G extender, not PE files. The toolchain must handle LE/DOS-extender images; a PE-only pipeline will not do. This is the highest-information next task on the critical path.
 
 ### Required investigation
 
@@ -187,9 +222,11 @@ A fresh cloud environment can run the static-analysis pipeline without manual GU
 - **Priority:** Critical
 - **Category:** Cloud enablement / DOS runtime
 - **Origin:** High-level steps 2–5
-- **Depends on:** CF1 may still be incomplete; equivalent redistributable fixtures may be used for initial harness work
+- **Depends on:** CF1 (complete)
 - **Gates:** RE4, RE5, P2, V1
 - **Question:** Can the target DOS game, or at minimum the required state-tracing/debugging experiments, execute reproducibly inside Codex or Claude cloud?
+
+> **Starting condition from CF1:** cloud has the game **executables** but not the **retail data files**, and the game is not sold on any current storefront, so there is no lawful cloud route to a runnable installation. CF3 must therefore answer a narrower question than "can the emulator run the game in cloud": can the *instrumentation* be built and smoke-tested in cloud against a safe fixture, with only the scenario run needing the maintainer's installation? Do not spend effort re-testing whether the data files can be downloaded — CF1 settled that they cannot.
 
 ### Required investigation
 
@@ -293,13 +330,24 @@ Another agent or maintainer can point the tool at candidate binaries and produce
 
 ## T1 — Establish the canonical Antagonizer target and vanilla reference
 
-- **Status:** Investigation first
-- **Execution:** GATED — CF1 must change this to `CLOUD` or `LOCAL ONLY`
+- **Status:** Open
+- **Execution:** **CLOUD** — set by CF1. Candidate bytes are fetchable in cloud with `python3 tools/fetch_free_targets.py`; provenance is recorded in [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
 - **Priority:** Critical
 - **Category:** Target baseline
 - **Origin:** High-level step 1
-- **Depends on:** T0, CF1
+- **Depends on:** T0, CF1 (complete)
 - **Goal:** Replace release-name assumptions with exact target identities and provenance.
+
+### Candidate set (established by CF1)
+
+Four candidates, all cloud-fetchable and hash-pinned in `tools/free-target-sources.json`:
+
+| Manifest id | Role | Size | SHA-256 |
+| --- | --- | --- | --- |
+| `antagonizer-en` | Antagonizer, English | 610863 | `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` |
+| `antagonizer-intl` | Antagonizer, non-English | 610863 | `9d44b1cafe9181b3bb526afb6daa2cc0cbb7c5c30fce5172f9a8a9e0b54dce0c` |
+| `bugpatch-en` | Official bug patch 1.6.5, English | 587451 | `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` |
+| `bugpatch-intl` | Official bug patch 1.8.5, non-English | 587451 | `16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b` |
 
 ### Required evidence
 
@@ -307,9 +355,15 @@ For the chosen Antagonizer production target and vanilla comparison reference, r
 
 - exact SHA-256 and size;
 - filename and meaningful release/patch provenance;
-- relationship between the selected game maintenance patch and Antagonizer build, if relevant;
 - detected executable format/architecture/extender facts from T0;
 - whether the files are directly available to cloud agents or require a handoff.
+
+The "relationship between the maintenance patch and the Antagonizer build" is no longer an open modelling question in the form this item originally assumed: CF1 established that the Antagonizer and the bug patch are **separate standalone executables**, not a patch stacked on a base. T1 should instead decide which non-Antagonizer executable is the **comparison baseline**, and state it explicitly:
+
+- the official bug-patch executable is cloud-available and is the default baseline;
+- the retail unpatched `ASCEND.EXE` is **not** freely distributed and would require a maintainer handoff of metadata only. Treat it as optional; do not block T1 on it.
+
+Note for the decision, not as an established fact: zip member timestamps pair the non-English bug patch (1995-11-20 17:09:06) and non-English Antagonizer (1995-11-20 17:56:42) 47 minutes apart, while the English pair is ~2 months apart. That *may* make the non-English lineage a tighter differential baseline, but timestamps are weak build-provenance evidence and the English release is the one the publisher's documentation describes most fully. Decide with T0/T2 evidence, and record the reasoning either way.
 
 If more than one commonly relevant Antagonizer binary exists, choose one canonical M1 target and list others as future compatibility candidates rather than silently broadening M1.
 
@@ -328,7 +382,7 @@ Every later binary-specific task can name one exact Antagonizer hash as the M1 p
 ## T2 — Produce a reproducible static-analysis bundle
 
 - **Status:** Investigation first
-- **Execution:** GATED — CF1 and CF2 must resolve this
+- **Execution:** GATED — **CF2 only**. CF1 is resolved: target bytes are cloud-fetchable via `tools/fetch_free_targets.py`, so the remaining question is purely the headless toolchain.
 - **Priority:** High
 - **Category:** Tooling / static RE
 - **Origin:** High-level step 2
@@ -368,12 +422,14 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
 - **Status:** Investigation first
-- **Execution:** GATED — CF1/CF2 must resolve direct target analysis first
+- **Execution:** GATED — **CF2 only**. CF1 is resolved: both sides of the diff are cloud-fetchable.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
 - **Origin:** High-level step 3 and the decision to use vanilla as a reference
 - **Depends on:** T2
 - **Question:** Which code/data regions changed between canonical vanilla and Antagonizer, and which changes are plausible candidates for the documented improvement in planetary self-management?
+
+> **Refinement from CF1:** "vanilla" here means the baseline T1 selects, which by default is the publisher's official bug-patch executable rather than the retail `ASCEND.EXE` (the latter is not freely distributed). Both executables are standalone full builds of the same game and are close in size (610863 vs 587451 bytes), which is what makes a whole-image differential tractable. Note that the Antagonizer image is the *larger* of the two — the added AI behavior is a plausible but unestablished explanation for the difference, and this item should test that rather than assume it.
 
 ### Work
 

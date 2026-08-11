@@ -2,7 +2,7 @@
 
 `ROADMAP.md` is the live state of the project. It should let a coding/reverse-engineering agent choose one item, understand why it exists, execute it without rediscovering prior work, and leave the repository more informative even when the hypothesis is wrong.
 
-The existing roadmap is intentionally still an initial sketch. When it is rewritten, prefer English for canonical roadmap items and durable technical documentation so tool output, symbol names, upstream references, and PRs share one language. Maintainer discussion may remain in any language.
+Use English for canonical roadmap items and durable technical documentation so tool output, symbol names, upstream references, and PRs share one language. Maintainer discussion may remain in any language.
 
 ## Status vocabulary
 

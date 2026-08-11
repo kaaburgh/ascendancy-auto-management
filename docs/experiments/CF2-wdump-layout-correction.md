@@ -110,7 +110,7 @@ The focused corrected parser suite passed 53 synthetic tests in the correction e
 
 ## Downstream regeneration completed
 
-The corrected object streams have now been fully regenerated and passed through the current disassembly/diff algorithms. Exact reconstructed code/data SHA-256 fingerprints and all replacement counts are recorded in [`CF2-real-target-regeneration.md`](./CF2-real-target-regeneration.md).
+The corrected object streams have now been regenerated and passed through the current branch reconstruction/disassembly/diff semantics. Exact reconstructed code/data SHA-256 fingerprints, all replacement counts, and the execution-method note are recorded in [`CF2-real-target-regeneration.md`](./CF2-real-target-regeneration.md).
 
 Headline replacements:
 

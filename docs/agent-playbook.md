@@ -6,9 +6,16 @@ This document expands the repository-wide rules in [`AGENTS.md`](../AGENTS.md). 
 
 `ROADMAP.md` is normalized into agent-sized items with evidence, dependencies, execution classifications and acceptance criteria. Read it for live status; it is the sequencing source.
 
-Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. See [`re/targets.md`](./re/targets.md) for the candidate set and [`experiments/CF1-cloud-target-access.md`](./experiments/CF1-cloud-target-access.md) for provenance.
+Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. T1 then selected the exact English Antagonizer build as the canonical M1 target and the English official bug-patch build as its comparison baseline. See [`re/targets.md`](./re/targets.md), [`re/target-manifest.json`](./re/target-manifest.json), and [`experiments/T1-canonical-target-selection.md`](./experiments/T1-canonical-target-selection.md).
 
-No canonical target has been selected (T1) and no static-analysis toolchain exists yet (CF2), so there are no established addresses, offsets, or function identities in this repository. Do not invent them.
+Canonical identities:
+
+- M1 target: `ANTAG_EN.EXE`, SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`;
+- comparison baseline: `PATCH_EN.EXE`, SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`.
+
+T1 established strong build-lineage comparability from cross-locale structural evidence, but it did not prove an identical source-control revision. A later whole-image differential is therefore a candidate-ranking aid, not evidence that every difference is Antagonizer AI behavior. Prefer cross-locale corroboration or independent semantic/runtime evidence.
+
+The reusable static-analysis toolchain remains CF2/T2 work. Do not duplicate it merely because T1 used bounded header/object/string observations to select the baseline.
 
 ## Repository map
 
@@ -22,7 +29,7 @@ The layout is:
 - `scripts/` — build/install/remove/validate/artifact automation;
 - `tests/` — tests for independent logic and synthetic fixtures;
 - `artifacts/` — local run output; ignored and not committed;
-- `binaries/` / `reference/` — local proprietary target/reference files; ignored and not committed.
+- `binaries/` / `reference/` — local target/reference files; ignored and not committed.
 
 Add project-specific source directories when implementation starts; document them here rather than forcing the repository into a framework prematurely.
 
@@ -48,12 +55,12 @@ If the task cannot be stated as a question or a bounded user-visible outcome, it
 
 ### 1. Establish the target
 
-Before publishing addresses, offsets, signatures, or patches, record the exact target in [`docs/re/targets.md`](./re/targets.md):
+Before publishing addresses, offsets, signatures, or patches, use the canonical identities in [`re/targets.md`](./re/targets.md) unless the active roadmap item explicitly investigates another binary. Record:
 
 - filename and product/version label;
 - SHA-256;
 - file size;
-- container/header facts where useful. For this project's targets that means DOS `MZ` stub plus Linear Executable (`LE`) and DOS extender metadata, **not** PE fields — see [`re/targets.md`](./re/targets.md);
+- container/header facts where useful. For this project's targets that means DOS `MZ` plus Linear Executable (`LE`) metadata, **not** PE fields;
 - provenance notes that do not redistribute the file.
 
 No hardcoded offset is "the Ascendancy offset". It is an offset for a named binary/hash.
@@ -64,16 +71,16 @@ Start from behavior and data flow, not guessed function names.
 
 Useful evidence includes:
 
-- imported APIs and exports;
-- PE sections, relocations, RTTI, strings, resources;
+- imported APIs and exports where the format/runtime exposes them;
+- executable/object layout, relocations, strings and resources;
 - xrefs and call graphs;
 - memory writes caused by a UI action;
 - debugger watchpoints;
 - before/after memory snapshots;
-- file/registry/API traces;
+- file traces;
 - stack traces;
 - save-game diffs;
-- graphics/input hooks where relevant.
+- graphics/input instrumentation where relevant.
 
 Record raw observation separately from interpretation.
 
@@ -95,8 +102,8 @@ Prefer a diagnostic build/tool before a permanent patch when causality is not es
 
 Good boundaries include:
 
-- a specific Win32/API call;
-- a known vtable method;
+- a specific runtime/API call;
+- a known indirect-call or table entry;
 - a memory field with a validated owning object;
 - a call site identified by signature plus surrounding invariants;
 - a file/save serialization boundary;
@@ -125,12 +132,12 @@ If the result is negative, keep it. "This write does not happen on UI click" can
 
 Prefer the least invasive mechanism that preserves compatibility:
 
-1. existing extension/export/API seam;
-2. runtime relationship or hook;
+1. existing extension/export/API seam where one actually exists;
+2. stable runtime relationship or hook;
 3. signature-located patch;
 4. binary file patch only when necessary.
 
-For machine-code changes, validate original bytes, instruction boundaries, page protection, and instruction-cache behavior. Apply multi-step patches transactionally where practical and restore on failure.
+For machine-code changes, validate original bytes, instruction boundaries, page protection where applicable, and instruction-cache behavior where applicable. Apply multi-step patches transactionally where practical and restore on failure.
 
 ### 7. Reconcile repository state
 
@@ -145,7 +152,7 @@ Before opening the PR:
 
 ## Target-machine experiments
 
-When the target must run on the maintainer's Windows machine, minimize manual work.
+When the target must run on the maintainer's machine, minimize manual work.
 
 Prefer a one-shot workflow such as:
 
@@ -159,7 +166,7 @@ scripts/run-experiment-XX.ps1
   -> writes artifacts/run-YYYYMMDD-HHMMSS.zip
 ```
 
-The resulting archive should be self-contained enough to analyze without another round of questions. Include hashes and configuration; exclude proprietary binaries unless the maintainer explicitly decides otherwise and distribution is lawful.
+The resulting archive should be self-contained enough to analyze without another round of questions. Include hashes and configuration; exclude game binaries unless distribution is explicitly permitted and needed.
 
 ## Validation by change type
 

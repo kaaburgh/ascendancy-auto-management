@@ -2,126 +2,144 @@
 
 - Roadmap item: CF2
 - Date: 2026-08-11
-- Targets: `ANTAG_EN.EXE` `8d91e89e…`, `ANTAG_INTL.EXE` `9d44b1ca…`, `PATCH_EN.EXE` `7c944866…`, `PATCH_INTL.EXE` `16fa81fc…` (acquired per CF1)
-- Current state: **implementation corrected after Open Watcom layout review; real-target measurements require regeneration before CF2 can again be called verified**
-- Evidence category in this revision: **primary-source static** for LE layout, **synthetic** for corrected parser behavior, **runtime** only for the already observed cloud tool availability; corrected real-target run pending
+- Targets: `ANTAG_EN.EXE` `8d91e89e…`, `ANTAG_INTL.EXE` `9d44b1ca…`, `PATCH_EN.EXE` `7c944866…`, `PATCH_INTL.EXE` `16fa81fc…`
+- Current state: **corrected and revalidated on all four real targets**
+- Evidence: **primary-source static** for LE layout, **real-target static** for container/disassembly/diff measurements, **synthetic** for fixture-driven parser/disassembly/diff tests, **runtime** for the observed cloud tool availability
 
 ## Question
 
 Can the static analysis this milestone needs run headlessly and reproducibly in Codex or Claude cloud, rather than requiring an interactive local Ghidra session?
 
-## Current answer
+## Answer
 
-**The architecture is still viable, but the first real-target result set is invalidated.**
+**Yes.** The useful cloud path remains a small fail-closed LE reader plus preinstalled GNU `objdump` over reconstructed flat i386 objects. No GUI, JVM, Ghidra install or Python package dependency is required for the current CF2 capability.
 
-The tested cloud image had GNU binutils and `file`, but no preinstalled tool that laid out an LE image. `objdump` rejected the container while still being able to disassemble a flat i386 byte range at a supplied virtual base. That means a small container reader plus `objdump -b binary -m i386 --adjust-vma=...` remains a reasonable cloud-first design.
+A review-discovered container bug temporarily invalidated the first real-target measurements: the initial parser used LE-header `impmod_off @ +0x70` as the enumerated-page base. Open Watcom's packed header, linker and `wdump`/exedump all establish that the absolute enumerated-data-page `page_off` is at `+0x80`. The parser was corrected and the four exact targets were then rerun from scratch.
 
-Open Watcom's `wdump`/exedump changes how that reader is validated. It is an authoritative independent format oracle; it does **not** have to become a required runtime dependency for every analysis run.
+The layout correction evidence is preserved in [`CF2-wdump-layout-correction.md`](./CF2-wdump-layout-correction.md). The complete regenerated disassembly/diff evidence is in [`CF2-real-target-regeneration.md`](./CF2-real-target-regeneration.md).
 
-## The important correction
+## Cloud toolchain
 
-The first CF2 parser read header offset `+0x70` as the enumerated-data-page base. Review of Open Watcom source establishes that this is wrong.
+The tested environment has GNU binutils; GNU `objdump` does not understand the LE container itself but does disassemble a flat byte range when supplied the architecture and virtual base:
 
-Open Watcom's packed `os2_flat_header` (`bld/watcom/h/exeflat.h`) places:
+```sh
+objdump -D -b binary -m i386 -M intel --adjust-vma=<base> object.bin
+```
 
-- `impmod_off` at `+0x70`;
-- `impproc_off` at `+0x78`;
-- `page_off` at `+0x80`;
-- `autodata_obj` at `+0x94`;
-- `debug_off` / `debug_len` at `+0x98` / `+0x9c`.
+The repository therefore supplies:
 
-The same source tree gives writer/reader agreement for `page_off`:
+- `tools/le_image.py` — fail-closed LE reader/reconstructor using Open Watcom's `os2_flat_header` semantics;
+- `tools/le_disasm.py` — reconstructs an executable object, drives `objdump`, and emits derived candidate-function/call/signature metadata rather than bulk disassembly;
+- `tools/le_diff.py` — compares candidate inventories with strict and shape signatures;
+- `tools/le_fixture.py` — synthetic LE fixtures, including malformed variants, so CI does not need target bytes.
 
-- `bld/wl/c/loadflat.c` assigns `exe_head.page_off` immediately before `WriteDataPages`; immediately beforehand `NullAlign(4)` returns the real current file position from `PosLoad()`, so this value is an **absolute file offset**;
-- `bld/exedump/c/os2exe.c` computes an LE page file offset as `(page_number - 1) * page_size + page_off`.
+Open Watcom `wdump` is an independent format oracle/cross-check, not a required runtime dependency for normal cloud analysis.
 
-The detailed evidence, including why the earlier content argument was misleading, is preserved in [`CF2-wdump-layout-correction.md`](./CF2-wdump-layout-correction.md).
+## Corrected container facts
 
-### Why the previous `+0x70` defence failed
+All four exact CF1 targets match their pinned SHA-256 hashes, have `e_lfanew = 0x2a50`, sequential legal page maps, two objects, `autodata_obj = 2`, and zero debug offset/length.
 
-The earlier write-up observed that the declared `ANTAG_EN` entry point maps under `+0x80` to bytes beginning `EB 76 WATCOM...` and interpreted this as an entry point landing on a copyright string.
+The authoritative `page_off @ +0x80` is `0x18000` for both Antagonizer files and `0x17600` for both bug-patch files. With that field, enumerated page data ends exactly at EOF for all four binaries. The old approximately 11 KB trailing region was solely an artifact of treating the header-relative import-table offset as an absolute page base.
 
-That interpretation is wrong: `EB 76` is a valid `jmp short +0x76`, followed by the Watcom runtime banner. A startup entry that jumps over embedded identification text is plausible, so this observation supports rather than contradicts the Open Watcom layout.
+Corrected raw-string VAs include:
 
-There is also a strong size consistency check. The old mapping started `ANTAG_EN` enumerated pages at `0x153d5` and reported 11,307 (`0x2c2b`) bytes after page data. The `page_off @ +0x80` value is `0x18000`; the difference is exactly `0x2c2b`. The old parser therefore shifted its fixed-size page window left by exactly the amount it later called a trailing region. The `+0x80` range ends at EOF. The same exact-EOF behavior had already been observed for `PATCH_EN` during review.
+| Target | Watcom runtime banner | Ascendancy copyright | `RATIONAL DOS/4G` |
+| --- | ---: | ---: | ---: |
+| `ANTAG_EN` | `0x783b6` | `0x90895` | `0x9563c` |
+| `ANTAG_INTL` | `0x78466` | `0x90895` | `0x9563c` |
+| `PATCH_EN` | `0x737c6` | `0x80895` | `0x854bc` |
+| `PATCH_INTL` | `0x73876` | `0x80895` | `0x854bc` |
 
-The previous DS-relative `0x34c0` versus `0x895` argument cannot rescue `+0x70`: the disassembly used to search for those immediates was itself produced from the wrongly reconstructed object bytes, so it was circular evidence.
+The entry point provides a strong independent check: with `+0x80`, every target begins at `EB 76` immediately before the Watcom banner; the short jump skips the embedded banner and lands on coherent startup code. The old absolute-`+0x70` interpretation maps the four entries to unrelated bytes.
 
-## Corrected container tool
+## Reconstructed-object regression fingerprints
 
-`tools/le_image.py` now:
+Before trusting downstream counts after a future parser change, the flat object streams can be checked against these SHA-256 values:
 
-- follows the Open Watcom header layout for every field it consumes;
-- uses absolute `page_off @ +0x80`;
-- reads autodata/debug fields at `+0x94/+0x98/+0x9c`;
-- requires enough header bytes for the fields it reads;
-- rejects zero or implausibly early page-data offsets instead of guessing another slot;
-- refuses unvalidated page-map flag types;
-- requires object page counts and entry-point relationships to be internally consistent;
-- exposes `va_to_file_offset()` and optional `verify --anchor` checks.
+| Target | Code object SHA-256 | Data object SHA-256 |
+| --- | --- | --- |
+| `ANTAG_EN` | `7772d00e6e36d5a2828d43410c59c601ca2149e3dcee33187b53d7a2d278c8e8` | `3bb3ddc418aa5eaceedd2de0cc8d20034b3fa99c3db36181d08de2992e1c4797` |
+| `ANTAG_INTL` | `f86803f21c9144f10b02f558ff9b30378812dd497061ef05b31cb1b3e29bde15` | `6397503cf6a093f5a9bb60117e6bc3044395363c46a59c25eb30f1d8167f79fe` |
+| `PATCH_EN` | `9a6055067d153af08c40c4d368c339881a2a50f06e3a8c41500a1748737a84a2` | `5eb4889b6c23dff80464e5686fa84a4e1269402b8e3d58070ce3869ec91e3c6a` |
+| `PATCH_INTL` | `be79ae2b1e393af4de5b32682432ff4f4664a96531d6f90473a26310b905e4b6` | `4506b1c9c569f0d9c2145e9b49887b1dcce6e42bd962457bcf4856377587fa96` |
 
-`verify --anchor` is now deliberately subordinate to the format. It checks whether known content is where a known binary says it should be; it never selects between competing header fields.
+These are hashes of reconstructed flat objects, not hashes of extra committed game files.
 
-`tools/le_fixture.py` uses `page_off @ +0x80` by default and can deliberately place it at `+0x70` only to create a malformed regression fixture. The corrected focused parser suite has **53 passing synthetic tests**, including an explicit assertion that the legacy `+0x70` fixture fails closed and that debug fields are read from `+0x98/+0x9c`.
+## Corrected disassembly inventories
 
-## Static-analysis pipeline that remains useful
+The current `le_disasm` algorithm linearly sweeps the whole executable object. Candidate starts are the image seed plus direct in-object call targets. GNU objdump 2.44 produced:
 
-### `tools/le_disasm.py`
+| Target | Instructions | Candidate functions | Direct call sites | Branch targets | Call-graph edges |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `ANTAG_EN` | 144696 | 1326 | 7472 | 11059 | 4259 |
+| `ANTAG_INTL` | 144691 | 1326 | 7477 | 11018 | 4260 |
+| `PATCH_EN` | 139093 | 1297 | 7251 | 10433 | 4162 |
+| `PATCH_INTL` | 139129 | 1296 | 7255 | 10448 | 4162 |
 
-The tool still has a sound independent purpose: rebuild a selected executable object, ask GNU `objdump` to linearly decode it, and emit small derived metadata instead of bulk disassembly.
+The old `ANTAG_EN` values `144684 / 1242 / 7252 / 4089` were derived from the shifted page stream and are superseded.
 
-Its limitations remain explicit:
+## Corrected differential
 
-- linear sweep can decode embedded data as instructions;
-- candidate functions are seeded from direct-call targets plus an in-object seed and are not proven function boundaries;
+`le_diff` performs two multiset match passes:
+
+1. **strict signature** — in-image address operands are normalized while other constants are preserved;
+2. **shape signature** — strict leftovers are compared with all hexadecimal constants masked.
+
+This produces three explicit buckets instead of pretending DS-relative relocations and semantic constant changes can already be distinguished.
+
+### English
+
+`ANTAG_EN` vs `PATCH_EN`:
+
+- 685 strict matches;
+- 588 strict matches relocated, 97 at the same address;
+- 525 constant-only differences;
+- 116 Antagonizer-only and 87 patch-only structurally different candidates;
+- structural-only matched-byte fraction `0.765115` / `0.798235`;
+- 11 Antagonizer-only structural candidates exceed 2000 bytes.
+
+The bucket arithmetic closes: `685 + 525 + 116 = 1326`, `685 + 525 + 87 = 1297`.
+
+### International
+
+`ANTAG_INTL` vs `PATCH_INTL`:
+
+- 683 strict matches;
+- 586 strict matches relocated, 97 at the same address;
+- 520 constant-only differences;
+- 123 Antagonizer-only and 93 patch-only structurally different candidates;
+- structural-only matched-byte fraction `0.759166` / `0.792016`;
+- 12 Antagonizer-only structural candidates exceed 2000 bytes.
+
+The bucket arithmetic again closes: `683 + 520 + 123 = 1326`, `683 + 520 + 93 = 1296`.
+
+The old English headline `620 / 507 / 115 / 87` is superseded. The old statement that every strict match relocated is also false: 97 strict matches remain at the same address in each locale comparison.
+
+## Cross-locale consistency check
+
+As a non-product sanity check, comparing each family across locale gives substantially more strict matches than Antagonizer-vs-patch:
+
+| Pair | Strict | Relocated strict | Constant-only | Structural left/right |
+| --- | ---: | ---: | ---: | ---: |
+| `ANTAG_EN` vs `ANTAG_INTL` | 1221 | 1025 | 46 | 59 / 59 |
+| `PATCH_EN` vs `PATCH_INTL` | 1190 | 1000 | 56 | 51 / 50 |
+
+This is consistent with the two localization variants being closer to each other than the Antagonizer/patch pair. It is not proof that the Antagonizer and patch were compiled from comparable source snapshots; T1 still owns that lineage question.
+
+## Limits that downstream RE must retain
+
+The corrected container input removes one foundational error but does not turn the derived inventory into ground truth:
+
+- linear sweep decodes embedded data as instructions and makes instruction counts upper-bound-like analysis metadata;
+- candidate boundaries are inferred from direct calls and may merge large spans; 11 EN and 12 INTL Antagonizer-only structural candidates exceed 2000 bytes;
 - indirect calls are unresolved;
-- instruction counts are therefore analysis metadata, not a ground-truth function database.
+- the constant-only bucket intentionally mixes DS-relative layout changes with any real threshold/flag changes;
+- the matched-byte fraction counts only the structural bucket and must not be read as a semantic similarity percentage;
+- whole-image Antagonizer-vs-patch differences can include unrelated build/bug-fix changes if T1 cannot establish comparable lineage.
 
-The review fix for objdump's wrapped byte column also remains valid: instruction lengths are derived from address deltas, not from the printed byte column, because long instructions wrap onto continuation lines.
+If the constant-only bucket becomes a practical blocker for RE1, parsing LE fixup records is the clean next improvement because it can identify loader-patched operands rather than relying on value heuristics.
 
-### `tools/le_diff.py`
-
-The dual-signature design also remains useful independent of the target mapping:
-
-- a strict normalized signature preserves out-of-range constants while masking in-image addresses;
-- a shape signature masks all hexadecimal immediates;
-- comparison can therefore distinguish strict matches, same-shape/different-constant candidates, and structurally different candidates without pretending it knows whether every small immediate is a relocation or a semantic constant.
-
-What is invalidated is the **previous target population of those buckets**, not the comparison mechanism itself.
-
-Parsing LE fixup records remains the clean way to identify loader-patched operands later if the constant-only bucket is too broad.
-
-## Findings that survive versus findings that do not
-
-### Survive / remain strongly supported
-
-- the four CF1 target hashes and acquisition path;
-- MZ + LE container identification and recorded `e_lfanew`;
-- raw-file evidence for Watcom C/C++32 and Rational DOS/4G identity;
-- the viability of a lightweight cloud pipeline built around a fail-closed LE reader and GNU `objdump`;
-- synthetic behavior of the disassembly/diff algorithms and the review fixes made to them.
-
-The Watcom identity still implies that `__watcall` is worth testing, but the calling convention remains a hypothesis until real call sites establish it.
-
-### Invalidated pending a corrected target run
-
-Do not use the previous PR values for:
-
-- virtual addresses of target strings;
-- reconstructed code/data bytes;
-- target instruction/candidate/call-graph counts;
-- target strict/shape signatures;
-- English or international diff bucket counts, including the old `620 / 507 / 115 / 87` numbers;
-- large-span statistics or matched-byte percentages based on those candidates;
-- DS-relative examples found in that reconstructed disassembly;
-- the old `~11 KB trailing unparsed` region;
-- the prior `debug info = none` statement, because debug fields were also read from the wrong offsets.
-
-Object table fields are earlier in the header and are not automatically invalidated, but they must still be rechecked in the fresh run rather than copied forward as verified facts.
-
-## Required real-target revalidation
-
-In a cloud environment where the CF1 `archive.org` acquisition path is reachable:
+## Reproduction
 
 ```sh
 python3 tools/fetch_free_targets.py
@@ -130,31 +148,19 @@ python3 tools/fetch_free_targets.py --verify
 for f in binaries/ANTAG_EN.EXE binaries/ANTAG_INTL.EXE \
          binaries/PATCH_EN.EXE binaries/PATCH_INTL.EXE; do
   python3 tools/le_image.py info "$f"
+  python3 tools/le_disasm.py "$f" --summary
 done
 
-python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary
-python3 tools/le_disasm.py binaries/PATCH_EN.EXE --summary
 python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
 python3 tools/le_diff.py binaries/ANTAG_INTL.EXE binaries/PATCH_INTL.EXE --summary
 ```
 
-Regenerate target documentation and measurements **from scratch**. Do not try to repair old disassembly counts or signatures by adding/subtracting the page-base delta; the input byte streams themselves were shifted.
+For container-regression work, also compare reconstructed code/data SHA-256 values with the fingerprints above before comparing downstream counts.
 
-Before CF2 returns to `Completed and verified`:
+## Outcome for the roadmap
 
-1. run the full repository test suite on the corrected branch;
-2. run the corrected pipeline on all four pinned hashes;
-3. restore only the target facts directly observed from those corrected outputs to `docs/re/targets.md`;
-4. update the CF2 roadmap outcome and downstream gate state based on that evidence;
-5. update the PR summary with the regenerated numbers.
+CF2's original feasibility decision remains valid and is now backed by corrected real-target evidence: **T2, RE1, RE2 and RE3 can use the headless static-analysis path in cloud** once their normal dependencies are satisfied.
 
-## Decision on `wdump`
+The Antagonizer code object remains exactly 19,440 bytes larger than the corresponding patch code object in both locale pairs. That is a measured size fact only. It must not be equated with “19,440 bytes of AI changes.”
 
-Do **not** discard the purpose-built cloud tools solely because `wdump` exists. The useful change is methodological:
-
-- use Open Watcom source/`wdump` as an external oracle for LE semantics;
-- keep the repository parser small, testable and dependency-light;
-- where a target result matters, prefer an independent cross-check over self-consistent fixtures;
-- if a future parser extension disagrees with Open Watcom, treat that as a hypothesis requiring target evidence, not as license to pick whichever field makes current content look plausible.
-
-That preserves the cloud-first objective while removing the self-consistency failure that review exposed.
+Watcom's default `__watcall` convention remains an implication to test against real call sites, not an established Ascendancy calling convention.

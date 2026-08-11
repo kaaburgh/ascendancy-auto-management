@@ -193,21 +193,66 @@
       "common_string_sha256": "085dc64bc059e74788caafc8eb6c3dbda902af5e5cf38dee1e27f00713e3b9d1",
       "common_unique_ascii_strings": 467,
       "histogram": [
-        {"count": 21, "delta": 0},
-        {"count": 3, "delta": 2560},
-        {"count": 2, "delta": 4828},
-        {"count": 2, "delta": 4832},
-        {"count": 1, "delta": 8400},
-        {"count": 10, "delta": 22000},
-        {"count": 43, "delta": 23040},
-        {"count": 6, "delta": 23160},
-        {"count": 4, "delta": 23174},
-        {"count": 64, "delta": 23176},
-        {"count": 1, "delta": 23184},
-        {"count": 6, "delta": 23220},
-        {"count": 9, "delta": 23396},
-        {"count": 3, "delta": 23412},
-        {"count": 292, "delta": 23424}
+        {
+          "count": 21,
+          "delta": 0
+        },
+        {
+          "count": 3,
+          "delta": 2560
+        },
+        {
+          "count": 2,
+          "delta": 4828
+        },
+        {
+          "count": 2,
+          "delta": 4832
+        },
+        {
+          "count": 1,
+          "delta": 8400
+        },
+        {
+          "count": 10,
+          "delta": 22000
+        },
+        {
+          "count": 43,
+          "delta": 23040
+        },
+        {
+          "count": 6,
+          "delta": 23160
+        },
+        {
+          "count": 4,
+          "delta": 23174
+        },
+        {
+          "count": 64,
+          "delta": 23176
+        },
+        {
+          "count": 1,
+          "delta": 23184
+        },
+        {
+          "count": 6,
+          "delta": 23220
+        },
+        {
+          "count": 9,
+          "delta": 23396
+        },
+        {
+          "count": 3,
+          "delta": 23412
+        },
+        {
+          "count": 292,
+          "delta": 23424
+        }
       ],
       "histogram_canonical_json_sha256": "a02f981d15796c5e46f72c59096fe87b2d39aed3e9f5f43189209b2d9cbf83ed"
     },
@@ -216,21 +261,66 @@
       "common_string_sha256": "085dc64bc059e74788caafc8eb6c3dbda902af5e5cf38dee1e27f00713e3b9d1",
       "common_unique_ascii_strings": 467,
       "histogram": [
-        {"count": 21, "delta": 0},
-        {"count": 3, "delta": 2560},
-        {"count": 2, "delta": 4828},
-        {"count": 2, "delta": 4832},
-        {"count": 1, "delta": 8400},
-        {"count": 10, "delta": 22000},
-        {"count": 43, "delta": 23040},
-        {"count": 6, "delta": 23160},
-        {"count": 4, "delta": 23174},
-        {"count": 64, "delta": 23176},
-        {"count": 1, "delta": 23184},
-        {"count": 6, "delta": 23220},
-        {"count": 9, "delta": 23396},
-        {"count": 3, "delta": 23412},
-        {"count": 292, "delta": 23424}
+        {
+          "count": 21,
+          "delta": 0
+        },
+        {
+          "count": 3,
+          "delta": 2560
+        },
+        {
+          "count": 2,
+          "delta": 4828
+        },
+        {
+          "count": 2,
+          "delta": 4832
+        },
+        {
+          "count": 1,
+          "delta": 8400
+        },
+        {
+          "count": 10,
+          "delta": 22000
+        },
+        {
+          "count": 43,
+          "delta": 23040
+        },
+        {
+          "count": 6,
+          "delta": 23160
+        },
+        {
+          "count": 4,
+          "delta": 23174
+        },
+        {
+          "count": 64,
+          "delta": 23176
+        },
+        {
+          "count": 1,
+          "delta": 23184
+        },
+        {
+          "count": 6,
+          "delta": 23220
+        },
+        {
+          "count": 9,
+          "delta": 23396
+        },
+        {
+          "count": 3,
+          "delta": 23412
+        },
+        {
+          "count": 292,
+          "delta": 23424
+        }
       ],
       "histogram_canonical_json_sha256": "a02f981d15796c5e46f72c59096fe87b2d39aed3e9f5f43189209b2d9cbf83ed"
     }

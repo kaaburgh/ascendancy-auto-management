@@ -7,9 +7,15 @@ object with `le_image`, hands the bytes to `objdump -b binary`, and turns the
 listing into small derived artifacts rather than a bulk disassembly dump.
 
 What it emits is deliberately a *derived representation*: candidate function
-starts, a call graph, and a normalized signature per candidate function. That
+starts, a call graph, and two normalized signatures per candidate function. That
 keeps committed artifacts small and avoids republishing the game's code, while
 still giving later tasks something to match and diff against.
+
+The two signatures are the point of the design. `signature` masks only values
+inside the image's own object ranges, so it preserves constants; the
+`shape_signature` masks every constant. Comparing both lets `le_diff` separate
+structural change from "same code, different constants" without having to guess
+which small values are data relocations.
 
 Two limits to keep in mind when reading the output:
 
@@ -70,8 +76,49 @@ def objdump_version(objdump: str) -> str:
     return result.stdout.splitlines()[0].strip() if result.stdout else "unknown"
 
 
-def normalize(text: str) -> str:
-    """Strip absolute values so the same code matches across differing layouts."""
+def normalize(text: str, address_ranges: tuple[tuple[int, int], ...] = ()) -> str:
+    """Mask relocated addresses while preserving semantic constants.
+
+    Only hex values that land inside one of the image's own object ranges are
+    masked. Everything else survives verbatim, which matters: masking *every*
+    hex operand would give `cmp eax,0x1` and `cmp eax,0x2` the same signature,
+    so a change consisting only of a threshold, size, bias or flag would be
+    reported as "identical" and dropped from the candidate list — hiding
+    precisely the kind of difference this project is looking for.
+
+    A constant that happens to fall inside an image range is still masked, and
+    a value inside one image's range but not the other's normalizes differently
+    between them. Both residual cases push toward reporting a *mismatch*, which
+    costs a candidate to inspect rather than concealing a real change.
+
+    With no ranges supplied nothing is masked, so callers must pass the ranges
+    to get relocation tolerance.
+    """
+    collapsed = " ".join(text.split())
+    if not address_ranges:
+        return collapsed
+
+    def mask(match: re.Match[str]) -> str:
+        value = int(match.group(0), 16)
+        for low, high in address_ranges:
+            if low <= value < high:
+                return "ADDR"
+        return match.group(0)
+
+    return HEX_RE.sub(mask, collapsed)
+
+
+def normalize_shape(text: str) -> str:
+    """Mask every hex value, keeping only the instruction's shape.
+
+    Deliberately lossy, and never used alone. Paired with `normalize` it lets
+    the diff separate "structurally different" from "same code, different
+    constants" — which matters because this build references data through
+    DS-relative offsets far too small to look like addresses (`mov ebx,0x59d8`,
+    `cmp DWORD PTR ds:0x9d90,0x0`). Those are relocations that move when the
+    data layout moves, and they are indistinguishable by value from a genuine
+    threshold. Rather than guess, the diff reports that class separately.
+    """
     return HEX_RE.sub("IMM", " ".join(text.split()))
 
 
@@ -128,11 +175,23 @@ def disassemble(
 
 def build_inventory(
     instructions: list[tuple[int, int, str]],
-    entry_address: int,
+    seed_address: int,
+    entry_address: int | None,
     low: int,
     high: int,
+    address_ranges: tuple[tuple[int, int], ...] = (),
 ) -> dict:
-    """Derive candidate functions, a call graph, and per-function signatures."""
+    """Derive candidate functions, a call graph, and per-function signatures.
+
+    ``seed_address`` starts the candidate list and must lie in ``[low, high)``.
+    ``entry_address`` is only used to flag which candidate is the image entry,
+    and is None when the entry point is not in the object being analysed.
+    """
+    if not low <= seed_address < high:
+        raise DisasmError(
+            f"seed address 0x{seed_address:x} is outside the analysed range "
+            f"0x{low:x}..0x{high:x}"
+        )
     call_sites: list[tuple[int, int]] = []
     branch_targets: set[int] = set()
     mnemonics: collections.Counter = collections.Counter()
@@ -151,7 +210,7 @@ def build_inventory(
             if low <= target < high:
                 branch_targets.add(target)
 
-    starts = sorted({entry_address} | {target for _, target in call_sites})
+    starts = sorted({seed_address} | {target for _, target in call_sites})
 
     # Attribute each instruction to the candidate function that precedes it.
     bounds = {start: (starts[i + 1] if i + 1 < len(starts) else high)
@@ -171,12 +230,14 @@ def build_inventory(
         return best
 
     per_function: dict[int, list[str]] = collections.defaultdict(list)
+    per_function_shape: dict[int, list[str]] = collections.defaultdict(list)
     per_function_bytes: collections.Counter = collections.Counter()
     for address, length, text in instructions:
         start = owner(address)
         if start is None:
             continue
-        per_function[start].append(normalize(text))
+        per_function[start].append(normalize(text, address_ranges))
+        per_function_shape[start].append(normalize_shape(text))
         per_function_bytes[start] += length
 
     incoming: collections.Counter = collections.Counter()
@@ -187,10 +248,12 @@ def build_inventory(
         if caller is not None:
             edges[(caller, target)] += 1
 
+    def digest(lines: list[str]) -> str:
+        return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
     functions = []
     for start in starts:
         body = per_function.get(start, [])
-        signature = hashlib.sha256("\n".join(body).encode("utf-8")).hexdigest()
         functions.append(
             {
                 "address": start,
@@ -198,8 +261,9 @@ def build_inventory(
                 "instruction_count": len(body),
                 "byte_length": per_function_bytes.get(start, 0),
                 "callers": incoming.get(start, 0),
-                "is_entry": start == entry_address,
-                "signature": signature,
+                "is_entry": entry_address is not None and start == entry_address,
+                "signature": digest(body),
+                "shape_signature": digest(per_function_shape.get(start, [])),
             }
         )
 
@@ -237,8 +301,29 @@ def analyse(
 
     data = image.object_bytes(object_index)
     instructions = disassemble(data, obj.base_address, objdump, arch)
+
+    # Seed the sweep inside the object being analysed. The image entry point
+    # only qualifies when it actually lands in this object; for any other
+    # executable object it is an unrelated address, and using it would create a
+    # candidate outside the object's bounds that swallows every instruction
+    # before the first in-object call target.
+    entry_in_object = obj.base_address <= image.entry_address < obj.end_address
+    seed = image.entry_address if entry_in_object else obj.base_address
+
+    # Masking is driven by the whole image's object ranges, not just this
+    # object's: code here legitimately references data-object addresses, and
+    # those relocate between builds too.
+    address_ranges = tuple(
+        (other.base_address, other.end_address) for other in image.objects
+    )
+
     inventory = build_inventory(
-        instructions, image.entry_address, obj.base_address, obj.end_address
+        instructions,
+        seed,
+        image.entry_address if entry_in_object else None,
+        obj.base_address,
+        obj.end_address,
+        address_ranges,
     )
 
     return {
@@ -255,7 +340,11 @@ def analyse(
             "objdump": objdump_version(objdump),
             "arch": arch,
             "method": "linear sweep of the whole object; candidate functions are "
-                      "direct call targets plus the entry point",
+                      "direct call targets plus a seed at the entry point when "
+                      "it lies in this object, otherwise the object base",
+            "seed_address": seed,
+            "normalization": "hex operands inside the image's object ranges are "
+                             "masked as ADDR; all other constants are preserved",
         },
         **inventory,
     }

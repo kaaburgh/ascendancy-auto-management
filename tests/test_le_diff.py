@@ -28,7 +28,13 @@ OBJDUMP = shutil.which("objdump")
 
 
 def function(address: int, signature: str, *, size: int = 10, insns: int = 5,
-             callers: int = 1) -> dict:
+             callers: int = 1, shape: str | None = None) -> dict:
+    """A synthetic inventory entry.
+
+    ``shape`` defaults to ``signature``: code that differs strictly usually
+    differs in shape too. Pass a shared ``shape`` with differing ``signature``
+    to model the constant-only case.
+    """
     return {
         "address": address,
         "end": address + size,
@@ -37,6 +43,7 @@ def function(address: int, signature: str, *, size: int = 10, insns: int = 5,
         "callers": callers,
         "is_entry": False,
         "signature": signature,
+        "shape_signature": shape if shape is not None else signature,
     }
 
 
@@ -138,6 +145,74 @@ class TestCompare(unittest.TestCase):
         # The wording matters: this output must not read as established findings.
         report = le_diff.compare(inventory("l", []), inventory("r", []))
         self.assertIn("candidates", report["note"])
+
+
+class TestConstantOnlyBucket(unittest.TestCase):
+    """Same shape, different constants gets its own bucket.
+
+    Folding this into "matched" hides real threshold changes; folding it into
+    "changed" buries them under hundreds of data relocations.
+    """
+
+    def test_constant_difference_is_bucketed_not_matched(self) -> None:
+        left = inventory("left", [function(0x1000, "strict-a", shape="same-shape")])
+        right = inventory("right", [function(0x9000, "strict-b", shape="same-shape")])
+        report = le_diff.compare(left, right)
+        self.assertEqual(0, report["matched_function_count"])
+        self.assertEqual(1, report["constant_only_difference_count"])
+        self.assertEqual([], report["only_in_left"])
+        self.assertEqual([], report["only_in_right"])
+
+    def test_bucket_records_both_addresses(self) -> None:
+        left = inventory("left", [function(0x1000, "a", shape="s")])
+        right = inventory("right", [function(0x9000, "b", shape="s")])
+        entry = le_diff.compare(left, right)["constant_only_differences"][0]
+        self.assertEqual(0x1000, entry["left_address"])
+        self.assertEqual(0x9000, entry["right_address"])
+
+    def test_strict_match_takes_precedence(self) -> None:
+        # An exact match must not be demoted into the constant-only bucket.
+        left = inventory("left", [function(0x1000, "same", shape="s")])
+        right = inventory("right", [function(0x9000, "same", shape="s")])
+        report = le_diff.compare(left, right)
+        self.assertEqual(1, report["matched_function_count"])
+        self.assertEqual(0, report["constant_only_difference_count"])
+
+    def test_structural_difference_stays_unmatched(self) -> None:
+        left = inventory("left", [function(0x1000, "a", shape="shape-a")])
+        right = inventory("right", [function(0x9000, "b", shape="shape-b")])
+        report = le_diff.compare(left, right)
+        self.assertEqual(0, report["constant_only_difference_count"])
+        self.assertEqual([0x1000], [f["address"] for f in report["only_in_left"]])
+        self.assertEqual([0x9000], [f["address"] for f in report["only_in_right"]])
+
+    def test_bucket_is_sorted_by_size_descending(self) -> None:
+        left = inventory("left", [
+            function(0x1000, "a1", size=10, shape="s1"),
+            function(0x2000, "a2", size=900, shape="s2"),
+        ])
+        right = inventory("right", [
+            function(0x8000, "b1", size=10, shape="s1"),
+            function(0x9000, "b2", size=900, shape="s2"),
+        ])
+        report = le_diff.compare(left, right)
+        self.assertEqual(
+            [900, 10],
+            [f["byte_length"] for f in report["constant_only_differences"]],
+        )
+
+    def test_constant_only_does_not_count_as_structurally_unmatched(self) -> None:
+        # The byte fraction must not be depressed by relocation noise.
+        left = inventory("left", [function(0x1000, "a", size=100, shape="s")])
+        right = inventory("right", [function(0x9000, "b", size=100, shape="s")])
+        report = le_diff.compare(left, right)
+        self.assertEqual(0, report["left"]["unmatched_function_count"])
+        self.assertEqual(1.0, report["left"]["matched_byte_fraction"])
+
+    def test_note_explains_all_three_buckets(self) -> None:
+        report = le_diff.compare(inventory("l", []), inventory("r", []))
+        for phrase in ("Matched", "constant_only_differences", "only_in_left"):
+            self.assertIn(phrase, report["note"])
 
 
 class TestLoadInventory(unittest.TestCase):

@@ -23,8 +23,10 @@ jobs:
       # The static-analysis tools shell out to objdump. It is preinstalled on
       # ubuntu-latest; assert it so a runner image change fails loudly here
       # rather than silently skipping the disassembly tests.
+      # Unpiped on purpose: the default shell is `bash -e` without pipefail, so
+      # piping to `head` would mask a missing objdump behind head's exit 0.
       - name: Check binutils is available
-        run: objdump --version | head -1
+        run: objdump --version
       # The suite must stay network-free: download paths are exercised against
       # synthetic file:// fixtures, and LE parsing against synthetic images.
       - run: python -m unittest discover -s tests -v

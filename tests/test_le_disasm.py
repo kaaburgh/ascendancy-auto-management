@@ -164,27 +164,133 @@ class TestInstructionLengths(unittest.TestCase):
 
 
 class TestNormalize(unittest.TestCase):
-    def test_absolute_values_are_masked(self) -> None:
-        self.assertEqual("call IMM", le_disasm.normalize("call   0x783b4"))
-        self.assertEqual(
-            "mov ebx,DWORD PTR [ebp+IMM]",
-            le_disasm.normalize("mov    ebx,DWORD PTR [ebp+0x8]"),
-        )
+    # Ranges standing in for a code object and a data object.
+    RANGES = ((0x10000, 0x82736), (0x90000, 0x138220))
 
-    def test_registers_are_preserved(self) -> None:
-        # Masking registers too would collide unrelated code.
-        self.assertNotEqual(
-            le_disasm.normalize("mov eax,0x1"), le_disasm.normalize("mov ebx,0x1")
-        )
+    def norm(self, text: str) -> str:
+        return le_disasm.normalize(text, self.RANGES)
 
-    def test_whitespace_is_collapsed(self) -> None:
-        self.assertEqual("push ebp", le_disasm.normalize("push    ebp"))
+    def test_in_range_addresses_are_masked(self) -> None:
+        self.assertEqual("call ADDR", self.norm("call   0x783b4"))
 
     def test_shifted_calls_normalize_identically(self) -> None:
-        # The whole point: the same instruction at a different target matches.
+        # Relocation tolerance: the same call to a different target matches.
+        self.assertEqual(self.norm("call 0x11111"), self.norm("call 0x22222"))
+
+    def test_semantic_constants_are_preserved(self) -> None:
+        # The critical property. Masking every hex operand would make a
+        # threshold change invisible and drop it from the candidate list.
+        self.assertNotEqual(self.norm("cmp eax,0x1"), self.norm("cmp eax,0x2"))
+        self.assertEqual("cmp eax,0x1", self.norm("cmp    eax,0x1"))
+
+    def test_frame_displacements_are_preserved(self) -> None:
         self.assertEqual(
-            le_disasm.normalize("call 0x11111"), le_disasm.normalize("call 0x22222")
+            "mov ebx,DWORD PTR [ebp+0x8]",
+            self.norm("mov    ebx,DWORD PTR [ebp+0x8]"),
         )
+        self.assertNotEqual(
+            self.norm("mov ebx,DWORD PTR [ebp+0x8]"),
+            self.norm("mov ebx,DWORD PTR [ebp+0xc]"),
+        )
+
+    def test_data_addresses_are_masked(self) -> None:
+        # An immediate pointing into the data object relocates between builds.
+        self.assertEqual("mov eax,ADDR", self.norm("mov eax,0x98267"))
+
+    def test_out_of_range_large_constants_are_preserved(self) -> None:
+        self.assertEqual("mov eax,0xdeadbeef", self.norm("mov eax,0xdeadbeef"))
+
+    def test_registers_are_preserved(self) -> None:
+        self.assertNotEqual(self.norm("mov eax,0x1"), self.norm("mov ebx,0x1"))
+
+    def test_whitespace_is_collapsed(self) -> None:
+        self.assertEqual("push ebp", self.norm("push    ebp"))
+
+    def test_without_ranges_nothing_is_masked(self) -> None:
+        # Callers must pass ranges to get relocation tolerance; the default is
+        # deliberately lossless rather than silently over-masking.
+        self.assertEqual("call 0x783b4", le_disasm.normalize("call   0x783b4"))
+
+
+@unittest.skipUnless(OBJDUMP, "objdump is not installed")
+class TestConstantChangesAreVisible(unittest.TestCase):
+    """A constant-only difference must survive into the diff as a candidate."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = pathlib.Path(self._tmp.name)
+
+    def build_with_threshold(self, name: str, immediate: int) -> pathlib.Path:
+        image = bytearray(le_fixture.build())
+        header = le_disasm.le_image.LEImage(bytes(image), name)
+        offset = header.page_file_offset(header.objects[0].first_page) + 0x40
+        # cmp eax, imm32 ; ret  — differs only in the compared constant.
+        body = b"\x3d" + immediate.to_bytes(4, "little") + b"\xc3"
+        image[offset : offset + len(body)] = body
+        path = self.tmp / name
+        path.write_bytes(bytes(image))
+        return path
+
+    def test_threshold_difference_is_reported(self) -> None:
+        one = self.build_with_threshold("one.le", 1)
+        two = self.build_with_threshold("two.le", 2)
+        left = le_disasm.analyse(one, None, OBJDUMP)
+        right = le_disasm.analyse(two, None, OBJDUMP)
+
+        signatures_left = {f["signature"] for f in left["functions"]}
+        signatures_right = {f["signature"] for f in right["functions"]}
+        self.assertNotEqual(
+            signatures_left,
+            signatures_right,
+            "a constant-only change must not produce identical signatures",
+        )
+
+
+@unittest.skipUnless(OBJDUMP, "objdump is not installed")
+class TestAlternateObjectSeeding(unittest.TestCase):
+    """Selecting a non-entry executable object must stay inside that object."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = pathlib.Path(self._tmp.name)
+        self.path = self.tmp / "two-code.le"
+        self.path.write_bytes(le_fixture.build(objects=[
+            {"flags": le_fixture.CODE_FLAGS, "base": 0x10000, "pages": 1,
+             "vsize": 0x200},
+            {"flags": le_fixture.CODE_FLAGS, "base": 0x50000, "pages": 1,
+             "vsize": 0x200},
+            {"flags": le_fixture.DATA_FLAGS, "base": 0x90000, "pages": 1,
+             "vsize": 0x800},
+        ], stack_object=3))
+
+    def test_entry_object_still_seeds_with_the_entry(self) -> None:
+        report = le_disasm.analyse(self.path, 1, OBJDUMP)
+        self.assertEqual(0x10000, report["tool"]["seed_address"])
+        self.assertEqual(1, len([f for f in report["functions"] if f["is_entry"]]))
+
+    def test_alternate_object_seeds_at_its_own_base(self) -> None:
+        report = le_disasm.analyse(self.path, 2, OBJDUMP)
+        self.assertEqual(0x50000, report["tool"]["seed_address"])
+
+    def test_alternate_object_has_no_out_of_range_candidates(self) -> None:
+        report = le_disasm.analyse(self.path, 2, OBJDUMP)
+        source = report["source"]
+        for function in report["functions"]:
+            with self.subTest(address=function["address"]):
+                self.assertGreaterEqual(function["address"], source["base_address"])
+                self.assertLess(function["address"], source["end_address"])
+                self.assertLessEqual(function["end"], source["end_address"])
+
+    def test_alternate_object_flags_no_entry(self) -> None:
+        report = le_disasm.analyse(self.path, 2, OBJDUMP)
+        self.assertEqual([], [f for f in report["functions"] if f["is_entry"]])
+
+    def test_out_of_range_seed_is_refused(self) -> None:
+        with self.assertRaises(DisasmError) as caught:
+            le_disasm.build_inventory([], 0x1000, None, 0x10000, 0x20000)
+        self.assertIn("outside the analysed range", str(caught.exception))
 
 
 class TestCallEncoding(unittest.TestCase):

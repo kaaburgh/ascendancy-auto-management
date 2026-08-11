@@ -101,9 +101,35 @@ Three tools, standard library plus `objdump`, each fail-closed:
 
 `tools/le_fixture.py` builds synthetic LE images, including deliberately defective ones, so all of this is testable without the game.
 
-### Why signatures, not bytes
+### Why signatures, not bytes — and why two of them
 
-A raw byte diff of these two images is nearly useless: inserting code shifts everything after it, so almost every byte reads as changed. Signatures hash the normalized instruction text with absolute values masked (`call 0x783b4` → `call IMM`) while keeping registers and operand shapes. Code that merely moved therefore still matches, and what remains is the genuinely different code.
+A raw byte diff of these two images is nearly useless: inserting code shifts everything after it, so almost every byte reads as changed. Signatures hash the normalized instruction text, so code that merely moved still matches.
+
+Getting that normalization right took two corrections, and the second is the more interesting.
+
+The first attempt masked **every** hex operand. That is over-masking: `cmp eax,0x1` and `cmp eax,0x2` collapse to the same signature, so a change consisting only of a threshold, size, bias or flag would be reported as "identical" and dropped from the candidate list — hiding exactly the kind of difference this project exists to find.
+
+The obvious repair — mask only values inside the image's object ranges — turned out to be under-masking, and measurably so: strict matches fell from 1127 to 620, implying half the image had changed, which is not credible for two builds of one game. Inspecting the mismatches showed why:
+
+```text
+A 0x7ec09: cmp DWORD PTR ds:0x9d90,0x0     P 0x79f78: cmp DWORD PTR ds:0x9c1c,0x0
+A 0x1d5eb: mov ebx,0x59d8                  P 0x1d54a: mov ebx,0x5858
+A 0x6b219: push 0x41be                     P 0x66588: push 0x403e
+```
+
+This build reaches its data through **DS-relative offsets** — values like `0x59d8`, far below the code object's `0x10000` base and so outside any object range. They are relocations that move when the data layout moves, yet by value they are indistinguishable from a genuine constant. No value-based rule separates the two.
+
+So the tool stops guessing and reports three buckets:
+
+| Bucket | Meaning |
+| --- | --- |
+| **matched** | identical once in-range addresses are masked |
+| **constant_only_differences** | same instruction shape, differing constants — data relocations mixed with any real threshold change |
+| **only_in_left / only_in_right** | structurally different |
+
+`le_disasm` emits two hashes per candidate: `signature` (strict) and `shape_signature` (every constant masked). `le_diff` matches strictly first, then matches the leftovers on shape.
+
+That reconciles the two earlier figures exactly: the original 1127 "matches" were 620 strict matches plus 507 constant-only differences. The structurally-different set is unchanged at 115/87 — so RE1's primary candidate list was right, and the fix additionally surfaces a 507-function bucket that over-masking had silently swallowed.
 
 Deliberately *not* emitted: bulk disassembly. The committed artifacts are derived representations — addresses, counts, hashes — which keeps them reviewable and avoids republishing the game's code.
 
@@ -116,7 +142,7 @@ All five capabilities CF2 names are covered, and the whole pipeline is fast:
 | Identify format and architecture | `le_image info` — LE/386/2-object layout on all four targets |
 | Normalized disassembly / function metadata | `le_disasm` — 144,684 instructions and 1242 candidate functions for `ANTAG_EN` in **1.4 s** |
 | Strings and reference-like relationships | 1609 strings ≥6 chars with virtual addresses in **0.16 s**; 7252 direct call sites and 4089 call-graph edges |
-| Compare the two builds at function/region level | `le_diff` — see below, **2.6 s** end to end |
+| Compare the two builds at function/region level | `le_diff` — three buckets, see below, **2.6 s** end to end |
 | Stable text/JSON export | JSON from every tool; byte-identical across repeated runs |
 
 ### Differential result, English pair
@@ -124,14 +150,16 @@ All five capabilities CF2 names are covered, and the whole pipeline is fast:
 ```text
 left  ANTAG_EN.EXE object 1: 1242 candidate functions, 115 unmatched (110322 bytes)
 right PATCH_EN.EXE object 1: 1214 candidate functions,  87 unmatched  (91035 bytes)
-matched: 1127 (1127 identical but relocated)
+matched: 620 (620 identical but relocated)
+constant-only differences: 507
 ```
 
-Every single matched function is at a different address in the two images, which is exactly the shift a byte diff would have drowned in. **1127 of 1242 candidates match, leaving 115 to inspect** — a bounded starting set for RE1 instead of a 470 KB image.
+Every matched function is at a different address in the two images, which is exactly the shift a byte diff would have drowned in. **115 of 1242 candidates are structurally different** — a bounded starting set for RE1 instead of a 470 KB image — with a further 507 differing only in constants, which RE1 should triage separately since most of those are data relocations.
 
 ### Honest limits of that number
 
-- The 76% "matched byte fraction" **must not** be read as "24% of the code changed". Unmatched candidates skew large because of boundary merging (below), so the byte figure overstates the delta. The function count is the more meaningful signal.
+- The 76% "matched byte fraction" counts only the structurally-different bucket and **must not** be read as "24% of the code changed". Unmatched candidates skew large because of boundary merging (below), so the byte figure overstates the delta. The function count is the more meaningful signal.
+- The **constant-only bucket cannot be split by this tool**. It holds data relocations and any genuine threshold change, mixed. Separating them needs the LE fixup table, which records exactly which operands the loader patches; parsing it is not done here and is the obvious next improvement if RE1 finds the bucket unwieldy.
 - Candidate boundaries come from direct call targets, so a region with no incoming direct call merges into its predecessor. 11 of the 115 unmatched candidates exceed 2000 bytes and the largest is 7964 bytes over 1865 instructions — those are almost certainly spans covering data or several real functions, not single functions. Median unmatched size is 414 bytes; 43 of 115 are ≤256 bytes.
 - Candidate functions attribute 457,467 of the code object's 468,790 bytes (97.6%); the remainder precedes the first candidate start.
 - This is a **linear sweep**. Embedded data disassembles as nonsense and a misaligned start can desynchronise a stretch of output, so instruction counts are upper bounds.
@@ -143,10 +171,10 @@ None of this blocks RE1; all of it should shape how RE1 ranks candidates.
 
 T1 must establish build lineage before naming a baseline, and the timestamp evidence hinted the non-English pair might be more closely matched (47 minutes apart, versus ~2 months for English). Running the same comparison on both pairs does **not** support that:
 
-| Pair | Matched | Unmatched left | Unmatched right |
-| --- | --- | --- | --- |
-| `ANTAG_EN` ↔ `PATCH_EN` | 1127 | 115 | 87 |
-| `ANTAG_INTL` ↔ `PATCH_INTL` | 1123 | 119 | 89 |
+| Pair | Matched (strict) | Constant-only | Structurally different, left | …right |
+| --- | --- | --- | --- | --- |
+| `ANTAG_EN` ↔ `PATCH_EN` | 620 | 507 | 115 | 87 |
+| `ANTAG_INTL` ↔ `PATCH_INTL` | 620 | 503 | 119 | 89 |
 
 The non-English pair is marginally *worse* on this metric. Treat this as preliminary and coarse — it is one heuristic over inferred boundaries, not a lineage determination — but it does remove the main reason to prefer the non-English lineage, and T1 should not adopt that preference on timestamps alone.
 
@@ -158,9 +186,9 @@ CF2's own gate is therefore discharged: **T2 becomes `CLOUD`**, and RE1/RE2/RE3 
 
 ## Validation performed
 
-- `python3 -m unittest discover -s tests` — **137 tests pass**, of which 89 are new here: 42 for the parser, 27 for disassembly, 20 for the diff. All run against synthetic fixtures with no network and no proprietary bytes.
+- `python3 -m unittest discover -s tests` — **155 tests pass**, of which 107 are new here: 42 for the parser, 38 for disassembly, 27 for the diff. All run against synthetic fixtures with no network and no proprietary bytes.
 - Every fail-closed branch in `le_image` has a test that injects that specific defect.
-- Determinism: two consecutive `le_disasm` runs on `ANTAG_EN.EXE` produced byte-identical JSON (`sha256 1732a076…`).
+- Determinism: two consecutive `le_disasm` runs on `ANTAG_EN.EXE` produced byte-identical JSON (`sha256 e3e2e05a…`).
 - The full pipeline ran on all four acquired targets, not only the English pair.
 - Relocation-tolerance was checked both synthetically (same fixture code at base `0x10000` and `0x40000` matches completely) and on the real targets (all 1127 matches are relocated).
 - `python3 scripts/check-docs.py` passes.

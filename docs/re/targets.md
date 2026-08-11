@@ -23,61 +23,69 @@ python3 tools/fetch_free_targets.py --verify # re-verify without the network
 | `bugpatch-en` | Official bug patch, version 1.6.5, English | 587451 | `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` |
 | `bugpatch-intl` | Official bug patch, version 1.8.5, non-English | 587451 | `16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b` |
 
-Facts established independently of the corrected page-data mapping:
+All four hashes above were rechecked directly during the Open Watcom layout correction in PR #4.
 
-- DOS `MZ` stub at offset 0; Linear Executable (`LE`) image at `e_lfanew = 0x2a50`; bound DOS/4G-style target. **Not PE** — tooling that assumes PE will not work.
-- Each candidate is a **complete standalone game build**, not a patcher. The Antagonizer and the bug patch are alternatives to the retail `ASCEND.EXE`, run in its place from the same installed directory.
-- Version strings 1.6.5 / 1.8.5 for the bug patches are the publisher's documented values (`patch.txt`), not measured from the binaries. The Antagonizer has no publisher-documented version string.
-- Raw-file strings identify **Watcom C/C++32** and **Rational DOS/4G**. This compiler/extender identification does not depend on assigning those strings virtual addresses.
+## Container facts, corrected and revalidated
 
-Provenance, source archives and complete hashes are in [`../experiments/CF1-cloud-target-access.md`](../experiments/CF1-cloud-target-access.md).
+The four exact binaries establish:
 
-## CF2 layout correction — real-target values must be regenerated
+- DOS `MZ` at file offset 0; Linear Executable (`LE`) header at `e_lfanew = 0x2a50`; not PE.
+- Little-endian, LE format level 0, CPU type `0x02` (80386), page size 4096.
+- Exactly two objects in each image: object 1 executable code, object 2 writable data; page-map numbers are sequential and every observed page flag is `0x00` (`legal`).
+- Open Watcom's enumerated-data-page `page_off` is the 32-bit field at LE-header `+0x80` and is an **absolute file offset**. The old CF2 parser incorrectly treated `impmod_off @ +0x70` as this value.
+- `autodata_obj @ +0x94` is `2` in all four files.
+- `debug_off @ +0x98` and `debug_len @ +0x9c` are both zero in all four files.
+- With the corrected `page_off`, enumerated page data ends **exactly at EOF** in all four files. The earlier `~11 KB trailing unparsed` region was an artifact of using `impmod_off` as an absolute page base.
 
-PR #4 initially reconstructed enumerated LE pages from header offset `+0x70`. Open Watcom's own structure definition, linker and executable dumper establish that this was wrong:
+Per target:
 
-- `+0x70` is `impmod_off`;
-- the enumerated-data-page `page_off` field is `+0x80` and is an **absolute file offset**;
-- `autodata_obj` is `+0x94`;
-- `debug_off` / `debug_len` are `+0x98` / `+0x9c`.
+| Target | Code object | Data object base | Pages | Entry VA | `page_off` |
+| --- | --- | --- | ---: | ---: | ---: |
+| `ANTAG_EN` | `0x10000`–`0x82736` | `0x90000` | 126 | `0x783b4` | `0x18000` |
+| `ANTAG_INTL` | `0x10000`–`0x827e6` | `0x90000` | 126 | `0x78464` | `0x18000` |
+| `PATCH_EN` | `0x10000`–`0x7db46` | `0x80000` | 121 | `0x737c4` | `0x17600` |
+| `PATCH_INTL` | `0x10000`–`0x7dbf6` | `0x80000` | 121 | `0x73874` | `0x17600` |
 
-The parser and synthetic fixture have been corrected. See [`../experiments/CF2-wdump-layout-correction.md`](../experiments/CF2-wdump-layout-correction.md) for the primary-source evidence and the explanation of why the earlier content argument was circular/misread.
+The object-table metadata above is unchanged by the correction and was re-read from the exact target bytes.
 
-Until the four pinned targets are rerun through the corrected parser, this file deliberately does **not** publish the previous CF2 values for:
+### Why `+0x70` was misleading
 
-- virtual addresses of strings;
-- page-data start/end and any supposed trailing region;
-- debug-info presence/absence;
-- reconstructed object-byte hashes;
-- disassembly/function/call-graph counts or differential buckets.
+In all four files `impmod_off @ +0x70` equals `impproc_off @ +0x78`, and `num_impmods == 0`. That observation is real, but it does **not** mean either field aliases page data.
 
-Those values were derived from a shifted byte stream and are invalidated, not merely offset by a constant.
+Open Watcom treats the import/fixup table offsets as LE-header-relative; `wdump` adds `New_exe_off` when using them. `page_off` is a separate absolute file offset and is used without that addition. The equal import offsets simply describe empty import tables sharing the same loader-relative position.
 
-Object-table metadata uses earlier header fields and is therefore not automatically invalidated, but it also must be rechecked rather than copied forward as a confirmed target fact.
+The corrected entry mapping is also decisive: all four declared entry points begin with `EB 76`, a short jump over the embedded `WATCOM C/C++32 Run-Time ...` banner into consistent startup code. The old absolute-`+0x70` interpretation mapped the four entries to unrelated byte sequences.
 
-### Required revalidation
+Full evidence, including the re-check of the previous `0x34c0`/`0x895` argument, is in [`../experiments/CF2-wdump-layout-correction.md`](../experiments/CF2-wdump-layout-correction.md).
 
-In a cloud environment with the CF1 `archive.org` egress:
+## Build toolchain identification
 
-```sh
-python3 tools/fetch_free_targets.py
+Raw-file strings identify **Watcom C/C++32** and **Rational DOS/4G**. With the corrected mapping their virtual addresses are:
 
-for f in binaries/ANTAG_EN.EXE binaries/ANTAG_INTL.EXE \
-         binaries/PATCH_EN.EXE binaries/PATCH_INTL.EXE; do
-  python3 tools/le_image.py info "$f"
-done
+| Target | Watcom runtime banner | Ascendancy copyright | `RATIONAL DOS/4G` |
+| --- | ---: | ---: | ---: |
+| `ANTAG_EN` | `0x783b6` | `0x90895` | `0x9563c` |
+| `ANTAG_INTL` | `0x78466` | `0x90895` | `0x9563c` |
+| `PATCH_EN` | `0x737c6` | `0x80895` | `0x854bc` |
+| `PATCH_INTL` | `0x73876` | `0x80895` | `0x854bc` |
 
-python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary
-python3 tools/le_disasm.py binaries/PATCH_EN.EXE --summary
-python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
-python3 tools/le_diff.py binaries/ANTAG_INTL.EXE binaries/PATCH_INTL.EXE --summary
-```
+Watcom's default 32-bit convention is register-based (`__watcall`: arguments in EAX/EDX/EBX/ECX), but this project still treats that as an **open implication**, not an established calling convention for Ascendancy. Confirm it against real call sites in RE2/RE3 before any hook/trampoline or signature reading depends on it.
 
-Record the exact output against the four hashes above before restoring any derived target values here.
+## What still needs regeneration from CF2
+
+The container correction changes the byte stream previously handed to `objdump`. Therefore the old real-target disassembly/diff measurements remain invalid until rerun with the corrected repository tools, including:
+
+- instruction, call-site, call-graph and candidate-function counts;
+- normalized and shape signatures;
+- the old `620 / 507 / 115 / 87` English diff buckets and non-English equivalents;
+- matched-byte percentages and large-candidate/span statistics;
+- DS-relative examples derived from the old shifted disassembly.
+
+Do not restore those numbers by arithmetic offset adjustment; regenerate them from the corrected object bytes.
 
 ## Reading these binaries
 
-None of the tools preinstalled in the tested cloud image lays out the LE container: GNU `objdump` reports `file format not recognized` and `file` only classifies it. LE-aware tools exist in the wider ecosystem — Open Watcom's `wdump`/exedump is now used as an important **format oracle** — but requiring a full Open Watcom installation is not necessary for the normal cloud path.
+None of the tools preinstalled in the tested cloud image lays out the LE container: GNU `objdump` reports `file format not recognized` and `file` only classifies it. LE-aware tools exist in the wider ecosystem — Open Watcom's `wdump`/exedump is used as an important **format oracle** — but requiring a full Open Watcom installation is not necessary for the normal cloud path.
 
 The repository keeps a small fail-closed reader and hands reconstructed flat objects to GNU `objdump`:
 
@@ -92,9 +100,7 @@ python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
 
 The retail unpatched `ASCEND.EXE` is **not** freely distributed and is not available in cloud. It is an optional additional reference; if it is ever needed, only its metadata should be handed off, never the file.
 
-## Build toolchain implication
-
-The raw binaries contain the Watcom C/C++32 runtime banner. Watcom's default 32-bit convention is register-based (`__watcall`: arguments in EAX/EDX/EBX/ECX), but this project still treats that as an **open implication**, not an established calling convention for Ascendancy. Confirm it against real call sites in RE2/RE3 before any hook/trampoline or signature reading depends on it.
+Provenance, source archives and complete hashes are in [`../experiments/CF1-cloud-target-access.md`](../experiments/CF1-cloud-target-access.md).
 
 ## Canonical entries
 

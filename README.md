@@ -72,9 +72,11 @@ python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary # candidate functions
 python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
 ```
 
-`le_diff` compares normalized per-candidate signatures rather than bytes, so code that merely moved between builds can still match. On the corrected English pair the current buckets are 685 strict matches, 525 same-shape/different-constant candidates, and 116 / 87 structurally different candidates; the international pair is 683 / 520 / 123 / 93. These are analysis leads, not verified behavioral differences.
+`le_disasm` now emits a versioned inventory with the target SHA-256, reconstructed-object SHA-256, parser-layout identity, and three signature levels. `le_diff` fails closed on stale or incompatible JSON and uses a conservative four-class comparison: exact matches preserve every operand; `reference_only_differences` differ only in in-image references after masking and may contain either relocation noise or real callee/global/table retargets; `constant_only_differences` have the same instruction shape but different remaining constants and may contain either DS-relative movement or genuine threshold/flag changes; only the remainder is structural.
 
-Read the limits in [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) before trusting any candidate function boundary: the inventory comes from a linear sweep with boundaries inferred from call targets, so it produces leads, not verified functions.
+On the corrected English pair the current classes are **72 exact matches / 613 reference-only / 525 constant-only / 116 / 87 structural** (Antagonizer / patch). The international pair is **72 / 611 / 520 / 123 / 93**. The earlier post-layout-correction headline of `685 strict` English and `683 strict` international was itself too aggressive: those aggregates masked changed in-image references and split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. Structural and constant-only counts are unchanged. These are analysis leads, not verified behavioral differences.
+
+Read the limits in [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) before trusting any candidate function boundary: the inventory comes from a linear sweep with boundaries inferred from direct call targets, so it produces regions/leads, not verified functions; functions reached only indirectly may be folded into a preceding candidate span.
 
 ## Cloud-first development
 

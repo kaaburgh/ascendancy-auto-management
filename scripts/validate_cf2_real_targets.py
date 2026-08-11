@@ -112,6 +112,21 @@ def run(command: list[str]) -> None:
     subprocess.run(command, cwd=ROOT, check=True)
 
 
+def prepare_targets(binaries: pathlib.Path, *, fetch: bool) -> pathlib.Path:
+    """Fetch/verify the exact directory that the regression will analyze."""
+    binaries = binaries.expanduser().resolve()
+    command = [
+        sys.executable,
+        "tools/fetch_free_targets.py",
+        "--dest",
+        str(binaries),
+    ]
+    if fetch:
+        run(command)
+    run([*command, "--verify"])
+    return binaries
+
+
 def check_equal(label: str, actual, expected) -> None:
     if actual != expected:
         raise SystemExit(f"CF2 regression mismatch: {label}: {actual!r} != {expected!r}")
@@ -130,16 +145,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.fetch:
-        run([sys.executable, "tools/fetch_free_targets.py"])
-    run([sys.executable, "tools/fetch_free_targets.py", "--verify"])
+    binaries = prepare_targets(args.binaries, fetch=args.fetch)
 
     with tempfile.TemporaryDirectory(prefix="cf2-real-") as tmp_text:
         tmp = pathlib.Path(tmp_text)
         inventories: dict[str, pathlib.Path] = {}
 
         for name, expected in TARGETS.items():
-            path = args.binaries / name
+            path = binaries / name
             image = le_image.load(path)
             check_equal(f"{name} sha256", image.sha256, expected["sha256"])
             check_equal(f"{name} page_off field", le_image.H_DATAPAGE, 0x80)

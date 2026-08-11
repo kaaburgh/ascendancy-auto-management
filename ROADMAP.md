@@ -146,7 +146,8 @@ Established:
 Rejected / bounded:
 
 - the **retail game data files are not obtainable in cloud** and the repository must not try. This is a constraint handed to CF3/CF4, not a blocker for static RE.
-- the **retail unpatched `ASCEND.EXE`** is not freely distributed. It is an optional third reference, not a prerequisite — the diff RE1 wants is Antagonizer ↔ same-lineage non-Antagonizer build, which the bug-patch executable provides.
+- the **retail unpatched `ASCEND.EXE`** is not freely distributed. It is an optional third reference, not a prerequisite.
+- CF1 settled the **packaging** relationship between the bug patch and the Antagonizer (both standalone executables), **not** their **build lineage**. Whether the pair is build-comparable is still open and is required evidence for T1 before a baseline is named.
 - `web.archive.org` was **blocked by egress policy** in the sandbox where this ran even though `archive.org` was reachable. Do not build tooling on a Wayback fallback without re-probing.
 - abandonware full-game sources must never be added to the manifest, regardless of reachability.
 
@@ -357,15 +358,26 @@ For the chosen Antagonizer production target and vanilla comparison reference, r
 
 - exact SHA-256 and size;
 - filename and meaningful release/patch provenance;
+- **build/version lineage relationship between the chosen Antagonizer target and the chosen comparison baseline** — established from evidence, not assumed. This is a required output, not an optional note (see below);
 - detected executable format/architecture/extender facts from T0;
 - whether the files are directly available to cloud agents or require a handoff.
 
-The "relationship between the maintenance patch and the Antagonizer build" is no longer an open modelling question in the form this item originally assumed: CF1 established that the Antagonizer and the bug patch are **separate standalone executables**, not a patch stacked on a base. T1 should instead decide which non-Antagonizer executable is the **comparison baseline**, and state it explicitly:
+### Baseline selection requires lineage evidence
 
-- the official bug-patch executable is cloud-available and is the default baseline;
+CF1 settled only the **packaging** relationship: the Antagonizer and the bug patch are separate standalone executables, not a patch stacked on a base. It did **not** settle the **build-lineage** relationship — whether the two were compiled from comparable source snapshots.
+
+That distinction decides whether RE1 is meaningful. If the chosen pair comes from different snapshots, a whole-image differential will surface unrelated bug fixes mixed in with the AI changes, and a ranked "candidate self-management regions" map built on it could be substantially wrong while looking plausible.
+
+So T1 must not select a baseline on availability alone. Before naming the pair it must either establish comparable lineage or record explicitly that comparability is unproven and constrain RE1 accordingly.
+
+Candidates, with their standing:
+
+- the official bug-patch executable is cloud-available and is the **leading candidate**, but it is *not* a default to be adopted without lineage evidence;
 - the retail unpatched `ASCEND.EXE` is **not** freely distributed and would require a maintainer handoff of metadata only. Treat it as optional; do not block T1 on it.
 
-Note for the decision, not as an established fact: zip member timestamps pair the non-English bug patch (1995-11-20 17:09:06) and non-English Antagonizer (1995-11-20 17:56:42) 47 minutes apart, while the English pair is ~2 months apart. That *may* make the non-English lineage a tighter differential baseline, but timestamps are weak build-provenance evidence and the English release is the one the publisher's documentation describes most fully. Decide with T0/T2 evidence, and record the reasoning either way.
+Evidence available so far, weak and not sufficient on its own: zip member timestamps pair the non-English bug patch (1995-11-20 17:09:06) and non-English Antagonizer (1995-11-20 17:56:42) 47 minutes apart, while the English pair sits ~2 months apart (1995-11-20 vs 1996-01-25). That gap is a live reason to doubt English-pair comparability, not a footnote. Against it, the English release is the one the publisher documents most fully. Container timestamps are weak build provenance; look for stronger signals with T0/T2 — embedded version or build strings, extender/toolchain fingerprints, section layout, and the size delta (610863 vs 587451) — and record the reasoning either way.
+
+If lineage cannot be established, say so and hand RE1 the constraint rather than an unqualified baseline.
 
 If more than one commonly relevant Antagonizer binary exists, choose one canonical M1 target and list others as future compatibility candidates rather than silently broadening M1.
 
@@ -431,7 +443,9 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 - **Depends on:** T2
 - **Question:** Which code/data regions changed between canonical vanilla and Antagonizer, and which changes are plausible candidates for the documented improvement in planetary self-management?
 
-> **Refinement from CF1:** "vanilla" here means the baseline T1 selects, which by default is the publisher's official bug-patch executable rather than the retail `ASCEND.EXE` (the latter is not freely distributed). Both executables are standalone full builds of the same game and are close in size (610863 vs 587451 bytes), which is what makes a whole-image differential tractable. Note that the Antagonizer image is the *larger* of the two — the added AI behavior is a plausible but unestablished explanation for the difference, and this item should test that rather than assume it.
+> **Refinement from CF1:** "vanilla" here means the baseline T1 selects — most likely the publisher's official bug-patch executable rather than the retail `ASCEND.EXE`, which is not freely distributed. Both are standalone full builds of the same game and are close in size (610863 vs 587451 bytes), which is what makes a whole-image differential tractable.
+>
+> **Two things this item must not assume.** First, that the pair is build-comparable: T1 owes lineage evidence, and if it reports comparability as unproven, RE1 must treat unrelated bug fixes as an expected confound and weight candidates accordingly instead of reading every difference as AI-related. Second, that the size delta is explained by the AI changes — the Antagonizer image is the *larger* of the two, which is consistent with added behavior but also with an unrelated build difference. Test it; do not assume it.
 
 ### Work
 

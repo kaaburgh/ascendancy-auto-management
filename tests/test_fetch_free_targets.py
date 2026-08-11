@@ -80,33 +80,31 @@ class FixtureCase(unittest.TestCase):
         path.write_text(json.dumps({"schema": 1, "entries": [entry]}), encoding="utf-8")
         return path
 
-    def run_tool(self, *args: str) -> int:
-        return fft.main([*args])
+    def run_tool(self, manifest: pathlib.Path, *args: str) -> int:
+        # manifest_path is a function parameter, not a CLI option: the shipped
+        # command line must not be able to name an unreviewed source.
+        return fft.main([*args], manifest_path=manifest)
 
-    def assertFails(self, *args: str) -> None:
-        self.assertNotEqual(0, self.run_tool(*args))
+    def assertFails(self, manifest: pathlib.Path, *args: str) -> None:
+        self.assertNotEqual(0, self.run_tool(manifest, *args))
 
     @property
     def output(self) -> pathlib.Path:
         return self.dest / "PAYLOAD.EXE"
 
-    def base_args(self, manifest: pathlib.Path) -> list[str]:
-        return [
-            "--manifest", str(manifest),
-            "--dest", str(self.dest),
-            "--allow-unignored-dest",
-        ]
+    def base_args(self) -> list[str]:
+        return ["--dest", str(self.dest), "--allow-unignored-dest"]
 
 
 class TestHappyPath(FixtureCase):
     def test_fetch_writes_verified_member(self) -> None:
         manifest = self.manifest()
-        self.assertEqual(0, self.run_tool(*self.base_args(manifest)))
+        self.assertEqual(0, self.run_tool(manifest, *self.base_args()))
         self.assertEqual(MEMBER_BYTES, self.output.read_bytes())
 
     def test_second_run_is_idempotent(self) -> None:
         manifest = self.manifest()
-        args = self.base_args(manifest)
+        args = [manifest, *self.base_args()]
         self.assertEqual(0, self.run_tool(*args))
         mtime = self.output.stat().st_mtime_ns
         self.assertEqual(0, self.run_tool(*args))
@@ -114,38 +112,38 @@ class TestHappyPath(FixtureCase):
 
     def test_verify_mode_accepts_good_output(self) -> None:
         manifest = self.manifest()
-        args = self.base_args(manifest)
+        args = [manifest, *self.base_args()]
         self.assertEqual(0, self.run_tool(*args))
         self.assertEqual(0, self.run_tool(*args, "--verify"))
 
     def test_list_mode_needs_no_destination(self) -> None:
         manifest = self.manifest()
-        self.assertEqual(0, self.run_tool("--manifest", str(manifest), "--list"))
+        self.assertEqual(0, self.run_tool(manifest, "--list"))
 
     def test_no_partial_file_is_left_behind(self) -> None:
         manifest = self.manifest()
-        self.assertEqual(0, self.run_tool(*self.base_args(manifest)))
+        self.assertEqual(0, self.run_tool(manifest, *self.base_args()))
         self.assertEqual([], list(self.dest.glob("*.part")))
 
 
 class TestFailsClosed(FixtureCase):
     def test_unknown_id_is_rejected(self) -> None:
         manifest = self.manifest()
-        self.assertFails(*self.base_args(manifest), "does-not-exist")
+        self.assertFails(manifest, *self.base_args(), "does-not-exist")
         self.assertFalse(self.dest.exists())
 
     def test_archive_hash_mismatch_writes_nothing(self) -> None:
         manifest = self.manifest(
             sources=[self.source(self.archive_path, archive_sha256="00" * 32)]
         )
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_archive_size_mismatch_writes_nothing(self) -> None:
         manifest = self.manifest(
             sources=[self.source(self.archive_path, archive_size=len(self.archive_bytes) + 1)]
         )
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_oversized_response_is_refused(self) -> None:
@@ -154,24 +152,24 @@ class TestFailsClosed(FixtureCase):
         manifest = self.manifest(
             sources=[self.source(self.archive_path, archive_size=8)]
         )
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_member_hash_mismatch_writes_nothing(self) -> None:
         manifest = self.manifest(member_sha256="11" * 32)
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_member_size_mismatch_writes_nothing(self) -> None:
         manifest = self.manifest(member_size=len(MEMBER_BYTES) + 1)
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_missing_member_writes_nothing(self) -> None:
         manifest = self.manifest(
             sources=[self.source(self.archive_path, member="ABSENT.EXE")]
         )
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_ambiguous_member_is_rejected(self) -> None:
@@ -181,13 +179,13 @@ class TestFailsClosed(FixtureCase):
             make_zip({MEMBER_NAME: MEMBER_BYTES, MEMBER_NAME.lower(): b"other"}),
         )
         manifest = self.manifest(sources=[self.source(ambiguous)])
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_corrupt_archive_is_rejected(self) -> None:
         corrupt = self.write_archive("corrupt.zip", b"this is not a zip file")
         manifest = self.manifest(sources=[self.source(corrupt)])
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_unreachable_source_is_rejected(self) -> None:
@@ -202,33 +200,94 @@ class TestFailsClosed(FixtureCase):
                 }
             ]
         )
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
     def test_verify_mode_rejects_tampered_output(self) -> None:
         manifest = self.manifest()
-        args = self.base_args(manifest)
+        args = [manifest, *self.base_args()]
         self.assertEqual(0, self.run_tool(*args))
         self.output.write_bytes(MEMBER_BYTES + b"tampered")
         self.assertFails(*args, "--verify")
 
     def test_verify_mode_rejects_missing_output(self) -> None:
         manifest = self.manifest()
-        self.assertFails(*self.base_args(manifest), "--verify")
+        self.assertFails(manifest, *self.base_args(), "--verify")
 
     def test_existing_mismatched_output_is_not_overwritten(self) -> None:
         manifest = self.manifest()
         self.dest.mkdir(parents=True)
         self.output.write_bytes(b"local edit")
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertEqual(b"local edit", self.output.read_bytes())
 
     def test_force_replaces_mismatched_output(self) -> None:
         manifest = self.manifest()
         self.dest.mkdir(parents=True)
         self.output.write_bytes(b"local edit")
-        self.assertEqual(0, self.run_tool(*self.base_args(manifest), "--force"))
+        self.assertEqual(0, self.run_tool(manifest, *self.base_args(), "--force"))
         self.assertEqual(MEMBER_BYTES, self.output.read_bytes())
+
+
+class TestManifestOverrideIsNotExposed(FixtureCase):
+    """The CLI must not offer a way to name an unreviewed source.
+
+    Hash pinning proves the bytes are intact, not that anyone approved the
+    source, so a manifest option on the command line would let the normal
+    fetcher pull an artifact that never passed repository review.
+    """
+
+    def test_cli_rejects_a_manifest_option(self) -> None:
+        manifest = self.manifest()
+        with self.assertRaises(SystemExit):
+            fft.main(["--manifest", str(manifest)])
+
+    def test_cli_rejects_a_url_option(self) -> None:
+        with self.assertRaises(SystemExit):
+            fft.main(["--url", "https://example.invalid/evil.zip"])
+
+    def test_parser_exposes_no_source_naming_flags(self) -> None:
+        flags = {
+            option
+            for action in fft.build_parser()._actions
+            for option in action.option_strings
+        }
+        for forbidden in ("--manifest", "--url", "--source", "--sha256"):
+            self.assertNotIn(forbidden, flags)
+
+    def test_cli_default_is_the_committed_manifest(self) -> None:
+        # With no manifest parameter, main() must read the reviewed manifest.
+        self.assertEqual(0, fft.main(["--list"]))
+
+
+class TestSourceIndex(FixtureCase):
+    def test_selects_the_requested_source(self) -> None:
+        broken = self.write_archive("broken.zip", b"not a zip")
+        manifest = self.manifest(
+            sources=[self.source(broken), self.source(self.archive_path)]
+        )
+        # Index 1 is the good mirror; index 0 would fail on its own.
+        self.assertEqual(
+            0, self.run_tool(manifest, *self.base_args(), "--source-index", "1")
+        )
+        self.assertEqual(MEMBER_BYTES, self.output.read_bytes())
+
+    def test_does_not_fall_back_to_other_sources(self) -> None:
+        broken = self.write_archive("broken.zip", b"not a zip")
+        manifest = self.manifest(
+            sources=[self.source(broken), self.source(self.archive_path)]
+        )
+        self.assertFails(manifest, *self.base_args(), "--source-index", "0")
+        self.assertFalse(self.output.exists())
+
+    def test_out_of_range_index_is_rejected(self) -> None:
+        manifest = self.manifest()
+        for index in ("1", "-1", "99"):
+            with self.subTest(index=index):
+                self.assertFails(
+                    manifest, *self.base_args(), "--source-index", index
+                )
+                self.assertFalse(self.output.exists())
 
 
 class TestMirrorFallback(FixtureCase):
@@ -237,7 +296,7 @@ class TestMirrorFallback(FixtureCase):
         manifest = self.manifest(
             sources=[self.source(broken), self.source(self.archive_path)]
         )
-        self.assertEqual(0, self.run_tool(*self.base_args(manifest)))
+        self.assertEqual(0, self.run_tool(manifest, *self.base_args()))
         self.assertEqual(MEMBER_BYTES, self.output.read_bytes())
 
     def test_mirrors_may_repackage_the_same_member_differently(self) -> None:
@@ -249,13 +308,13 @@ class TestMirrorFallback(FixtureCase):
         manifest = self.manifest(
             sources=[self.source(renamed, member="F_PAYLOAD.EXE")]
         )
-        self.assertEqual(0, self.run_tool(*self.base_args(manifest)))
+        self.assertEqual(0, self.run_tool(manifest, *self.base_args()))
         self.assertEqual(MEMBER_BYTES, self.output.read_bytes())
 
     def test_all_sources_failing_is_a_failure(self) -> None:
         broken = self.write_archive("broken.zip", b"not a zip")
         manifest = self.manifest(sources=[self.source(broken), self.source(broken)])
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
 
@@ -266,28 +325,28 @@ class TestManifestValidation(FixtureCase):
         return path
 
     def test_missing_manifest_is_rejected(self) -> None:
-        self.assertFails("--manifest", str(self.tmp / "nope.json"), "--list")
+        self.assertFails(self.tmp / "nope.json", "--list")
 
     def test_invalid_json_is_rejected(self) -> None:
         path = self.tmp / "bad.json"
         path.write_text("{not json", encoding="utf-8")
-        self.assertFails("--manifest", str(path), "--list")
+        self.assertFails(path, "--list")
 
     def test_unsupported_schema_is_rejected(self) -> None:
         path = self.write_manifest({"schema": 99, "entries": []})
-        self.assertFails("--manifest", str(path), "--list")
+        self.assertFails(path, "--list")
 
     def test_empty_entries_is_rejected(self) -> None:
         path = self.write_manifest({"schema": 1, "entries": []})
-        self.assertFails("--manifest", str(path), "--list")
+        self.assertFails(path, "--list")
 
     def test_entry_missing_required_key_is_rejected(self) -> None:
         path = self.write_manifest({"schema": 1, "entries": [{"id": "x"}]})
-        self.assertFails("--manifest", str(path), "--list")
+        self.assertFails(path, "--list")
 
     def test_entry_without_sources_is_rejected(self) -> None:
         manifest = self.manifest(sources=[])
-        self.assertFails("--manifest", str(manifest), "--list")
+        self.assertFails(manifest, "--list")
 
     def test_duplicate_ids_are_rejected(self) -> None:
         entry = {
@@ -299,7 +358,7 @@ class TestManifestValidation(FixtureCase):
         }
         other = dict(entry, output="B.EXE")
         path = self.write_manifest({"schema": 1, "entries": [entry, other]})
-        self.assertFails("--manifest", str(path), "--list")
+        self.assertFails(path, "--list")
 
     def test_duplicate_outputs_are_rejected(self) -> None:
         entry = {
@@ -311,7 +370,7 @@ class TestManifestValidation(FixtureCase):
         }
         other = dict(entry, id="two")
         path = self.write_manifest({"schema": 1, "entries": [entry, other]})
-        self.assertFails("--manifest", str(path), "--list")
+        self.assertFails(path, "--list")
 
     def test_output_path_traversal_is_rejected(self) -> None:
         # Windows separators and drive prefixes must be rejected too: they look
@@ -329,7 +388,7 @@ class TestManifestValidation(FixtureCase):
         ):
             with self.subTest(output=output):
                 manifest = self.manifest(output=output)
-                self.assertFails("--manifest", str(manifest), "--list")
+                self.assertFails(manifest, "--list")
 
     def test_bare_filename_accepts_plain_names(self) -> None:
         for output in ("ANTAG_EN.EXE", "patch.exe", "a.b.c"):
@@ -340,7 +399,7 @@ class TestManifestValidation(FixtureCase):
         source = self.source(self.archive_path)
         del source["archive_sha256"]
         manifest = self.manifest(sources=[source])
-        self.assertFails(*self.base_args(manifest))
+        self.assertFails(manifest, *self.base_args())
         self.assertFalse(self.output.exists())
 
 
@@ -348,7 +407,7 @@ class TestDestinationSafety(FixtureCase):
     def test_tracked_repository_path_is_refused(self) -> None:
         manifest = self.manifest()
         self.assertFails(
-            "--manifest", str(manifest), "--dest", str(ROOT / "docs" / "re"),
+            manifest, "--dest", str(ROOT / "docs" / "re"),
         )
         self.assertFalse((ROOT / "docs" / "re" / "PAYLOAD.EXE").exists())
 

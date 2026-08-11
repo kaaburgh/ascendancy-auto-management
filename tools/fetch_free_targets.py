@@ -7,8 +7,10 @@ reproducibly. It only ever downloads artifacts listed in
 output file only after the downloaded archive *and* the extracted member both
 match their pinned size and SHA-256.
 
-It deliberately cannot be pointed at an arbitrary URL. Adding a source means
-editing the manifest, which is reviewable.
+The command line deliberately exposes no way to supply a different manifest or
+URL, so adding a source requires editing the committed manifest, which is
+reviewable. Hash pinning proves the bytes are intact; it says nothing about
+whether a source was ever permitted, and only review can establish that.
 
 See ``docs/experiments/CF1-cloud-target-access.md`` for provenance and the
 repository policy that governs what may be listed in the manifest.
@@ -283,6 +285,17 @@ def select_entries(entries: list[dict], ids: list[str] | None) -> list[dict]:
     return [by_id[name] for name in ids]
 
 
+def select_source(entry: dict, index: int) -> dict:
+    """Restrict ``entry`` to a single one of its already-reviewed sources."""
+    sources = entry["sources"]
+    if index < 0 or index >= len(sources):
+        raise FetchError(
+            f"entry {entry['id']!r} has {len(sources)} source(s); "
+            f"--source-index {index} is out of range"
+        )
+    return dict(entry, sources=[sources[index]])
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -291,12 +304,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="manifest ids to process (default: every entry)",
     )
     parser.add_argument(
-        "--manifest", type=pathlib.Path, default=DEFAULT_MANIFEST,
-        help="source manifest (default: tools/free-target-sources.json)",
-    )
-    parser.add_argument(
         "--dest", type=pathlib.Path, default=DEFAULT_DEST,
         help="output directory (default: binaries/, which is git-ignored)",
+    )
+    parser.add_argument(
+        "--source-index", type=int, default=None, metavar="N",
+        help="use only source N (0-based) of each selected entry, instead of "
+             "trying each in turn. For reproducing a specific mirror; the "
+             "sources themselves still come from the reviewed manifest.",
     )
     parser.add_argument(
         "--list", action="store_true", help="list manifest entries and exit",
@@ -316,11 +331,27 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    manifest_path: pathlib.Path = DEFAULT_MANIFEST,
+) -> int:
+    """Run the CLI.
+
+    ``manifest_path`` is deliberately **not** a command-line option. Allowing
+    one would defeat the point of pinning sources in a reviewed manifest: an
+    arbitrary JSON file could name any URL with a matching hash, and hash
+    verification proves integrity, not that the source was ever reviewed. The
+    parameter exists so tests can drive this function against fixtures; the
+    shipped command line can only read the committed manifest.
+    """
     args = build_parser().parse_args(argv)
 
     try:
-        entries = select_entries(load_manifest(args.manifest), args.ids)
+        entries = select_entries(load_manifest(manifest_path), args.ids)
+        if args.source_index is not None:
+            entries = [
+                select_source(entry, args.source_index) for entry in entries
+            ]
     except FetchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

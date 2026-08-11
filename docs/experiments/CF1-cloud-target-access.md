@@ -124,7 +124,7 @@ Two findings worth carrying forward:
 - writes through a `.part` file and renames only after verification, so a failure leaves no output;
 - refuses to overwrite an existing output whose hash differs, unless `--force`;
 - refuses a destination inside the repository that is not under a git-ignored root, so target bytes cannot be committed by accident;
-- has no URL override: adding a source means a reviewable manifest edit.
+- exposes **no way to name a source from the command line** — no URL, hash, or manifest option — so adding a source requires editing the committed manifest, which is reviewable. Hash pinning proves the bytes are intact; it says nothing about whether a source was ever permitted, and only review can establish that. `--source-index N` can restrict an entry to one of its *already-reviewed* mirrors, which is how the mirror cross-check below is reproduced.
 
 Verified in this sandbox:
 
@@ -140,7 +140,7 @@ $ python3 tools/fetch_free_targets.py --verify
 4 of 4 entries verified.
 ```
 
-A manifest restricted to each entry's *second* source was also run, and both Antagonizer mirrors produced the same pinned member hash, so the fallback path is exercised against reality and not only against fixtures.
+Each entry's *second* source was also run in isolation (`--source-index 1`), and both Antagonizer mirrors produced the same pinned member hash, so the mirror path is exercised against reality and not only against fixtures.
 
 `tests/test_fetch_free_targets.py` covers the logic with 40 stdlib-`unittest`
 tests over synthetic zip fixtures served via `file://`, so CI needs no network
@@ -157,7 +157,9 @@ output path traversal, and unsafe destinations.
 
 - The Antagonizer production target **is** directly obtainable in cloud, hash-pinned, from two independent mirrors.
 - A vanilla-lineage reference **is** directly obtainable in cloud: the publisher's official bug-patch executable, a complete game binary carrying a publisher-documented version string (1.6.5 English / 1.8.5 non-English).
-- The **retail unpatched `ASCEND.EXE`** is not freely distributed and is not in cloud. It is a *nice-to-have* third reference, not a prerequisite: the diff RE1 actually wants is Antagonizer ↔ same-lineage non-Antagonizer build, and the bug-patch executable serves that role.
+- The **retail unpatched `ASCEND.EXE`** is not freely distributed and is not in cloud. It is a *nice-to-have* third reference, not a prerequisite.
+
+Note carefully what this experiment did **not** establish. It settled the *packaging* relationship between the bug patch and the Antagonizer — both are standalone executables rather than a patch stacked on a base — and nothing about their **build lineage**. Whether the two were compiled from comparable source snapshots is open, and it matters: an ill-matched pair makes a whole-image differential show unrelated bug fixes alongside the AI changes, which would corrupt RE1's candidate ranking while still looking plausible. The English pair's ~2-month timestamp gap is a live reason for doubt. T1 owes that lineage evidence before naming a baseline; this record supplies only availability and provenance.
 - The **retail game data files** are not obtainable in cloud, and the repository must not try. Every task needing them is a runtime task already owned by CF3/CF4.
 
 ### Deliberately not done

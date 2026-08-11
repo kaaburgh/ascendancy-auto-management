@@ -130,12 +130,25 @@ def inspect_le(data: bytes, offset: int, warnings: list[str]) -> dict[str, Any] 
         )
         return {"magic": "LE"}
 
+    byte_order = data[offset + 0x02]
+    word_order = data[offset + 0x03]
+    if byte_order != 0 or word_order != 0:
+        warnings.append(
+            "LE header uses unsupported byte/word order "
+            f"({byte_order}/{word_order}); multi-byte metadata was not decoded"
+        )
+        return {
+            "magic": "LE",
+            "byte_order": byte_order,
+            "word_order": word_order,
+        }
+
     cpu_type = u16(data, offset + 0x08)
     os_type = u16(data, offset + 0x0A)
     return {
         "magic": "LE",
-        "byte_order": data[offset + 0x02],
-        "word_order": data[offset + 0x03],
+        "byte_order": byte_order,
+        "word_order": word_order,
         "format_level": u32(data, offset + 0x04),
         "cpu_type": cpu_type,
         "cpu_name": CPU_TYPES.get(cpu_type),
@@ -253,6 +266,33 @@ def build_target_record(
     }
 
 
+def ensure_output_does_not_alias_input(
+    input_path: pathlib.Path, output_path: pathlib.Path
+) -> None:
+    """Refuse an output path that names the target file through any known alias."""
+    try:
+        input_resolved = input_path.resolve(strict=True)
+        output_resolved = output_path.resolve(strict=False)
+    except OSError as exc:
+        raise InspectError(f"cannot validate input/output paths: {exc}") from exc
+
+    if output_resolved == input_resolved:
+        raise InspectError(
+            f"output {output_path} resolves to the input file; refusing to overwrite target"
+        )
+
+    if output_path.exists():
+        try:
+            if output_path.samefile(input_path):
+                raise InspectError(
+                    f"output {output_path} aliases the input file; refusing to overwrite target"
+                )
+        except InspectError:
+            raise
+        except OSError as exc:
+            raise InspectError(f"cannot validate output path {output_path}: {exc}") from exc
+
+
 def build_manifest(target: dict[str, Any]) -> dict[str, Any]:
     return {"schema": SCHEMA_VERSION, "targets": [target]}
 
@@ -287,6 +327,8 @@ def main(argv: list[str] | None = None) -> int:
         target = build_target_record(
             path, args.input, args.label, output_arg, target_id=args.id
         )
+        if args.output:
+            ensure_output_does_not_alias_input(path, args.output)
     except InspectError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

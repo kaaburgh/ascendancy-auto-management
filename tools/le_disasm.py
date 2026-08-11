@@ -7,15 +7,21 @@ object with `le_image`, hands the bytes to `objdump -b binary`, and turns the
 listing into small derived artifacts rather than a bulk disassembly dump.
 
 What it emits is deliberately a *derived representation*: candidate function
-starts, a call graph, and two normalized signatures per candidate function. That
-keeps committed artifacts small and avoids republishing the game's code, while
-still giving later tasks something to match and diff against.
+starts, a call graph, and three signatures per candidate function. That keeps
+committed artifacts small and avoids republishing the game's code, while still
+giving later tasks something to match and diff against.
 
-The two signatures are the point of the design. `signature` masks only values
-inside the image's own object ranges, so it preserves constants; the
-`shape_signature` masks every constant. Comparing both lets `le_diff` separate
-structural change from "same code, different constants" without having to guess
-which small values are data relocations.
+The signatures deliberately form a lossiness ladder:
+
+- `signature` preserves every operand. A changed callee, global/state address,
+  table reference, threshold, flag, or size therefore cannot disappear into an
+  "identical" match.
+- `reference_signature` masks only values inside the image's object ranges.
+  It groups candidates whose only textual changes are in-image references, but
+  `le_diff` reports those as `reference_only_differences` instead of calling
+  them identical because a retarget can be behavioral.
+- `shape_signature` masks every hexadecimal operand. It is used only after the
+  first two passes to isolate same-shape/different-constant candidates.
 
 Two limits to keep in mind when reading the output:
 
@@ -46,6 +52,8 @@ import le_image  # noqa: E402
 from le_image import LEError  # noqa: E402
 
 OBJDUMP_ENV = {"LC_ALL": "C"}
+INVENTORY_SCHEMA = "ascendancy.le-disasm.inventory/v2"
+PARSER_LAYOUT_ID = "open-watcom-os2-flat-header-page-off-0x80/v1"
 
 # "   783c1:\t66 26 8b 03          \tmov    ax,WORD PTR es:[ebx]"
 LINE_RE = re.compile(r"^\s*([0-9a-f]+):\t((?:[0-9a-f]{2} )+)\s*\t(.*)$")
@@ -76,25 +84,27 @@ def objdump_version(objdump: str) -> str:
     return result.stdout.splitlines()[0].strip() if result.stdout else "unknown"
 
 
-def normalize(text: str, address_ranges: tuple[tuple[int, int], ...] = ()) -> str:
-    """Mask relocated addresses while preserving semantic constants.
+def normalize(text: str) -> str:
+    """Collapse whitespace without changing operands.
 
-    Only hex values that land inside one of the image's own object ranges are
-    masked. Everything else survives verbatim, which matters: masking *every*
-    hex operand would give `cmp eax,0x1` and `cmp eax,0x2` the same signature,
-    so a change consisting only of a threshold, size, bias or flag would be
-    reported as "identical" and dropped from the candidate list — hiding
-    precisely the kind of difference this project is looking for.
-
-    A constant that happens to fall inside an image range is still masked, and
-    a value inside one image's range but not the other's normalizes differently
-    between them. Both residual cases push toward reporting a *mismatch*, which
-    costs a candidate to inspect rather than concealing a real change.
-
-    With no ranges supplied nothing is masked, so callers must pass the ranges
-    to get relocation tolerance.
+    This is the lossless signature input. In particular, in-image references
+    are preserved here: `call 0x10080` -> `call 0x100c0` and
+    `mov eax,ds:0x90010` -> `...0x90020` may be real behavior changes and must
+    not be labelled identical merely because both operands look relocatable.
     """
-    collapsed = " ".join(text.split())
+    return " ".join(text.split())
+
+
+def normalize_references(
+    text: str, address_ranges: tuple[tuple[int, int], ...] = ()
+) -> str:
+    """Mask in-image reference values while preserving other constants.
+
+    This intentionally groups both benign relocation noise and potentially
+    behavioral retargets. It is therefore *not* the strict/identical signature;
+    `le_diff` exposes matches here as a separate reference-only bucket for RE1.
+    """
+    collapsed = normalize(text)
     if not address_ranges:
         return collapsed
 
@@ -111,15 +121,15 @@ def normalize(text: str, address_ranges: tuple[tuple[int, int], ...] = ()) -> st
 def normalize_shape(text: str) -> str:
     """Mask every hex value, keeping only the instruction's shape.
 
-    Deliberately lossy, and never used alone. Paired with `normalize` it lets
-    the diff separate "structurally different" from "same code, different
-    constants" — which matters because this build references data through
-    DS-relative offsets far too small to look like addresses (`mov ebx,0x59d8`,
-    `cmp DWORD PTR ds:0x9d90,0x0`). Those are relocations that move when the
-    data layout moves, and they are indistinguishable by value from a genuine
-    threshold. Rather than guess, the diff reports that class separately.
+    Deliberately lossy, and never used alone. After exact and reference-only
+    matching it lets the diff separate "structurally different" from "same
+    instruction shape, different remaining constants". This matters because
+    this build also references data through DS-relative offsets too small to
+    look like image VAs (`mov ebx,0x59d8`, `cmp DWORD PTR ds:0x9d90,0x0`).
+    Those offsets relocate with layout yet are indistinguishable by value from
+    genuine thresholds, so the diff reports that class separately.
     """
-    return HEX_RE.sub("IMM", " ".join(text.split()))
+    return HEX_RE.sub("IMM", normalize(text))
 
 
 def disassemble(
@@ -213,8 +223,10 @@ def build_inventory(
     starts = sorted({seed_address} | {target for _, target in call_sites})
 
     # Attribute each instruction to the candidate function that precedes it.
-    bounds = {start: (starts[i + 1] if i + 1 < len(starts) else high)
-              for i, start in enumerate(starts)}
+    bounds = {
+        start: (starts[i + 1] if i + 1 < len(starts) else high)
+        for i, start in enumerate(starts)
+    }
 
     def owner(address: int) -> int | None:
         # starts is sorted; find the greatest start <= address
@@ -230,13 +242,15 @@ def build_inventory(
         return best
 
     per_function: dict[int, list[str]] = collections.defaultdict(list)
+    per_function_reference: dict[int, list[str]] = collections.defaultdict(list)
     per_function_shape: dict[int, list[str]] = collections.defaultdict(list)
     per_function_bytes: collections.Counter = collections.Counter()
     for address, length, text in instructions:
         start = owner(address)
         if start is None:
             continue
-        per_function[start].append(normalize(text, address_ranges))
+        per_function[start].append(normalize(text))
+        per_function_reference[start].append(normalize_references(text, address_ranges))
         per_function_shape[start].append(normalize_shape(text))
         per_function_bytes[start] += length
 
@@ -263,6 +277,9 @@ def build_inventory(
                 "callers": incoming.get(start, 0),
                 "is_entry": entry_address is not None and start == entry_address,
                 "signature": digest(body),
+                "reference_signature": digest(
+                    per_function_reference.get(start, [])
+                ),
                 "shape_signature": digest(per_function_shape.get(start, [])),
             }
         )
@@ -310,9 +327,10 @@ def analyse(
     entry_in_object = obj.base_address <= image.entry_address < obj.end_address
     seed = image.entry_address if entry_in_object else obj.base_address
 
-    # Masking is driven by the whole image's object ranges, not just this
-    # object's: code here legitimately references data-object addresses, and
-    # those relocate between builds too.
+    # Reference normalization is driven by the whole image's object ranges, not
+    # just this object's: code here legitimately references data-object VAs.
+    # These values are *not* hidden by the strict signature; they are masked
+    # only into reference_signature and remain visible as their own diff bucket.
     address_ranges = tuple(
         (other.base_address, other.end_address) for other in image.objects
     )
@@ -327,14 +345,19 @@ def analyse(
     )
 
     return {
+        "schema": INVENTORY_SCHEMA,
         "source": {
             "name": image.name,
             "sha256": image.sha256,
             "object": object_index,
+            "object_sha256": hashlib.sha256(data).hexdigest(),
             "base_address": obj.base_address,
             "end_address": obj.end_address,
             "virtual_size": obj.virtual_size,
             "entry_address": image.entry_address,
+            "parser_layout": PARSER_LAYOUT_ID,
+            "page_offset_header_offset": le_image.H_DATAPAGE,
+            "data_page_offset": image.data_page_offset,
         },
         "tool": {
             "objdump": objdump_version(objdump),
@@ -343,8 +366,11 @@ def analyse(
                       "direct call targets plus a seed at the entry point when "
                       "it lies in this object, otherwise the object base",
             "seed_address": seed,
-            "normalization": "hex operands inside the image's object ranges are "
-                             "masked as ADDR; all other constants are preserved",
+            "normalization": (
+                "signature preserves every operand; reference_signature masks "
+                "hex operands inside image object ranges; shape_signature masks "
+                "all hex operands"
+            ),
         },
         **inventory,
     }
@@ -383,8 +409,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.summary:
         source = report["source"]
-        print(f"{source['name']} object {source['object']} "
-              f"(0x{source['base_address']:x}-0x{source['end_address']:x})")
+        print(
+            f"{source['name']} object {source['object']} "
+            f"(0x{source['base_address']:x}-0x{source['end_address']:x})"
+        )
         print(f"  instructions decoded  : {report['instruction_count']}")
         print(f"  candidate functions   : {report['candidate_function_count']}")
         print(f"  direct call sites     : {report['call_site_count']}")
@@ -396,8 +424,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(text + "\n", encoding="utf-8")
-        print(f"wrote {args.output} ({report['candidate_function_count']} candidate "
-              f"functions, {report['instruction_count']} instructions)")
+        print(
+            f"wrote {args.output} ({report['candidate_function_count']} candidate "
+            f"functions, {report['instruction_count']} instructions)"
+        )
     else:
         print(text)
     return 0

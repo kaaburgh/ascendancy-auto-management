@@ -30,3 +30,20 @@ jobs:
       # The suite must stay network-free: download paths are exercised against
       # synthetic file:// fixtures, and LE parsing against synthetic images.
       - run: python -m unittest discover -s tests -v
+
+  cf2-real-target:
+    name: CF2 real-target regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check binutils is available
+        run: objdump --version
+      # This is intentionally separate from the network-free unit suite. The
+      # four publisher-distributed executables are fetched through the CF1
+      # fail-closed manifest, hash-verified, kept under git-ignored binaries/,
+      # and then analysed by the repository CLIs from this exact checkout.
+      - name: Validate corrected CF2 pipeline on pinned targets
+        run: python scripts/validate_cf2_real_targets.py --fetch

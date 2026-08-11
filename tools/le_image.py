@@ -412,7 +412,12 @@ class LEImage:
         for i in range(obj.page_count):
             number = self.page_numbers[obj.first_page - 1 + i]
             offset = self.page_file_offset(number)
-            chunks.append(self._data[offset : offset + self.page_length(number)])
+            payload = self._data[offset : offset + self.page_length(number)]
+            # The page map describes virtual pages. A physically short final
+            # enumerated page still occupies one full virtual page when it is
+            # mapped before another page, so pad it before concatenation rather
+            # than allowing the following virtual page to slide left.
+            chunks.append(payload + b"\x00" * (self.page_size - len(payload)))
         image = b"".join(chunks)
 
         if len(image) > obj.virtual_size:

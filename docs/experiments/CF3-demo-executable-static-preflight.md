@@ -3,7 +3,7 @@
 - Date: 2026-08-11
 - Scope: static preflight for the maintainer-supplied Ascendancy demo executable and full demo ZIP
 - Evidence: **real-file static** for supplied bytes; package provenance as an official demo is **maintainer-reported/self-identifying from README** and has not yet been independently reproduced from a public source
-- Runtime status: **not completed** — this cloud image lacks a DOS emulator and its apt DNS path is blocked
+- Runtime follow-up: **demo boot and planet UI now observed successfully**; see [`CF3-cloud-runtime-debugging.md`](./CF3-cloud-runtime-debugging.md)
 
 ## Supplied package
 
@@ -41,24 +41,26 @@ ascend02.cob
 
 and all three named archives are present.
 
-The README's installed-file section describes 20 installed files and mentions `DIG.INI` and `ASCEND.CFG`, while this downloadable ZIP contains 19 entries, including `ASCEND02.COB` and omitting those two configuration files. The README's top-level downloader instructions explicitly say to run `SETSOUND` after unzipping, so the discrepancy is consistent with a downloader package whose runtime configuration is produced during setup, but that generation behavior is not claimed as tested here.
+The README's installed-file section describes 20 installed files and mentions `DIG.INI` and `ASCEND.CFG`, while this downloadable ZIP contains 19 entries, including `ASCEND02.COB` and omitting those two configuration files. The README's downloader instructions explicitly say to run `SETSOUND` after unzipping. A later runtime run deliberately disabled emulated sound and reached the game/planet UI without those generated configuration files; that does not establish the normal sound-setup behavior.
 
-## The demo contains the relevant feature by package documentation
+## The demo contains the relevant feature
 
-The most important new CF3 fact is in the demo's own README. Its special-key list says:
+The demo's own README says:
 
 ```text
 <M>         toggle research and planet self-management
 ```
 
-The same package data also contains plaintext help/UI material for:
+The same package data contains plaintext help/UI material for:
 
 - `Planet Status Screen`
 - `Planet Display`
 - `Research Display`
 - colony/planet project, industry, prosperity and research UI text
 
-Therefore the demo is **not documented as removing planet self-management or the relevant planet-management screens**. This is strong package-level static/reported evidence and makes the demo materially suitable for a later RE4/RE5 runtime experiment. It is still not a substitute for observing the behavior in a running emulator.
+The later runtime experiment confirms the broader UI path: the supplied demo boots, creates a new game, reaches the galaxy map, opens the `Planets` list, and opens the starting planet surface. Thus the planet-management screens are not merely dead package strings.
+
+The exact effect of `M` is still not claimed from screenshots: on the tested galaxy and planet screens the framebuffer did not change after the key, so its internal/turn-level effect still needs instrumentation or a behavioral experiment.
 
 ## Container/layout result
 
@@ -129,54 +131,54 @@ These are analysis metadata, not proven function boundaries.
 
 On this coarse candidate/signature metric the demo is structurally closer to the patch pair than to the Antagonizer pair. This is hypothesis-generating only; compiler/layout effects and demo-specific cuts remain confounders.
 
-## Static `ANTAG.EXE + demo data` compatibility preflight
+## Full-build-versus-demo-data boundary, now established at runtime
 
-The demo executable and all four full-build executables expose the same high-level external configuration/runtime filename contract in their strings, including:
+The earlier static preflight found no obvious high-level filename-contract mismatch. The runtime experiment has now identified the first concrete mismatch.
 
-- `cob.cfg`
-- `ascend.cfg`
-- `DIG.INI` / `MDI.INI`
-- `dos4gw.exe`
-- VESA/UniVBE hooks and Miles DIG driver handling
+Both exact full-build executables tested against the otherwise unchanged demo data — `ANTAG_EN.EXE` and the official `PATCH_EN.EXE` control — successfully open:
 
-The supplied demo package contains the three archives named by its `COB.CFG`, so there is no immediate top-level filename-contract mismatch that statically rules out launching a full-build executable against the demo directory.
+```text
+COB.CFG
+ASCEND00.COB
+ASCEND01.COB
+ASCEND02.COB
+```
 
-However, this is **not enough to claim compatibility**. Full-build/Antagonizer executables contain additional resource-name strings not present in the demo executable, and some such names are not observable as plaintext in the supplied COBs. COB compression/indexing and demo feature cuts make plaintext absence insufficient evidence of a missing resource. Only a runtime launch can establish whether `ANTAG.EXE` actually resolves everything it needs and reaches the relevant UI.
+and then attempt:
 
-## Runtime attempt and current blocker
+```text
+STATIC.TXT   fopen64 mode=rb
+```
 
-The current Debian 13 cloud image was checked for:
+The demo package has no `STATIC.TXT`, the read fails with `ENOENT`, and both full-build executables return to DOS before reaching their game UI.
 
-- DOSBox / DOSBox-X / DOSBox Staging
-- DOSEMU
-- QEMU i386/system emulation
-- Wine
+This is a stronger result than the old static compatibility hypothesis:
 
-None is installed. `Xvfb` and SDL2 are present.
+- `ANTAG.EXE + demo data` is **not compatible as supplied**;
+- the first observed failure is **not Antagonizer-specific**, because the official patch fails at the same boundary;
+- `static.txt` occurs in all four full-build executables and is absent from the demo executable;
+- there may be further full-build data dependencies after `STATIC.TXT`, so a complete authorized retail/full-build data handoff is preferable to fabricating or guessing individual files.
 
-The system has normal Debian `trixie`, `trixie-updates`, and `trixie-security` apt sources configured, but `apt-get update` fails with `Temporary failure resolving 'deb.debian.org'`. Therefore the missing emulator could not be installed through the sandbox's package manager in this run.
+The filesystem evidence and exact cloud runtime setup are recorded in [`CF3-cloud-runtime-debugging.md`](./CF3-cloud-runtime-debugging.md). The host-side probe source is [`../../tools/dosbox_fsprobe.c`](../../tools/dosbox_fsprobe.c).
 
-This is an **environment/network blocker, not evidence that cloud DOS execution is impractical**. CF3 remains `Investigation first`; it must not be converted to `LOCAL ONLY` from this result.
-
-## What this does and does not unblock
+## Current use of the demo
 
 Established now:
 
 1. exact demo ZIP and inner-EXE fingerprints are known;
-2. the full data package is available to the experiment;
-3. demo documentation explicitly includes planet self-management;
-4. planet-management UI/help material exists in the package;
-5. the corrected LE/static toolchain works on the demo executable;
-6. there is no obvious top-level file-contract reason that makes an `ANTAG.EXE` launch against demo data impossible.
+2. the full demo data package is available to the experiment;
+3. documentation explicitly includes planet self-management;
+4. the planet-management UI path is observed running under DOSBox/Xvfb;
+5. scripted mouse/keyboard input and framebuffer capture work in cloud;
+6. the corrected LE/static toolchain works on the demo executable;
+7. full-build-on-demo-data fails at the exact `STATIC.TXT` read boundary.
 
-Still requiring runtime evidence:
+Still unresolved:
 
-- demo boots successfully in a scriptable emulator;
-- planet-management/self-management behavior can be reached and observed;
-- `ANTAG.EXE` runs against the demo data set;
-- if it does not, the exact missing resource/state/runtime failure;
-- which RE4/RE5 instrumentation can be automated in cloud.
+- the internal/turn-level state effect of `M`;
+- full Antagonizer runtime against authorized full-game data;
+- debugger/memory/state instrumentation sufficient for RE4/RE5.
 
 ## Safety / repository policy
 
-No executable, ZIP, or copyrighted demo data is committed. Only hashes, layout metadata, aggregate analysis and package documentation findings are recorded.
+No executable, ZIP, Debian package, screenshot, COB, or copyrighted game/demo data is committed. Only hashes, layout metadata, aggregate analysis, runtime observations, and non-game diagnostic source are recorded.

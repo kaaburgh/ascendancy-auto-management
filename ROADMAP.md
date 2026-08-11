@@ -77,22 +77,26 @@ A cloud agent must **never** select a `GATED` or `LOCAL ONLY` item. It may impro
 
 ## Target strategy and current assumptions
 
-The intended production target is the **Antagonizer** executable because the project wants to extend its existing planetary self-management rather than rebuild vanilla AI behavior. The original/vanilla executable is useful as a reference for differential analysis.
+The intended production target is the **Antagonizer** executable because the project wants to extend its existing planetary self-management rather than rebuild vanilla AI behavior. T1 has now selected the exact English Antagonizer build as the canonical M1 production target and the English official bug-patch build as the canonical differential baseline.
 
-### Established by CF1 (static / reported)
+### Established by CF1/T0/T1 (static / reported)
 
 - The Antagonizer is a **standalone complete game executable** (`ANTAG.EXE`), copied beside the retail `ASCEND.EXE` and run instead of it. It is not a patcher, not a data file, and not stacked on top of a base executable.
 - The publisher's official bug patch has the same shape: `PATCH.EXE` (version 1.6.5, English) and `F_PATCH.EXE` (version 1.8.5, non-English) are also standalone full builds.
 - Both were distributed free of charge by The Logic Factory and are lawfully fetchable in cloud; the retail game **data** files are not.
-- Container format: DOS `MZ` stub at offset 0, Linear Executable (`LE`) image at `e_lfanew = 0x2a50`, bound DOS/4G extender. Not PE.
+- Canonical M1 target: `ANTAG_EN.EXE`, SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`, 610863 bytes.
+- Canonical comparison baseline: `PATCH_EN.EXE`, SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`, 587451 bytes; publisher-documented version 1.6.5.
+- Container format on the canonical pair: DOS `MZ`, Linear Executable (`LE`) image at `e_lfanew = 0x2a50`, Intel 80386 LE CPU type, bound DOS/4G-family runtime evidence. Not PE.
+- T1 strongly supports direct build-lineage comparability between the Antagonizer and bug-patch families: the same locale-layout delta and the same Antagonizer↔bug-patch object/string-anchor transformation repeat in English and International pairs. Exact source-control revision identity is not proven.
+- The International pair remains cross-locale corroboration/future compatibility input, not M1 support.
 
 ### Still assumptions
 
-These are project directions, not yet binary facts. Until the remaining target-baseline tasks complete, do not assume:
+These are project directions, not yet binary facts. Do not assume:
 
-- which of the four CF1 candidates is the canonical M1 target and baseline (T1 decides);
-- the load layout, segment/selector mapping, architecture details beyond the LE container, or DOS extender runtime behavior;
-- that the size difference between the Antagonizer and bug-patch images is explained by the AI changes;
+- the runtime load layout, segment/selector mapping, or DOS extender runtime behavior merely from LE header metadata;
+- that the size difference between the Antagonizer and bug-patch images is explained only by the AI changes;
+- that every whole-image difference is Antagonizer AI behavior; RE1 must retain unrelated bug-fix/configuration drift as a confound and prefer cross-locale or semantic corroboration;
 - that a particular address or function is stable between the baseline and Antagonizer;
 - that the auto-management state is a field in the planet object;
 - that the existing UI toggle directly writes the persistent state;
@@ -112,9 +116,9 @@ The expected critical path is:
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
-**Current front of the path:** CF1 and T0 are complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`), **CF3**, and **T1**.
+**Current front of the path:** CF1, T0 and T1 are complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`) and **CF3**. T2 becomes selectable once CF2 resolves its execution/toolchain contract.
 
-T1 is now selectable because both of its dependencies, CF1 and T0, are complete. T0 established only the target-fingerprint contract; canonical target/baseline selection and build-lineage evidence remain entirely T1 work.
+T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint without implementing the static-RE pipeline owned by CF2/T2.
 
 ---
 
@@ -147,7 +151,7 @@ Rejected / bounded:
 
 - the **retail game data files are not available as a lawful public dependency**, and the repository must not obtain them from abandonware or full retail distributions. This is a constraint handed to CF3/CF4, not a blocker for static RE. CF1 did **not** investigate the freely distributed official playable demo as a runtime fixture; that is CF3's, and CF1 must not be cited as ruling out a cloud runtime path.
 - the **retail unpatched `ASCEND.EXE`** is not freely distributed. It is an optional third reference, not a prerequisite.
-- CF1 settled the **packaging** relationship between the bug patch and the Antagonizer (both standalone executables), **not** their **build lineage**. Whether the pair is build-comparable is still open and is required evidence for T1 before a baseline is named.
+- CF1 settled the **packaging** relationship between the bug patch and the Antagonizer (both standalone executables), **not** their **build lineage**. T1 subsequently resolved the baseline decision with stronger cross-locale static lineage evidence; see [`docs/experiments/T1-canonical-target-selection.md`](./docs/experiments/T1-canonical-target-selection.md).
 - `web.archive.org` was **blocked by egress policy** in the sandbox where this ran even though `archive.org` was reachable. Do not build tooling on a Wayback fallback without re-probing.
 - abandonware full-game sources must never be added to the manifest, regardless of reachability.
 
@@ -191,7 +195,7 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 - **Gates:** T2, RE1, RE2, RE3
 - **Question:** Can the static analysis needed for this milestone be run headlessly and reproducibly in Codex or Claude cloud rather than requiring an interactive local Ghidra session?
 
-> **Input from CF1:** the targets are DOS `MZ` stubs wrapping a Linear Executable (`LE`) image with a bound DOS/4G extender, not PE files. The toolchain must handle LE/DOS-extender images; a PE-only pipeline will not do. This is the highest-information next task on the critical path.
+> **Input from CF1/T1:** the canonical pair is fixed and the targets are DOS `MZ` + Linear Executable (`LE`) images with a bound DOS/4G-family runtime, not PE files. The toolchain must handle LE/DOS-extender images; a PE-only pipeline will not do. T1 deliberately did not implement this reusable pipeline.
 
 ### Required investigation
 
@@ -335,7 +339,7 @@ Established (`synthetic` / tooling):
 
 Deliberately not established by T0:
 
-- no canonical Antagonizer target or comparison baseline was selected — T1 still owns that decision and its build-lineage evidence;
+- no canonical Antagonizer target or comparison baseline was selected — T1 later made that decision from real candidate bytes and lineage evidence;
 - no object/page-table walking, disassembly, function discovery, xrefs, strings pipeline or binary-diff workflow was implemented — that remains CF2/T2 scope;
 - no game binary was executed and no target runtime behavior was validated.
 
@@ -369,7 +373,7 @@ Another agent or maintainer can point the tool at candidate binaries and produce
 
 ## T1 — Establish the canonical Antagonizer target and vanilla reference
 
-- **Status:** Open
+- **Status:** **Completed and verified** — see [`docs/experiments/T1-canonical-target-selection.md`](./docs/experiments/T1-canonical-target-selection.md). Static evidence establishes exact candidate identities and strongly supports directly comparable Antagonizer↔bug-patch build lineage; exact source-control revision identity remains unproven and is carried forward as an RE1 constraint.
 - **Execution:** **CLOUD** — set by CF1. Candidate bytes are fetchable in cloud with `python3 tools/fetch_free_targets.py`; provenance is recorded in [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
 - **Priority:** Critical
 - **Category:** Target baseline
@@ -377,16 +381,45 @@ Another agent or maintainer can point the tool at candidate binaries and produce
 - **Depends on:** T0 (complete), CF1 (complete)
 - **Goal:** Replace release-name assumptions with exact target identities and provenance.
 
+### Outcome
+
+Canonical M1 production target:
+
+- `antagonizer-en` / `ANTAG_EN.EXE`;
+- SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`;
+- 610863 bytes.
+
+Canonical comparison baseline:
+
+- `bugpatch-en` / `PATCH_EN.EXE` (publisher `PATCH.EXE`, documented version 1.6.5);
+- SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`;
+- 587451 bytes.
+
+The reviewed T0 captures are committed as [`docs/re/target-manifest.json`](./docs/re/target-manifest.json), and canonical entries plus compatibility boundaries are in [`docs/re/targets.md`](./docs/re/targets.md).
+
+Build-lineage result (`static`):
+
+- all four CF1 candidates share a byte-identical complete bound MZ stub and the same Watcom/DOS runtime fingerprints;
+- the International-vs-English object-layout delta is exactly the same in the Antagonizer and bug-patch families (`+0xb0` executable virtual size/entry, `+0x50` writable virtual size/stack);
+- the Antagonizer-vs-bug-patch layout delta is exactly the same in both locales (`+0x4bf0` executable virtual size/entry, `+0xb30` writable virtual size/stack, `+5` executable pages);
+- each locale-matched Antagonizer↔bug-patch comparison has the same 467 common uniquely-occurring ASCII strings, and the complete 15-bucket file-offset displacement histogram is identical between the English and International comparisons.
+
+This evidence is stronger than the zip member timestamps that originally made the English pair look doubtful. The timestamp gap remains weak archive/file provenance, not a demonstrated source-build gap. The English pair is therefore selected because it is same-language and has the strongest publisher documentation while retaining cross-locale structural corroboration.
+
+The International pair remains RE corroboration/future compatibility input. It is **not** added to M1 support.
+
+RE1 constraint: comparable lineage justifies normalized whole-image differential analysis as a candidate-ranking tool, but unrelated bug-fix/configuration drift remains possible. Prefer candidate changes reproduced by the International pair or supported by independent semantic/runtime evidence; do not equate every difference with AI behavior.
+
 ### Candidate set (established by CF1)
 
 Four candidates, all cloud-fetchable and hash-pinned in `tools/free-target-sources.json`:
 
 | Manifest id | Role | Size | SHA-256 |
 | --- | --- | --- | --- |
-| `antagonizer-en` | Antagonizer, English | 610863 | `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` |
-| `antagonizer-intl` | Antagonizer, non-English | 610863 | `9d44b1cafe9181b3bb526afb6daa2cc0cbb7c5c30fce5172f9a8a9e0b54dce0c` |
-| `bugpatch-en` | Official bug patch 1.6.5, English | 587451 | `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` |
-| `bugpatch-intl` | Official bug patch 1.8.5, non-English | 587451 | `16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b` |
+| `antagonizer-en` | **Canonical M1 Antagonizer target** | 610863 | `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` |
+| `antagonizer-intl` | International Antagonizer; corroboration/future compatibility | 610863 | `9d44b1cafe9181b3bb526afb6daa2cc0cbb7c5c30fce5172f9a8a9e0b54dce0c` |
+| `bugpatch-en` | **Canonical comparison baseline**, official bug patch 1.6.5 English | 587451 | `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` |
+| `bugpatch-intl` | International official bug patch 1.8.5; corroboration/future compatibility | 587451 | `16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b` |
 
 ### Required evidence
 
@@ -394,49 +427,38 @@ For the chosen Antagonizer production target and vanilla comparison reference, r
 
 - exact SHA-256 and size;
 - filename and meaningful release/patch provenance;
-- **build/version lineage relationship between the chosen Antagonizer target and the chosen comparison baseline** — established from evidence, not assumed. This is a required output, not an optional note (see below);
-- detected executable format/architecture/extender facts from T0;
+- **build/version lineage relationship between the chosen Antagonizer target and the chosen comparison baseline** — established from evidence, not assumed;
+- detected executable format/architecture/extender facts from T0 plus bounded supporting evidence where T0 intentionally does not parse deeper;
 - whether the files are directly available to cloud agents or require a handoff.
 
-### Baseline selection requires lineage evidence
+### Baseline selection and lineage decision
 
-CF1 settled only the **packaging** relationship: the Antagonizer and the bug patch are separate standalone executables, not a patch stacked on a base. It did **not** settle the **build-lineage** relationship — whether the two were compiled from comparable source snapshots.
+CF1 settled only the **packaging** relationship: the Antagonizer and the bug patch are separate standalone executables, not a patch stacked on a base. T1 supplied the stronger binary evidence needed to make the baseline decision.
 
-That distinction decides whether RE1 is meaningful. If the chosen pair comes from different snapshots, a whole-image differential will surface unrelated bug fixes mixed in with the AI changes, and a ranked "candidate self-management regions" map built on it could be substantially wrong while looking plausible.
+Exact same-revision source provenance is still unavailable because the binaries expose no source-control/build identifier. The repeated cross-locale layout and string-anchor transforms are nevertheless strong evidence of a directly comparable build lineage rather than unrelated source snapshots. That is sufficient for RE1 to use the selected pair as a normalized differential baseline with the explicit confound policy above.
 
-So T1 must not select a baseline on availability alone. Before naming the pair it must either establish comparable lineage or record explicitly that comparability is unproven and constrain RE1 accordingly.
-
-Candidates, with their standing:
-
-- the official bug-patch executable is cloud-available and is the **leading candidate**, but it is *not* a default to be adopted without lineage evidence;
-- the retail unpatched `ASCEND.EXE` is **not** freely distributed and would require a maintainer handoff of metadata only. Treat it as optional; do not block T1 on it.
-
-Evidence available so far, weak and not sufficient on its own: zip member timestamps pair the non-English bug patch (1995-11-20 17:09:06) and non-English Antagonizer (1995-11-20 17:56:42) 47 minutes apart, while the English pair sits ~2 months apart (1995-11-20 vs 1996-01-25). That gap is a live reason to doubt English-pair comparability, not a footnote. Against it, the English release is the one the publisher documents most fully. Container timestamps are weak build provenance; look for stronger signals with T0/T2 — embedded version or build strings, extender/toolchain fingerprints, section layout, and the size delta (610863 vs 587451) — and record the reasoning either way.
-
-If lineage cannot be established, say so and hand RE1 the constraint rather than an unqualified baseline.
-
-If more than one commonly relevant Antagonizer binary exists, choose one canonical M1 target and list others as future compatibility candidates rather than silently broadening M1.
+The retail unpatched `ASCEND.EXE` is not freely distributed and remains an optional historical reference; it does not block T1 or RE1.
 
 ### Deliverables
 
-- completed canonical entries in `docs/re/targets.md` and target manifest;
-- an experiment/source record explaining target selection;
-- roadmap updates removing any now-invalid format/version assumptions.
+- [x] completed canonical entries in `docs/re/targets.md` and `docs/re/target-manifest.json`;
+- [x] experiment/source record explaining target selection;
+- [x] roadmap updates removing now-invalid target-selection/version assumptions and handing RE1 its lineage constraint.
 
 ### Acceptance criteria
 
-Every later binary-specific task can name one exact Antagonizer hash as the M1 production target and one exact vanilla hash as its comparison baseline.
+**Met.** Every later binary-specific task can name one exact Antagonizer hash as the M1 production target and one exact vanilla-lineage hash as its comparison baseline.
 
 ---
 
 ## T2 — Produce a reproducible static-analysis bundle
 
 - **Status:** Investigation first
-- **Execution:** GATED — **CF2 only**. CF1 is resolved: target bytes are cloud-fetchable via `tools/fetch_free_targets.py`, so the remaining question is purely the headless toolchain.
+- **Execution:** GATED — **CF2 only**. CF1 is resolved: target bytes are cloud-fetchable via `tools/fetch_free_targets.py`, and T1 fixed the canonical pair, so the remaining question is the headless toolchain.
 - **Priority:** High
 - **Category:** Tooling / static RE
 - **Origin:** High-level step 2
-- **Depends on:** T1, CF2
+- **Depends on:** T1 (complete), CF2
 - **Goal:** Make target static analysis reproducible enough that later agents do not depend on one person's interactive RE database.
 
 ### Work
@@ -472,16 +494,18 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
 - **Status:** Investigation first
-- **Execution:** GATED — **CF2 only**. CF1 is resolved: both sides of the diff are cloud-fetchable.
+- **Execution:** GATED — **CF2 only**. CF1 is resolved: both sides of the diff are cloud-fetchable, and T1 fixed their exact hashes.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
 - **Origin:** High-level step 3 and the decision to use vanilla as a reference
 - **Depends on:** T2
-- **Question:** Which code/data regions changed between canonical vanilla and Antagonizer, and which changes are plausible candidates for the documented improvement in planetary self-management?
+- **Question:** Which code/data regions changed between canonical vanilla-lineage baseline and Antagonizer, and which changes are plausible candidates for the documented improvement in planetary self-management?
 
-> **Refinement from CF1:** "vanilla" here means the baseline T1 selects — most likely the publisher's official bug-patch executable rather than the retail `ASCEND.EXE`, which is not freely distributed. Both are standalone full builds of the same game and are close in size (610863 vs 587451 bytes), which is what makes a whole-image differential tractable.
+> **Refinement from T1:** canonical target is `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`; canonical baseline is English `PATCH.EXE`/`PATCH_EN.EXE` SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` (publisher-documented 1.6.5). The International pair is corroboration input, not an additional supported M1 target.
 >
-> **Two things this item must not assume.** First, that the pair is build-comparable: T1 owes lineage evidence, and if it reports comparability as unproven, RE1 must treat unrelated bug fixes as an expected confound and weight candidates accordingly instead of reading every difference as AI-related. Second, that the size delta is explained by the AI changes — the Antagonizer image is the *larger* of the two, which is consistent with added behavior but also with an unrelated build difference. Test it; do not assume it.
+> **Lineage constraint from T1:** cross-locale object-layout and unique-string displacement evidence strongly supports directly comparable Antagonizer↔bug-patch lineage, but exact same-revision source identity is not proven. A whole-image differential is valid for **candidate ranking**, not for attributing every difference to AI. Prefer changes that reproduce in the International pair or have independent semantic/runtime evidence. Keep unrelated bug-fix/configuration drift as an expected confound.
+>
+> The size delta is not established as AI-only. The Antagonizer image is larger, which is consistent with added behavior but also with other build changes. Test it; do not assume it.
 
 ### Work
 

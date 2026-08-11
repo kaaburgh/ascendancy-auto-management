@@ -4,7 +4,7 @@
 - Date: 2026-08-11
 - Evidence category: **static** for all binary observations below; **reported** only where this record cites publisher/archive provenance already established by CF1
 - Inputs: the four CF1 hash-pinned candidate executables supplied out of tree
-- Tooling: `tools/inspect_target.py` 1.0.0 contract from T0 plus a bounded one-off Python probe for LE object-table fields and unique ASCII-string offsets
+- Tooling: `tools/inspect_target.py` 1.0.0 contract from T0 plus `tools/t1_lineage_probe.py` 1.0.0, a bounded T1-only probe for LE object-table fields and unique ASCII-string offsets
 
 ## Question
 
@@ -97,6 +97,8 @@ The fact that the same Antagonizer-vs-patch transform appears independently in t
 ### 5. Unique-string displacement fingerprint is identical across locales
 
 For each file, the probe extracts printable ASCII runs of length 8 or more and retains only strings that occur exactly once in that file. It then intersects a locale-matched Antagonizer/patch pair by exact string bytes and counts `ANTAG file offset - PATCH file offset`.
+
+The exact implementation is committed as [`../../tools/t1_lineage_probe.py`](../../tools/t1_lineage_probe.py); its reviewed output for the four pinned inputs is [`../re/t1-lineage-probe.expected.json`](../re/t1-lineage-probe.expected.json).
 
 Results:
 
@@ -199,7 +201,19 @@ python3 tools/inspect_target.py PATCH_EN.EXE \
   --output bugpatch-en.target.json
 ```
 
-The additional lineage probe used only Python stdlib (`hashlib`, `re`, `struct`, `collections`) to read the LE object-table entries named by the existing header metadata and compare exact unique ASCII-string offsets. It was intentionally kept one-off rather than added as a general static-analysis tool, because CF2 owns reusable LE reconstruction/disassembly/diff infrastructure.
+After a normal `python3 tools/fetch_free_targets.py`, reproduce the T1-only lineage evidence exactly with:
+
+```sh
+python3 tools/t1_lineage_probe.py \
+  binaries/ANTAG_EN.EXE binaries/ANTAG_INTL.EXE \
+  binaries/PATCH_EN.EXE binaries/PATCH_INTL.EXE \
+  --output /tmp/t1-lineage-probe.json
+cmp /tmp/t1-lineage-probe.json docs/re/t1-lineage-probe.expected.json
+```
+
+`cmp` exits 0 for the reviewed four CF1 hashes. The probe fail-closes on any size/SHA-256 mismatch, defines the exact printable-ASCII extraction and uniqueness rules in code/output, parses only the bounded LE header/object-table fields needed by T1, and does not reconstruct or disassemble LE pages. The expected JSON includes the complete object geometry, repeated deltas, 467-anchor set hash, 15-bucket histograms, and histogram hash.
+
+Focused synthetic coverage is in [`../../tests/test_t1_lineage_probe.py`](../../tests/test_t1_lineage_probe.py), including exact-run uniqueness, bounded two-object LE parsing, repeated transform reproduction, non-identical MZ-region rejection, and fail-closed candidate identity rejection.
 
 ## Deliberately out of scope
 

@@ -59,7 +59,11 @@ Details, provenance and hashes: [`docs/re/targets.md`](./docs/re/targets.md) and
 
 ### Analysing them
 
-The targets are DOS Linear Executable (`LE`) images with a bound Rational DOS/4G extender, built with Watcom C/C++32. None of the tools preinstalled in the tested cloud image lays that container out — `objdump` rejects it outright and `file` only classifies it — so the repository carries its own parser. (LE-aware dumpers do exist in the wider ecosystem, notably Open Watcom's `wdump`; the point is that a clean cloud environment has none of them.) The pipeline needs only the Python standard library and `objdump`; no GUI, no JVM, no `pip install`:
+The targets are DOS Linear Executable (`LE`) images with a bound Rational DOS/4G extender, built with Watcom C/C++32. None of the tools preinstalled in the tested cloud image lays that container out — `objdump` rejects it outright and `file` only classifies it — so the repository carries its own parser. LE-aware dumpers do exist in the wider ecosystem, notably Open Watcom's `wdump`; Open Watcom's structure/linker/dumper sources are used as an independent layout oracle rather than making the whole compiler suite a required dependency.
+
+> **CF2 revalidation note:** review found that the first parser revision used LE header `+0x70` (`impmod_off`) as the enumerated-page base. Open Watcom establishes `page_off @ +0x80`. The parser and synthetic tests are corrected, but the old real-target virtual addresses/disassembly/diff measurements are invalidated until all four pinned targets are rerun. See [`docs/experiments/CF2-wdump-layout-correction.md`](./docs/experiments/CF2-wdump-layout-correction.md). Do not copy old CF2 numbers from git history or review comments.
+
+The intended pipeline needs only the Python standard library and `objdump`; no GUI, no JVM, no `pip install`:
 
 ```sh
 python3 tools/le_image.py info binaries/ANTAG_EN.EXE       # container and load map
@@ -68,7 +72,7 @@ python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary # candidate functions
 python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
 ```
 
-`le_diff` compares normalized per-function signatures rather than bytes, so code that merely moved between builds still matches — which is what makes a differential of two independently linked images useful at all.
+`le_diff` compares normalized per-candidate signatures rather than bytes, so code that merely moved between builds can still match. The differential machinery is synthetically tested, but target bucket counts must come from a corrected real-target run.
 
 Read the limits in [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) before trusting any candidate function boundary: the inventory comes from a linear sweep with boundaries inferred from call targets, so it produces leads, not verified functions.
 

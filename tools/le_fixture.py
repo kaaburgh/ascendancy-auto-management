@@ -75,6 +75,7 @@ def build(
     declared_page_count: int | None = None,
     declared_object_count: int | None = None,
     data_page_offset: int | None = None,
+    page_off_field: int = 0x70,
     truncate_to: int | None = None,
 ) -> bytes:
     """Assemble an LE image. Keyword overrides exist to inject defects."""
@@ -116,7 +117,9 @@ def build(
                      len(objects) if declared_object_count is None
                      else declared_object_count)
     struct.pack_into("<I", header, 0x48, page_map_offset)
-    struct.pack_into("<I", header, 0x70, data_page_offset)
+    # Normally 0x70, the slot le_image reads. Overridable so a test can prove
+    # the parser reads that specific field rather than passing by self-consistency.
+    struct.pack_into("<I", header, page_off_field, data_page_offset)
 
     object_table = bytearray()
     next_page = 1

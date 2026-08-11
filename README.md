@@ -59,7 +59,7 @@ Details, provenance and hashes: [`docs/re/targets.md`](./docs/re/targets.md) and
 
 ### Analysing them
 
-The targets are DOS Linear Executable (`LE`) images with a bound Rational DOS/4G extender, built with Watcom C/C++32. No standard tool reads that container — `objdump` reports "file format not recognized" — so the repository carries its own parser. The pipeline needs only the Python standard library and `objdump`; no GUI, no JVM, no `pip install`:
+The targets are DOS Linear Executable (`LE`) images with a bound Rational DOS/4G extender, built with Watcom C/C++32. None of the tools preinstalled in the tested cloud image lays that container out — `objdump` rejects it outright and `file` only classifies it — so the repository carries its own parser. (LE-aware dumpers do exist in the wider ecosystem, notably Open Watcom's `wdump`; the point is that a clean cloud environment has none of them.) The pipeline needs only the Python standard library and `objdump`; no GUI, no JVM, no `pip install`:
 
 ```sh
 python3 tools/le_image.py info binaries/ANTAG_EN.EXE       # container and load map

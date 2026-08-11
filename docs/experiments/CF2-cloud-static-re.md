@@ -41,7 +41,7 @@ Conversely, `objdump` *can* disassemble a flat byte range at a chosen virtual ad
 
 ## The LE container, established
 
-Field offsets follow the published LE layout. They were not taken on trust; each was confirmed against the targets by checking invariants that would break under a misread:
+Field offsets were not taken on trust — and it turned out they could not be, because published LE enumerations disagree about part of this header (see the page-data offset below). Each was confirmed against the targets by checking invariants that would break under a misread:
 
 - object page counts sum exactly to the header page count (126 = 115 + 11 for the Antagonizer; 121 = 110 + 11 for the bug patch);
 - page-map numbers form a complete sequence 1..N with no gaps and no non-zero page flags;
@@ -50,6 +50,38 @@ Field offsets follow the published LE layout. They were not taken on trust; each
 - the computed end of page data lies inside the file.
 
 An early draft of this work read `lastpagesize` where `pagesize` belongs; the sum-of-pages and sequence checks caught it immediately. That is why those checks are in the parser and not just in this note.
+
+### The page-data offset needed content evidence, not a spec table
+
+Review raised that the constant for the page-data offset does not match one published enumeration of the LE header, which puts the data-page offset at `+0x80` rather than `+0x70`. That is worth taking seriously — the page-data offset decides which bytes every object is rebuilt from, so getting it wrong would invalidate the strings, the disassembly, the diff and every target fact derived from them.
+
+**Structural invariants cannot settle it.** Both candidates produce a page range that fits inside the file. Worse, `+0x80` fits *suspiciously* well: for `ANTAG_EN` it puts page data at `0x18000..0x9522f`, ending exactly at end-of-file, and it does the same for `PATCH_EN` (`0x17600`, again exactly EOF). Several neighbouring fields also read more sensibly under that layout — `+0x94` is `2`, which is exactly what `autodata` should be given that object 2 is the data object. On layout evidence alone, `+0x80` looks like the better reading.
+
+**Content settles it, four independent ways, and all four say `+0x70`:**
+
+1. A data-object anchor. The string `Ascendancy\nCopyright (c) 1995 …` is at file offset `0x8b895`, found by raw byte search with no header parsing involved. Reading page data from `+0x70` maps its virtual address `0x934c0` to exactly `0x8b895`. Reading from `+0x80` predicts `0x8e4c0`, which holds `'%s %d\x00%s %'`.
+2. A code-object anchor. `WATCOM C/C++32 Run-Time` sits at file `0x803b6`, and `+0x70` maps its virtual address there exactly.
+3. The declared entry point. The header pins it independently at object 1 `+0x683b4`. Under `+0x70` it decodes as extender startup — `mov es,eax; mov ebx,ds:0xa3220; cli; xor eax,eax; xor edi,edi` — while under `+0x80` it lands on `eb 76 57 41 54 43 4f 4d`, i.e. two bytes before the literal ASCII `WATCOM C/C++32 Run-Time system.`. An entry point cannot be a copyright string.
+4. The code's own reference. The copyright string's DS-relative offset is `0x34c0` under `+0x70` and `0x895` under `+0x80`. Disassembly contains exactly one `push 0x34c0` and nothing referencing `0x895`.
+
+So `+0x70` is the field that locates page data in these four builds. The most likely reconciliation is that `+0x70` is an import-table offset which *aliases* the start of page data here because the import tables are empty — note `+0x70` and `+0x78` hold the same value in all four files, consistent with two empty tables both pointing at the end of the loader section. If that is what is happening, the constant is right for these binaries and would be wrong for an LE with non-empty import tables.
+
+**What was done about it.** Rather than assert a spec reading, the mapping is now checkable:
+
+- `le_image.py verify --anchor ADDRESS=TEXT` re-runs exactly the check above, so a new binary or a changed constant can be validated instead of trusted;
+- `va_to_file_offset()` exposes the mapping, and every load now also requires the entry point to be file-backed;
+- the constant carries the four evidence lines and names the alternative in a comment;
+- the fixture can write the page offset to a *different* header slot, so a test can prove the parser reads the documented field rather than passing by self-consistency — the reviewer's point that the original tests could not have caught a layout error was correct.
+
+```text
+$ python3 tools/le_image.py verify binaries/ANTAG_EN.EXE --anchor 0x934c0=Ascendancy
+ANTAG_EN.EXE: container invariants pass (page data 0x153d5..0x92604, entry 0x783b4 -> file 0x7d789)
+  anchor 0x934c0: 'Ascendancy' confirmed at file 0x8b895
+```
+
+A heuristic was tried first — refuse a mapping that puts the entry point on printable text — and **rejected because it did not work**: the entry lands two bytes before the ASCII, on `eb 76`, so the window was not all-printable and the check passed. It is not shipped. Anchors are used instead because they test the thing that actually matters.
+
+Open, and inherited by T2: the ~11 KB trailing region under this reading is unexplained, and the exact-EOF fit under the alternative reading is not fully accounted for. Neither undermines the four content anchors, but both deserve an answer before the header layout is written up as settled.
 
 Common to all four targets (`static`):
 
@@ -93,7 +125,7 @@ So the game was built with **Watcom C/C++32** and runs under the **Rational DOS/
 
 Three tools, standard library plus `objdump`, each fail-closed:
 
-- **`tools/le_image.py`** — parses the container and rebuilds objects as linear byte ranges with correct virtual addresses. Subcommands `info`, `extract`, `strings`. Refuses, by name rather than by guess: non-MZ input, an `LX` image, big-endian byte/word order, unknown format level or CPU, a non-power-of-two page size, an out-of-range last page size, zero pages or objects, an object flagged invalid, page numbers outside range, **any non-zero page flag** (iterated/zero-filled/range are unvalidated, so they are refused rather than mishandled), page data past end of file, an entry point outside its object, and an entry object that is not executable.
+- **`tools/le_image.py`** — parses the container and rebuilds objects as linear byte ranges with correct virtual addresses. Subcommands `info`, `extract`, `strings`, `verify`. Refuses, by name rather than by guess: non-MZ input, an `LX` image, big-endian byte/word order, unknown format level or CPU, a non-power-of-two page size, an out-of-range last page size, zero pages or objects, an object flagged invalid, page numbers outside range, **any non-zero page flag** (iterated/zero-filled/range are unvalidated, so they are refused rather than mishandled), page data past end of file, an entry point outside its object, and an entry object that is not executable.
 - **`tools/le_disasm.py`** — drives `objdump -b binary -m i386 -M intel --adjust-vma=<base>` over a rebuilt object and derives a **small** inventory: candidate function starts, a call graph, caller counts, a mnemonic histogram, and a normalized signature per candidate function. It refuses to disassemble a data object as code.
 
   One trap worth knowing if you extend this: **objdump wraps its byte column at 7 bytes per line**, and the continuation lines carry no disassembly text. Counting the printed bytes therefore undercuts every instruction longer than 7 bytes, which quietly deflates any byte total derived from it. Instruction length is taken from the gap to the next decoded address instead, which is exact and has a regression test.
@@ -186,7 +218,7 @@ CF2's own gate is therefore discharged: **T2 becomes `CLOUD`**, and RE1/RE2/RE3 
 
 ## Validation performed
 
-- `python3 -m unittest discover -s tests` — **155 tests pass**, of which 107 are new here: 42 for the parser, 38 for disassembly, 27 for the diff. All run against synthetic fixtures with no network and no proprietary bytes.
+- `python3 -m unittest discover -s tests` — **164 tests pass**, of which 116 are new here: 51 for the parser, 38 for disassembly, 27 for the diff. All run against synthetic fixtures with no network and no proprietary bytes.
 - Every fail-closed branch in `le_image` has a test that injects that specific defect.
 - Determinism: two consecutive `le_disasm` runs on `ANTAG_EN.EXE` produced byte-identical JSON (`sha256 e3e2e05a…`).
 - The full pipeline ran on all four acquired targets, not only the English pair.

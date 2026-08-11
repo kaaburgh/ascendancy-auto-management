@@ -212,7 +212,7 @@ The decisive negative result: **nothing in the standard toolchain reads the LE c
 
 Built, each fail-closed and tested against synthetic LE fixtures:
 
-- `tools/le_image.py` — LE container parser; rebuilds objects as linear ranges at correct virtual addresses; `info` / `extract` / `strings`;
+- `tools/le_image.py` — LE container parser; rebuilds objects as linear ranges at correct virtual addresses; `info` / `extract` / `strings` / `verify`. The page-data field offset is contested between published LE enumerations, so `verify --anchor ADDRESS=TEXT` re-runs the content check that established it (known bytes at their known virtual address) rather than asking a reader to trust a constant;
 - `tools/le_disasm.py` — drives `objdump` over a rebuilt object; derives candidate function starts, a call graph, caller counts and a normalized signature per candidate;
 - `tools/le_diff.py` — compares two inventories by signature, so code that merely moved still matches;
 - `tools/le_fixture.py` — synthetic LE builder, including defective images, so CI needs no proprietary bytes.

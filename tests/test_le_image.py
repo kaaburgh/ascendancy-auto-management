@@ -118,6 +118,84 @@ class TestStrings(unittest.TestCase):
         self.assertLessEqual(len(image.strings(12)), len(image.strings(4)))
 
 
+class TestAddressMapping(unittest.TestCase):
+    """VA-to-file mapping, and the anchor check that validates the page offset."""
+
+    def setUp(self) -> None:
+        self.data = le_fixture.build()
+        self.image = le_image.LEImage(self.data, "fixture.le")
+
+    def test_entry_maps_to_the_first_page_of_page_data(self) -> None:
+        self.assertEqual(
+            self.image.data_page_offset,
+            self.image.va_to_file_offset(self.image.entry_address),
+        )
+
+    def test_mapping_round_trips_against_real_bytes(self) -> None:
+        offset = self.image.va_to_file_offset(self.image.entry_address)
+        self.assertEqual(b"\x55\x89\xe5", self.data[offset : offset + 3])
+
+    def test_addresses_outside_any_object_are_unmapped(self) -> None:
+        self.assertIsNone(self.image.va_to_file_offset(0xFFFFFFF))
+
+    def test_zero_filled_tail_is_unmapped(self) -> None:
+        # An object whose virtual size exceeds the bytes its pages provide: the
+        # tail is bss/stack/heap and has no file offset at all.
+        image = le_image.LEImage(le_fixture.build(objects=[
+            {"flags": le_fixture.CODE_FLAGS, "base": 0x10000, "pages": 1,
+             "vsize": 0x200},
+            {"flags": le_fixture.DATA_FLAGS, "base": 0x20000, "pages": 1,
+             "vsize": 0x3000},
+        ]), "bss.le")
+        data = image.objects[1]
+        self.assertIsNotNone(image.va_to_file_offset(data.base_address))
+        self.assertIsNone(image.va_to_file_offset(data.end_address - 1))
+
+    def test_anchor_confirms_known_bytes(self) -> None:
+        marker = b"ANCHOR-MARKER"
+        raw = bytearray(self.data)
+        offset = self.image.page_file_offset(self.image.objects[1].first_page) + 0x20
+        raw[offset : offset + len(marker)] = marker
+        image = le_image.LEImage(bytes(raw), "fixture.le")
+        image.check_anchor(image.objects[1].base_address + 0x20, marker)
+
+    def test_anchor_mismatch_is_refused(self) -> None:
+        with self.assertRaises(LEError) as caught:
+            self.image.check_anchor(self.image.entry_address, b"NOT-THERE")
+        self.assertIn("anchor mismatch", str(caught.exception))
+
+    def test_anchor_on_unmapped_address_is_refused(self) -> None:
+        with self.assertRaises(LEError):
+            self.image.check_anchor(0xFFFFFFF, b"x")
+
+    def test_anchor_catches_a_page_offset_read_from_the_wrong_field(self) -> None:
+        # The point of the anchor check: if the page-data offset came from the
+        # wrong header field, content no longer sits at its expected address.
+        # Written to 0x80 instead of 0x70, so the parser reads 0 and mis-maps.
+        marker = b"ANCHOR-MARKER"
+        good = le_fixture.build()
+        reference = le_image.LEImage(good, "good.le")
+        address = reference.objects[1].base_address + 0x20
+        offset = reference.page_file_offset(reference.objects[1].first_page) + 0x20
+
+        raw = bytearray(le_fixture.build(page_off_field=0x80))
+        raw[offset : offset + len(marker)] = marker
+        image = le_image.LEImage(bytes(raw), "mismapped.le")
+        self.assertNotEqual(reference.data_page_offset, image.data_page_offset)
+        with self.assertRaises(LEError):
+            image.check_anchor(address, marker)
+
+    def test_parser_reads_the_documented_page_offset_field(self) -> None:
+        # Guards against silently changing H_DATAPAGE: the value written to
+        # 0x70 must be the one the parser uses.
+        image = le_image.LEImage(le_fixture.build(), "fixture.le")
+        import struct
+
+        expected = struct.unpack_from("<I", le_fixture.build(),
+                                      image.lfanew + le_image.H_DATAPAGE)[0]
+        self.assertEqual(expected, image.data_page_offset)
+
+
 class TestFailsClosed(unittest.TestCase):
     def assertRefused(self, needle: str, **overrides) -> None:
         with self.assertRaises(LEError) as caught:

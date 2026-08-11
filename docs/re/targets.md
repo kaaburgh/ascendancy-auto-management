@@ -52,13 +52,16 @@ The Antagonizer's code object is 19440 bytes larger than the English bug patch's
 
 ## Reading these binaries
 
-Nothing in a standard toolchain parses LE: `objdump` reports "file format not recognized". Use the project's tools, which need only the standard library and `objdump`:
+None of the tools preinstalled in the tested cloud image parses LE: `objdump` reports "file format not recognized" and `file` only classifies it. (LE-aware dumpers exist elsewhere — Open Watcom's `wdump` among them — but a clean cloud environment has none.) Use the project's tools, which need only the standard library and `objdump`:
 
 ```sh
 python3 tools/le_image.py info binaries/ANTAG_EN.EXE      # container layout
 python3 tools/le_image.py strings binaries/ANTAG_EN.EXE   # strings with virtual addresses
 python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary
 python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
+
+# Re-check that the page-data mapping is right, rather than trusting it:
+python3 tools/le_image.py verify binaries/ANTAG_EN.EXE --anchor 0x934c0=Ascendancy
 ```
 
 Capabilities, limits and validation are recorded in [`../experiments/CF2-cloud-static-re.md`](../experiments/CF2-cloud-static-re.md). Read the limits before trusting a candidate function boundary.

@@ -12,11 +12,19 @@ parser has not been validated against — a different byte order, iterated or
 zero-filled pages, an `LX` image — is refused with a message naming the exact
 feature rather than guessed at.
 
-Field offsets are relative to the start of the LE header and follow the
-published LE layout; they were cross-checked against the project's targets by
-verifying that object page counts sum to the header page count, that page
-numbers form a complete sequence, and that the entry point lands inside an
-executable object (see docs/experiments/CF2-cloud-static-re.md).
+Field offsets are relative to the start of the LE header. They were not taken
+from a table on trust: published LE/LX field enumerations disagree about the
+region around the page-data offset, and structural invariants alone cannot
+settle it, because a plausible alternative reading of this header also yields a
+page range that fits inside the file. What settles it is content — known bytes
+appearing at their known virtual address. See H_DATAPAGE for the evidence, and
+`verify --anchor` for re-running that check on a new binary rather than
+believing this comment.
+
+Cross-checks that are enforced on every load: object page counts sum to the
+header page count, page numbers form a complete sequence, the entry point lands
+inside an executable object, and the entry point is file-backed. Details in
+docs/experiments/CF2-cloud-static-re.md.
 """
 
 from __future__ import annotations
@@ -53,7 +61,25 @@ H_OBJTAB = 0x40
 H_OBJCNT = 0x44
 H_OBJMAP = 0x48
 H_ITERMAP = 0x4C
+
+# Offset of the page-data field. Published LE/LX field enumerations disagree
+# about this region of the header, and an alternative reading puts the data-page
+# offset at H_DATAPAGE_ALT. For the four targets the field at 0x70 is the one
+# that actually locates page data, established four independent ways rather than
+# taken from a table (see docs/experiments/CF2-cloud-static-re.md):
+#
+#   1. a data-object string's virtual address maps to its true file offset;
+#   2. a code-object string's does too;
+#   3. the declared entry point decodes as extender startup, whereas under the
+#      alternative it lands on the literal ASCII "WATCOM C/C++32 Run-Time";
+#   4. the code contains `push 0x34c0`, the DS-relative offset this reading
+#      predicts for the copyright string; nothing references the alternative's.
+#
+# Because the constant cannot be justified from a specification alone, the
+# mapping it produces is validated (see _check_page_mapping) instead of trusted.
 H_DATAPAGE = 0x70
+H_DATAPAGE_ALT = 0x80
+
 H_DEBUGINFO = 0x88
 H_DEBUGLEN = 0x8C
 H_MIN_SIZE = 0x90
@@ -327,6 +353,54 @@ class LEImage:
         self.trailing_offset = self.page_data_end
         self.trailing_size = self.size - self.page_data_end
 
+        if self.va_to_file_offset(self.entry_address) is None:
+            raise LEError(
+                f"entry point 0x{self.entry_address:x} does not map to any file "
+                f"offset; the page-data offset (0x{self.data_page_offset:x}) or "
+                f"the page map is being read wrongly"
+            )
+
+    def check_anchor(self, address: int, expected: bytes) -> None:
+        """Assert that ``expected`` really is at ``address`` in this image.
+
+        This is the check that established the page-data field offset, kept as
+        code so it can be re-run instead of being believed. Structural invariants
+        cannot settle that offset — an alternative reading of this header also
+        produces a page range that fits inside the file — but content can: only
+        the correct mapping puts known bytes at their known virtual address.
+
+        Used by `verify --anchor`. Prefer it to trusting H_DATAPAGE whenever a
+        new binary or a header-layout change is in play.
+        """
+        offset = self.va_to_file_offset(address)
+        if offset is None:
+            raise LEError(f"0x{address:x} is not file-backed in {self.name}")
+        actual = self._data[offset : offset + len(expected)]
+        if actual != expected:
+            raise LEError(
+                f"anchor mismatch at 0x{address:x} (file 0x{offset:x}): expected "
+                f"{expected[:32]!r}, found {actual[:32]!r}. If the anchor is "
+                f"right, the page-data offset is being read from the wrong "
+                f"header field (currently +0x{H_DATAPAGE:02x}; an alternative "
+                f"reading uses +0x{H_DATAPAGE_ALT:02x})"
+            )
+
+    def va_to_file_offset(self, address: int) -> int | None:
+        """File offset backing a virtual address, or None if not file-backed.
+
+        Addresses in an object's zero-filled tail (bss, stack, heap) have no
+        bytes in the file and return None.
+        """
+        obj = self.object_containing(address)
+        if obj is None:
+            return None
+        delta = address - obj.base_address
+        page_index = delta // self.page_size
+        if page_index >= obj.page_count:
+            return None
+        number = self.page_numbers[obj.first_page - 1 + page_index]
+        return self.page_file_offset(number) + delta % self.page_size
+
     # -- access ------------------------------------------------------------
 
     @property
@@ -512,9 +586,42 @@ def _cmd_strings(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_verify(args: argparse.Namespace) -> int:
+    image = load(args.file)
+    print(f"{image.name}: container invariants pass "
+          f"(page data 0x{image.data_page_offset:x}..0x{image.page_data_end:x}, "
+          f"entry 0x{image.entry_address:x} -> file "
+          f"0x{image.va_to_file_offset(image.entry_address):x})")
+
+    for anchor in args.anchor or []:
+        address_text, _, expected = anchor.partition("=")
+        if not expected:
+            print(f"error: --anchor needs ADDRESS=TEXT, got {anchor!r}",
+                  file=sys.stderr)
+            return 2
+        address = int(address_text, 0)
+        image.check_anchor(address, expected.encode("latin-1"))
+        print(f"  anchor 0x{address:x}: {expected!r} confirmed at file "
+              f"0x{image.va_to_file_offset(address):x}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
+
+    verify = sub.add_parser(
+        "verify",
+        help="check container invariants, and optionally that known bytes sit "
+             "at a known virtual address",
+    )
+    verify.add_argument("file", type=pathlib.Path)
+    verify.add_argument(
+        "--anchor", action="append", metavar="ADDRESS=TEXT",
+        help="assert TEXT appears at virtual ADDRESS; repeatable. This is how "
+             "the page-data field offset was established",
+    )
+    verify.set_defaults(func=_cmd_verify)
 
     info = sub.add_parser("info", help="print the container layout")
     info.add_argument("file", type=pathlib.Path)

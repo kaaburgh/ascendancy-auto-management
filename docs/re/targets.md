@@ -32,6 +32,8 @@ A capture records:
 
 For the same bytes and logical invocation, the JSON is deterministic: it contains no timestamp, hostname, absolute input/output path, or environment-specific identifier. Unknown files are still fingerprinted, but their format/architecture remain `unknown`/`null` rather than being inferred from a release name.
 
+When `--output` is used, the inspector refuses to write if the output resolves to the input target, including existing symlink and hardlink aliases. The target file remains read-only input; a metadata capture must never replace the executable it is fingerprinting.
+
 ### Stable target IDs and labels
 
 A target `id` is a repository-facing logical identifier supplied with `--id`; it is never inferred from a filename or binary contents. IDs use lowercase letters/digits plus `.`, `_`, and `-` and must match `^[a-z0-9][a-z0-9._-]*$`.
@@ -73,6 +75,7 @@ T1 owns creation/population of the canonical target manifest and canonical entri
 The inspector reports only what its small parser establishes:
 
 - architecture is emitted only for an LE CPU type explicitly recognized by the parser; an unknown CPU type is preserved numerically and leaves architecture `null`;
+- LE multi-byte fields are decoded only when the header declares the supported little-endian byte and word ordering (`0/0`). Any other ordering leaves only the LE magic/order bytes recorded, emits a warning, and does not publish CPU/load metadata decoded with the wrong endianness;
 - DOS/4G detection is positive-marker evidence from the DOS stub. Absence of a known marker does not establish that no extender is involved;
 - LE offsets/counts are header metadata. The tool does not walk object/page/fixup/import tables and does not claim runtime addresses or selector mappings;
 - a filename, label, or matching file size never substitutes for a hash;

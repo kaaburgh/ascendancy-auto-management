@@ -8,7 +8,7 @@ This document expands the repository-wide rules in [`AGENTS.md`](../AGENTS.md). 
 
 Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. See [`re/targets.md`](./re/targets.md) for the candidate set and [`experiments/CF1-cloud-target-access.md`](./experiments/CF1-cloud-target-access.md) for provenance.
 
-Static analysis is solved too: CF2 established a headless cloud pipeline needing only the standard library and `objdump`. `tools/le_image.py` parses the LE container (nothing standard does), `tools/le_disasm.py` derives a candidate function inventory and call graph, and `tools/le_diff.py` compares two builds by normalized function signature. Capabilities and — importantly — limits are in [`experiments/CF2-cloud-static-re.md`](./experiments/CF2-cloud-static-re.md).
+Static analysis is solved too: CF2 established a headless cloud pipeline needing only the standard library and `objdump`. `tools/le_image.py` supplies the LE container bridge missing from the tools preinstalled in the tested cloud image, `tools/le_disasm.py` derives a candidate function inventory and call graph, and `tools/le_diff.py` compares two builds by normalized function signatures. Capabilities and — importantly — limits are in [`experiments/CF2-cloud-static-re.md`](./experiments/CF2-cloud-static-re.md).
 
 No canonical target has been **selected** yet (T1) and no analysis bundle has been committed (T2). The container layout and build toolchain *are* established; see [`re/targets.md`](./re/targets.md). What is not established: any function identity. The inventories contain candidate addresses derived by linear sweep, never named behaviors. Do not invent identities, and do not treat a candidate boundary as a real function.
 
@@ -67,17 +67,19 @@ Start from behavior and data flow, not guessed function names.
 Useful evidence includes:
 
 - imported APIs and exports;
-- PE sections, relocations, RTTI, strings, resources;
+- executable sections/objects, relocations/fixups, strings, resources;
 - xrefs and call graphs;
 - memory writes caused by a UI action;
 - debugger watchpoints;
 - before/after memory snapshots;
-- file/registry/API traces;
+- file/API traces;
 - stack traces;
 - save-game diffs;
 - graphics/input hooks where relevant.
 
 Record raw observation separately from interpretation.
+
+**Do not validate a derived mapping with values produced by that same mapping.** Such a check can be completely vacuous rather than merely weak: for example, taking a string VA from this parser and feeding it back through `verify --anchor` will agree with itself for any page-data offset. A validation value must be pinned independently of the field under test — for example by a header relationship such as the declared entry point, an external implementation/dumper, or a raw byte search with a separately derived VA — or by a structural invariant whose totals must close exactly. The `page_off` correction in [`experiments/CF2-wdump-layout-correction.md`](./experiments/CF2-wdump-layout-correction.md) is the worked example.
 
 ### 3. Form competing hypotheses
 
@@ -97,8 +99,8 @@ Prefer a diagnostic build/tool before a permanent patch when causality is not es
 
 Good boundaries include:
 
-- a specific Win32/API call;
-- a known vtable method;
+- a specific runtime/API call;
+- a known dispatch method;
 - a memory field with a validated owning object;
 - a call site identified by signature plus surrounding invariants;
 - a file/save serialization boundary;
@@ -132,7 +134,7 @@ Prefer the least invasive mechanism that preserves compatibility:
 3. signature-located patch;
 4. binary file patch only when necessary.
 
-For machine-code changes, validate original bytes, instruction boundaries, page protection, and instruction-cache behavior. Apply multi-step patches transactionally where practical and restore on failure.
+For machine-code changes, validate original bytes, instruction boundaries, page protection where relevant, and instruction-cache behavior where relevant. Apply multi-step patches transactionally where practical and restore on failure.
 
 ### 7. Reconcile repository state
 
@@ -147,7 +149,7 @@ Before opening the PR:
 
 ## Target-machine experiments
 
-When the target must run on the maintainer's Windows machine, minimize manual work.
+When the target must run on a maintainer machine, minimize manual work.
 
 Prefer a one-shot workflow such as:
 
@@ -178,11 +180,13 @@ Minimum:
 Minimum:
 
 - deterministic fixture tests;
-- zero-match and ambiguous-match tests;
+- zero-match and ambiguous-match tests where applicable;
 - malformed-input handling;
-- exact supported input assumptions documented.
+- exact supported input assumptions documented;
+- serialized analysis artifacts carry enough schema/parser/input provenance to reject stale incompatible data;
+- when real target bytes are available, at least one clean-checkout end-to-end regression uses the repository commands rather than a hand-reproduced implementation.
 
-### Runtime hook / proxy DLL / injected diagnostic
+### Runtime hook / injected diagnostic
 
 Minimum:
 

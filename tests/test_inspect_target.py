@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import pathlib
 import struct
 import sys
@@ -201,6 +202,26 @@ class TestMZLEParsing(FixtureCase):
         self.assertIsNone(target["container"]["architecture"])
         self.assertIn("truncated", target["warnings"][0])
 
+    def test_unsupported_le_ordering_does_not_decode_multibyte_metadata(self) -> None:
+        for relative_offset in (0x02, 0x03):
+            with self.subTest(relative_offset=relative_offset):
+                payload = bytearray(synthetic_le())
+                payload[0x80 + relative_offset] = 1
+                path = self.write(f"order-{relative_offset}.exe", bytes(payload))
+                target = self.target(path)
+                le = target["container"]["le"]
+                self.assertEqual("LE", le["magic"])
+                self.assertEqual(
+                    1 if relative_offset == 0x02 else 0, le["byte_order"]
+                )
+                self.assertEqual(
+                    1 if relative_offset == 0x03 else 0, le["word_order"]
+                )
+                self.assertNotIn("cpu_type", le)
+                self.assertNotIn("page_size", le)
+                self.assertIsNone(target["container"]["architecture"])
+                self.assertIn("unsupported byte/word order", target["warnings"][0])
+
     def test_unknown_le_cpu_type_is_preserved_without_architecture_guess(self) -> None:
         payload = bytearray(synthetic_le())
         struct.pack_into("<H", payload, 0x80 + 0x08, 99)
@@ -237,6 +258,33 @@ class TestCLI(FixtureCase):
         self.assertEqual(1, parsed["schema"])
         self.assertEqual("candidate-en", parsed["targets"][0]["id"])
         self.assertEqual(it.TOOL_VERSION, parsed["targets"][0]["capture"]["version"])
+
+    def test_output_cannot_be_the_input_file(self) -> None:
+        original = synthetic_le()
+        path = self.write("LE.EXE", original)
+        self.assertEqual(2, it.main([str(path), "--output", str(path)]))
+        self.assertEqual(original, path.read_bytes())
+
+    def test_output_cannot_be_a_hardlink_to_input(self) -> None:
+        original = synthetic_le()
+        path = self.write("LE.EXE", original)
+        alias = self.tmp / "record.json"
+        os.link(path, alias)
+        self.assertEqual(2, it.main([str(path), "--output", str(alias)]))
+        self.assertEqual(original, path.read_bytes())
+        self.assertEqual(original, alias.read_bytes())
+
+    def test_output_cannot_be_a_symlink_to_input(self) -> None:
+        original = synthetic_le()
+        path = self.write("LE.EXE", original)
+        alias = self.tmp / "record.json"
+        try:
+            alias.symlink_to(path)
+        except OSError as exc:
+            self.skipTest(f"symlink creation unavailable: {exc}")
+        self.assertEqual(2, it.main([str(path), "--output", str(alias)]))
+        self.assertEqual(original, path.read_bytes())
+        self.assertEqual(original, alias.read_bytes())
 
     def test_missing_input_fails(self) -> None:
         self.assertEqual(2, it.main([str(self.tmp / "missing.exe")]))

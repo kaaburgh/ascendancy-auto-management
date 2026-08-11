@@ -1,0 +1,332 @@
+{
+  "ascii_rule": {
+    "bytes": "0x20..0x7e inclusive",
+    "comparison": "intersection by exact run bytes; delta = Antagonizer file offset - bug-patch file offset",
+    "minimum_run_length": 8,
+    "uniqueness": "exact extracted run occurs exactly once within each file"
+  },
+  "input_contract": {
+    "antagonizer-en": {
+      "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+      "size": 610863
+    },
+    "antagonizer-intl": {
+      "sha256": "9d44b1cafe9181b3bb526afb6daa2cc0cbb7c5c30fce5172f9a8a9e0b54dce0c",
+      "size": 610863
+    },
+    "bugpatch-en": {
+      "sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b",
+      "size": 587451
+    },
+    "bugpatch-intl": {
+      "sha256": "16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b",
+      "size": 587451
+    }
+  },
+  "layout_deltas": {
+    "antagonizer_delta_equal_across_locales": true,
+    "antagonizer_minus_bugpatch_en": {
+      "entry_offset": 19440,
+      "executable_pages": 5,
+      "executable_virtual_size": 19440,
+      "module_pages": 5,
+      "stack_offset": 2864,
+      "writable_pages": 0,
+      "writable_virtual_size": 2864
+    },
+    "antagonizer_minus_bugpatch_intl": {
+      "entry_offset": 19440,
+      "executable_pages": 5,
+      "executable_virtual_size": 19440,
+      "module_pages": 5,
+      "stack_offset": 2864,
+      "writable_pages": 0,
+      "writable_virtual_size": 2864
+    },
+    "intl_minus_en_antagonizer": {
+      "entry_offset": 176,
+      "executable_pages": 0,
+      "executable_virtual_size": 176,
+      "module_pages": 0,
+      "stack_offset": 80,
+      "writable_pages": 0,
+      "writable_virtual_size": 80
+    },
+    "intl_minus_en_bugpatch": {
+      "entry_offset": 176,
+      "executable_pages": 0,
+      "executable_virtual_size": 176,
+      "module_pages": 0,
+      "stack_offset": 80,
+      "writable_pages": 0,
+      "writable_virtual_size": 80
+    },
+    "locale_delta_equal": true
+  },
+  "layouts": {
+    "antagonizer-en": {
+      "entry_object": 1,
+      "entry_offset": 426932,
+      "le_offset": 10832,
+      "module_pages": 126,
+      "object_count": 2,
+      "object_table_offset": 196,
+      "objects": [
+        {
+          "flags": 8261,
+          "index": 1,
+          "page_count": 115,
+          "page_map_index": 1,
+          "relocation_base": 65536,
+          "reserved": 0,
+          "virtual_size": 468790
+        },
+        {
+          "flags": 8259,
+          "index": 2,
+          "page_count": 11,
+          "page_map_index": 116,
+          "relocation_base": 589824,
+          "reserved": 0,
+          "virtual_size": 688672
+        }
+      ],
+      "stack_object": 2,
+      "stack_offset": 688672
+    },
+    "antagonizer-intl": {
+      "entry_object": 1,
+      "entry_offset": 427108,
+      "le_offset": 10832,
+      "module_pages": 126,
+      "object_count": 2,
+      "object_table_offset": 196,
+      "objects": [
+        {
+          "flags": 8261,
+          "index": 1,
+          "page_count": 115,
+          "page_map_index": 1,
+          "relocation_base": 65536,
+          "reserved": 0,
+          "virtual_size": 468966
+        },
+        {
+          "flags": 8259,
+          "index": 2,
+          "page_count": 11,
+          "page_map_index": 116,
+          "relocation_base": 589824,
+          "reserved": 0,
+          "virtual_size": 688752
+        }
+      ],
+      "stack_object": 2,
+      "stack_offset": 688752
+    },
+    "bugpatch-en": {
+      "entry_object": 1,
+      "entry_offset": 407492,
+      "le_offset": 10832,
+      "module_pages": 121,
+      "object_count": 2,
+      "object_table_offset": 196,
+      "objects": [
+        {
+          "flags": 8261,
+          "index": 1,
+          "page_count": 110,
+          "page_map_index": 1,
+          "relocation_base": 65536,
+          "reserved": 0,
+          "virtual_size": 449350
+        },
+        {
+          "flags": 8259,
+          "index": 2,
+          "page_count": 11,
+          "page_map_index": 111,
+          "relocation_base": 524288,
+          "reserved": 0,
+          "virtual_size": 685808
+        }
+      ],
+      "stack_object": 2,
+      "stack_offset": 685808
+    },
+    "bugpatch-intl": {
+      "entry_object": 1,
+      "entry_offset": 407668,
+      "le_offset": 10832,
+      "module_pages": 121,
+      "object_count": 2,
+      "object_table_offset": 196,
+      "objects": [
+        {
+          "flags": 8261,
+          "index": 1,
+          "page_count": 110,
+          "page_map_index": 1,
+          "relocation_base": 65536,
+          "reserved": 0,
+          "virtual_size": 449526
+        },
+        {
+          "flags": 8259,
+          "index": 2,
+          "page_count": 11,
+          "page_map_index": 111,
+          "relocation_base": 524288,
+          "reserved": 0,
+          "virtual_size": 685888
+        }
+      ],
+      "stack_object": 2,
+      "stack_offset": 685888
+    }
+  },
+  "schema": 1,
+  "shared_mz_stub_sha256": "b852ae395b9ad04503fc907ad03fa28ea6a17bf5f6c2be045bf96f7177592699",
+  "string_displacements": {
+    "common_string_sets_equal": true,
+    "english": {
+      "common_string_sha256": "085dc64bc059e74788caafc8eb6c3dbda902af5e5cf38dee1e27f00713e3b9d1",
+      "common_unique_ascii_strings": 467,
+      "histogram": [
+        {
+          "count": 21,
+          "delta": 0
+        },
+        {
+          "count": 3,
+          "delta": 2560
+        },
+        {
+          "count": 2,
+          "delta": 4828
+        },
+        {
+          "count": 2,
+          "delta": 4832
+        },
+        {
+          "count": 1,
+          "delta": 8400
+        },
+        {
+          "count": 10,
+          "delta": 22000
+        },
+        {
+          "count": 43,
+          "delta": 23040
+        },
+        {
+          "count": 6,
+          "delta": 23160
+        },
+        {
+          "count": 4,
+          "delta": 23174
+        },
+        {
+          "count": 64,
+          "delta": 23176
+        },
+        {
+          "count": 1,
+          "delta": 23184
+        },
+        {
+          "count": 6,
+          "delta": 23220
+        },
+        {
+          "count": 9,
+          "delta": 23396
+        },
+        {
+          "count": 3,
+          "delta": 23412
+        },
+        {
+          "count": 292,
+          "delta": 23424
+        }
+      ],
+      "histogram_canonical_json_sha256": "a02f981d15796c5e46f72c59096fe87b2d39aed3e9f5f43189209b2d9cbf83ed"
+    },
+    "histograms_equal": true,
+    "international": {
+      "common_string_sha256": "085dc64bc059e74788caafc8eb6c3dbda902af5e5cf38dee1e27f00713e3b9d1",
+      "common_unique_ascii_strings": 467,
+      "histogram": [
+        {
+          "count": 21,
+          "delta": 0
+        },
+        {
+          "count": 3,
+          "delta": 2560
+        },
+        {
+          "count": 2,
+          "delta": 4828
+        },
+        {
+          "count": 2,
+          "delta": 4832
+        },
+        {
+          "count": 1,
+          "delta": 8400
+        },
+        {
+          "count": 10,
+          "delta": 22000
+        },
+        {
+          "count": 43,
+          "delta": 23040
+        },
+        {
+          "count": 6,
+          "delta": 23160
+        },
+        {
+          "count": 4,
+          "delta": 23174
+        },
+        {
+          "count": 64,
+          "delta": 23176
+        },
+        {
+          "count": 1,
+          "delta": 23184
+        },
+        {
+          "count": 6,
+          "delta": 23220
+        },
+        {
+          "count": 9,
+          "delta": 23396
+        },
+        {
+          "count": 3,
+          "delta": 23412
+        },
+        {
+          "count": 292,
+          "delta": 23424
+        }
+      ],
+      "histogram_canonical_json_sha256": "a02f981d15796c5e46f72c59096fe87b2d39aed3e9f5f43189209b2d9cbf83ed"
+    }
+  },
+  "tool": {
+    "name": "t1_lineage_probe.py",
+    "version": "1.0.0"
+  }
+}

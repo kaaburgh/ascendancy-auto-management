@@ -30,14 +30,18 @@ See [`ROADMAP.md`](./ROADMAP.md) for the executable task plan.
 
 ## Target strategy
 
-The current direction is:
+T1 selected an exact English Antagonizer build as the M1 production target and the same-language official bug-patch build as the canonical differential baseline:
 
-- treat the **Antagonizer** executable as the primary production target because it already contains improved planetary self-management behavior;
-- keep the original/vanilla executable as a comparison baseline where useful;
-- identify every supported target by exact cryptographic hash before relying on offsets, signatures, or patch bytes;
-- do not assume the exact executable format, layout, state representation, or patch seam until it is established by evidence.
+- **M1 target:** `ANTAG_EN.EXE`, SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`, 610863 bytes.
+- **Comparison baseline:** `PATCH_EN.EXE` / publisher `PATCH.EXE` version 1.6.5, SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`, 587451 bytes.
 
-The canonical Antagonizer/patch combination and exact hashes are roadmap work, not assumptions baked into the implementation.
+The International pair remains a future-compatibility/cross-locale corroboration set; M1 support is not silently broadened to it.
+
+T1's static lineage experiment found the same Antagonizer↔bug-patch object-layout and unique-string displacement transformation in both English and International pairs. That strongly supports a directly comparable build lineage and makes the English publisher bug patch a useful RE1 baseline, while still requiring RE1 to treat unrelated bug-fix/configuration drift as a possible confound rather than calling every difference AI behavior.
+
+Every later offset, signature or patch byte must still be tied to an exact cryptographic hash. Do not assume state representation, runtime layout, or a patch seam until established by evidence.
+
+Details: [`docs/re/targets.md`](./docs/re/targets.md), [`docs/re/target-manifest.json`](./docs/re/target-manifest.json), and [`docs/experiments/T1-canonical-target-selection.md`](./docs/experiments/T1-canonical-target-selection.md).
 
 ### Obtaining the candidate executables
 
@@ -53,9 +57,9 @@ Files land in the git-ignored `binaries/`. The tool only ever downloads artifact
 
 The retail game **data** files are a different matter: a retail installation requires the maintainer's own copy, since the game is not sold on any current storefront. But that does not mean cloud cannot run the game at all — an officially distributed **playable demo** exists and is a lawfully redistributable candidate for a cloud runtime fixture. It must be investigated before runtime work is declared local-only. That evaluation is [`ROADMAP.md`](./ROADMAP.md)'s CF3.
 
-Only freely distributed artifacts may be added to the manifest — never full-game images, retail distributions, or abandonware repacks.
+Only freely distributed artifacts may be added to the acquisition manifest — never full-game images, retail distributions, or abandonware repacks.
 
-Details, provenance and hashes: [`docs/re/targets.md`](./docs/re/targets.md) and [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
+Acquisition provenance: [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
 
 ### Analysing them
 

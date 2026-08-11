@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "targets": [
+    {
+      "capture": {
+        "command": "python3 tools/inspect_target.py ANTAG_EN.EXE --id antagonizer-en --label 'Antagonizer English canonical M1 target' --output antagonizer-en.target.json",
+        "path_policy": "input/output paths are reduced to basenames to avoid leaking host paths",
+        "tool": "inspect_target.py",
+        "version": "1.0.0"
+      },
+      "container": {
+        "architecture": "x86 (Intel 80386)",
+        "detected_format": "DOS MZ + Linear Executable (LE)",
+        "le": {
+          "byte_order": 0,
+          "bytes_on_last_page": 559,
+          "cpu_name": "Intel 80386",
+          "cpu_type": 2,
+          "data_pages_offset": "0x00018000",
+          "entry_object": 1,
+          "entry_offset": "0x000683b4",
+          "fixup_page_table_offset": "0x000002f5",
+          "fixup_record_table_offset": "0x000004f1",
+          "fixup_section_size": 86241,
+          "format_level": 0,
+          "import_module_count": 0,
+          "import_module_table_offset": "0x000153d5",
+          "import_procedure_table_offset": "0x000153d5",
+          "loader_section_size": 86802,
+          "magic": "LE",
+          "module_flags": "0x00000200",
+          "module_pages": 126,
+          "module_version": 0,
+          "object_count": 2,
+          "object_page_map_offset": "0x000000f4",
+          "object_table_offset": "0x000000c4",
+          "os_name": "OS/2",
+          "os_type": 1,
+          "page_size": 4096,
+          "stack_object": 2,
+          "stack_offset": "0x000a8220",
+          "word_order": 0
+        },
+        "mz": {
+          "bytes_in_last_page": 78,
+          "header_paragraphs": 6,
+          "initial_cs": 0,
+          "initial_ip": 782,
+          "initial_sp": 2048,
+          "initial_ss": 677,
+          "magic": "MZ",
+          "overlay_number": 0,
+          "pages_in_file": 22,
+          "relocation_count": 6,
+          "relocation_table_offset": 64,
+          "secondary_header_offset": 10832
+        }
+      },
+      "filename": "ANTAG_EN.EXE",
+      "id": "antagonizer-en",
+      "label": "Antagonizer English canonical M1 target",
+      "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+      "size": 610863,
+      "warnings": []
+    },
+    {
+      "capture": {
+        "command": "python3 tools/inspect_target.py PATCH_EN.EXE --id bugpatch-en --label 'Official bug patch 1.6.5 English comparison baseline' --output bugpatch-en.target.json",
+        "path_policy": "input/output paths are reduced to basenames to avoid leaking host paths",
+        "tool": "inspect_target.py",
+        "version": "1.0.0"
+      },
+      "container": {
+        "architecture": "x86 (Intel 80386)",
+        "detected_format": "DOS MZ + Linear Executable (LE)",
+        "le": {
+          "byte_order": 0,
+          "bytes_on_last_page": 187,
+          "cpu_name": "Intel 80386",
+          "cpu_type": 2,
+          "data_pages_offset": "0x00017600",
+          "entry_object": 1,
+          "entry_offset": "0x000637c4",
+          "fixup_page_table_offset": "0x000002e1",
+          "fixup_record_table_offset": "0x000004c9",
+          "fixup_section_size": 83862,
+          "format_level": 0,
+          "import_module_count": 0,
+          "import_module_table_offset": "0x00014a76",
+          "import_procedure_table_offset": "0x00014a76",
+          "loader_section_size": 84403,
+          "magic": "LE",
+          "module_flags": "0x00000200",
+          "module_pages": 121,
+          "module_version": 0,
+          "object_count": 2,
+          "object_page_map_offset": "0x000000f4",
+          "object_table_offset": "0x000000c4",
+          "os_name": "OS/2",
+          "os_type": 1,
+          "page_size": 4096,
+          "stack_object": 2,
+          "stack_offset": "0x000a76f0",
+          "word_order": 0
+        },
+        "mz": {
+          "bytes_in_last_page": 78,
+          "header_paragraphs": 6,
+          "initial_cs": 0,
+          "initial_ip": 782,
+          "initial_sp": 2048,
+          "initial_ss": 677,
+          "magic": "MZ",
+          "overlay_number": 0,
+          "pages_in_file": 22,
+          "relocation_count": 6,
+          "relocation_table_offset": 64,
+          "secondary_header_offset": 10832
+        }
+      },
+      "filename": "PATCH_EN.EXE",
+      "id": "bugpatch-en",
+      "label": "Official bug patch 1.6.5 English comparison baseline",
+      "sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b",
+      "size": 587451,
+      "warnings": []
+    }
+  ]
+}

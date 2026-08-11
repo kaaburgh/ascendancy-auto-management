@@ -69,11 +69,11 @@ Raw-file strings identify **Watcom C/C++32** and **Rational DOS/4G**. With the c
 | `PATCH_EN` | `0x737c6` | `0x80895` | `0x854bc` |
 | `PATCH_INTL` | `0x73876` | `0x80895` | `0x854bc` |
 
-Watcom's default 32-bit convention is register-based (`__watcall`: arguments in EAX/EDX/EBX/ECX), but this project still treats that as an **open implication**, not an established calling convention for Ascendancy. Confirm it against real call sites in RE2/RE3 before any hook/trampoline or signature reading depends on it.
+Watcom's default 32-bit convention is register-based (`__watcall`: arguments in EAX/EDX/EBX/ECX), but this project treats that as an **open implication**, not an established calling convention for Ascendancy. RE2/RE3 must make a known-arity call-site check an early explicit step before interpreting arguments; A2/P1 must not design a trampoline around `__watcall` until that evidence exists.
+
+Open Watcom `wdump` is currently a **source-level format oracle** in CF2: its header/linker/dumper source established `page_off` semantics. It has not yet been executed against these four files as an independent target run. T2 owns that concrete cross-check: run `wdump` on all four pinned targets, compare object/page/header values to `le_image.py info --json`, and record any discrepancy before treating the source-level agreement as a tool-output agreement.
 
 ## Corrected reconstructed-object fingerprints
-
-The post-correction regeneration records SHA-256 fingerprints for the exact flat object streams. These are regression anchors for future container changes; the object bytes themselves remain uncommitted.
 
 | Target | Code object SHA-256 | Data object SHA-256 |
 | --- | --- | --- |
@@ -82,34 +82,48 @@ The post-correction regeneration records SHA-256 fingerprints for the exact flat
 | `PATCH_EN` | `9a6055067d153af08c40c4d368c339881a2a50f06e3a8c41500a1748737a84a2` | `5eb4889b6c23dff80464e5686fa84a4e1269402b8e3d58070ce3869ec91e3c6a` |
 | `PATCH_INTL` | `be79ae2b1e393af4de5b32682432ff4f4664a96531d6f90473a26310b905e4b6` | `4506b1c9c569f0d9c2145e9b49887b1dcce6e42bd962457bcf4856377587fa96` |
 
+Current serialized inventories also embed the reconstructed code-object hash and parser-layout identity, so `le_diff` can reject stale pre-correction JSON rather than trusting only the source EXE hash.
+
 ## Regenerated disassembly inventory
 
-Using the current branch reconstruction/disassembly semantics with GNU objdump 2.44 gives:
-
-| Target | Instructions | Candidate functions | Direct call sites | Branch targets | Call-graph edges |
+| Target | Instructions | Candidate regions | Direct call sites | Branch targets | Call-graph edges |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `ANTAG_EN` | 144696 | 1326 | 7472 | 11059 | 4259 |
 | `ANTAG_INTL` | 144691 | 1326 | 7477 | 11018 | 4260 |
 | `PATCH_EN` | 139093 | 1297 | 7251 | 10433 | 4162 |
 | `PATCH_INTL` | 139129 | 1296 | 7255 | 10448 | 4162 |
 
-These counts are analysis metadata from a linear sweep, not proven function or instruction boundaries.
+These counts are analysis metadata from a linear sweep, not proven function or instruction boundaries. Direct-call-derived starts miss indirect-only callees, which are folded into preceding candidate spans.
 
-## Regenerated Antagonizer ↔ patch differential
+## Conservative Antagonizer ↔ patch differential
 
-The English pair now has **685 strict matches, 525 constant-only differences, and 116 / 87 structurally different candidates** (Antagonizer / patch). Of the strict matches, 588 are relocated and 97 remain at the same address. The structural-only matched-byte fraction is `0.765115` on the Antagonizer side and `0.798235` on the patch side. Eleven Antagonizer-only structural candidates exceed 2000 bytes.
+The current model has four classes and labels only operand-preserving matches identical.
 
-The international pair has **683 strict matches, 520 constant-only differences, and 123 / 93 structurally different candidates**. Of the strict matches, 586 are relocated and 97 stay at the same address. The structural-only matched-byte fraction is `0.759166` / `0.792016`; twelve Antagonizer-only structural candidates exceed 2000 bytes.
+English:
 
-The old `620 / 507 / 115 / 87` English bucket values and the old `ANTAG_EN` inventory counts were produced from the shifted `+0x70` object stream and are superseded.
+- **72 exact matches** (`50` at different candidate addresses, `22` at the same address);
+- **613 reference-only differences** — in-image operands changed; relocation and possible semantic retargets are mixed;
+- **525 constant-only differences** — same instruction shape after all hex operands are masked;
+- **116 / 87 structural regions** (Antagonizer / patch);
+- structural-only matched-byte fraction `0.765115 / 0.798235`;
+- 11 Antagonizer-only structural spans exceed 2000 bytes.
 
-Full regenerated metrics, object sizes/hashes, bucket arithmetic, largest candidates, a locale-pair sanity check, and the exact execution-method note are in [`../experiments/CF2-real-target-regeneration.md`](../experiments/CF2-real-target-regeneration.md).
+International:
+
+- **72 exact matches** (`50` moved, `22` same address);
+- **611 reference-only differences**;
+- **520 constant-only differences**;
+- **123 / 93 structural regions**;
+- structural-only matched-byte fraction `0.759166 / 0.792016`;
+- 12 Antagonizer-only structural spans exceed 2000 bytes.
+
+The previous post-layout-correction `685 strict` English and `683 strict` international aggregates masked in-image references. They split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`; constant-only and structural counts are unchanged. The still older `620 / 507 / 115 / 87` English values came from the shifted `+0x70` object stream and are also superseded.
+
+Full metrics, bucket arithmetic, largest regions, locale sanity checks and the clean-checkout regression are in [`../experiments/CF2-real-target-regeneration.md`](../experiments/CF2-real-target-regeneration.md).
 
 ## Reading these binaries
 
-None of the tools preinstalled in the tested cloud image lays out the LE container: GNU `objdump` reports `file format not recognized` and `file` only classifies it. LE-aware tools exist in the wider ecosystem — Open Watcom's `wdump`/exedump is used as an important **format oracle** — but requiring a full Open Watcom installation is not necessary for the normal cloud path.
-
-The repository keeps a small fail-closed reader and hands reconstructed flat objects to GNU `objdump`:
+The tools preinstalled in the tested cloud image do not lay out the LE container: GNU `objdump` reports `file format not recognized` and `file` only classifies it. The repository keeps a small fail-closed reader and hands reconstructed flat objects to GNU `objdump`:
 
 ```sh
 python3 tools/le_image.py info binaries/ANTAG_EN.EXE
@@ -118,9 +132,9 @@ python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary
 python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
 ```
 
-`verify --anchor ADDRESS=TEXT` remains available as an optional content cross-check for a **known** binary. An anchor never selects between competing header layouts; the parser follows the Open Watcom header definition and fails closed when it is inconsistent.
+`verify --anchor ADDRESS=TEXT` is an optional content check for a **known, independently pinned** VA. It never selects between header layouts. An address learned from this parser's own mapping is circular evidence and must not be used to validate that mapping; see the general rule in [`../agent-playbook.md`](../agent-playbook.md).
 
-The retail unpatched `ASCEND.EXE` is **not** freely distributed and is not available in cloud. It is an optional additional reference; if it is ever needed, only its metadata should be handed off, never the file.
+The retail unpatched `ASCEND.EXE` is **not** freely distributed and is not a CF2 cloud dependency. It is an optional additional reference.
 
 Provenance, source archives and complete hashes are in [`../experiments/CF1-cloud-target-access.md`](../experiments/CF1-cloud-target-access.md).
 

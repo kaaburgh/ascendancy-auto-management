@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Tests for tools/le_image.py, driven entirely by synthetic LE fixtures.
-
-No proprietary bytes are involved, so this runs in CI. Each fail-closed test
-injects one specific structural defect via tools/le_fixture.py.
-"""
+"""Tests for tools/le_image.py, driven entirely by synthetic LE fixtures."""
 
 from __future__ import annotations
 
 import json
 import pathlib
+import struct
 import sys
 import tempfile
 import unittest
@@ -32,6 +29,17 @@ class TestValidImage(unittest.TestCase):
         self.assertEqual("80386", self.image.cpu_name)
         self.assertEqual(0x1000, self.image.page_size)
         self.assertEqual(2, self.image.object_count)
+        self.assertEqual(2, self.image.autodata_object)
+
+    def test_open_watcom_header_offsets_are_used(self) -> None:
+        # Open Watcom bld/watcom/h/exeflat.h: impmod=0x70, page_off=0x80,
+        # autodata=0x94, debug_off/debug_len=0x98/0x9c.
+        self.assertEqual(0x70, le_image.H_IMPMOD)
+        self.assertEqual(0x80, le_image.H_DATAPAGE)
+        self.assertEqual(0x94, le_image.H_AUTODATA)
+        self.assertEqual(0x98, le_image.H_DEBUGINFO)
+        self.assertEqual(0x9C, le_image.H_DEBUGLEN)
+        self.assertGreaterEqual(le_image.H_MIN_SIZE, 0xA0)
 
     def test_object_classification(self) -> None:
         code, data = self.image.objects
@@ -52,13 +60,11 @@ class TestValidImage(unittest.TestCase):
                 )
 
     def test_object_bytes_truncates_page_padding(self) -> None:
-        # One 4096-byte page backs a 512-byte object; the tail is padding.
         code = self.image.object_bytes(1)
         self.assertEqual(512, len(code))
         self.assertEqual(b"\x55\x89\xe5", code[:3])
 
     def test_object_bytes_zero_fills_uninitialised_space(self) -> None:
-        # The data object declares more virtual size than its pages provide.
         data = self.image.object_bytes(2)
         self.assertEqual(2048, len(data))
         self.assertTrue(any(data), "expected some initialised content")
@@ -77,6 +83,10 @@ class TestValidImage(unittest.TestCase):
     def test_trailing_region_is_reported(self) -> None:
         self.assertEqual(self.image.size, self.image.page_data_end)
         self.assertEqual(0, self.image.trailing_size)
+        self.assertEqual(
+            self.image.to_dict()["after_page_data"]["size"],
+            self.image.to_dict()["trailing"]["size"],
+        )
 
     def test_unknown_object_index_is_rejected(self) -> None:
         for index in (0, 3, -1):
@@ -94,10 +104,7 @@ class TestStrings(unittest.TestCase):
         marker = b"ASCENDANCY-FIXTURE-MARKER"
         data = bytearray(le_fixture.build())
         image = le_image.LEImage(bytes(data), "fixture.le")
-        # Place the marker at a known offset inside the data object's first page.
         offset = image.page_file_offset(image.objects[1].first_page) + 0x40
-        # NUL-delimit so the printable run is exactly the marker: the filler
-        # bytes around it are themselves partly printable.
         data[offset - 1] = 0
         data[offset : offset + len(marker)] = marker
         data[offset + len(marker)] = 0
@@ -119,7 +126,7 @@ class TestStrings(unittest.TestCase):
 
 
 class TestAddressMapping(unittest.TestCase):
-    """VA-to-file mapping, and the anchor check that validates the page offset."""
+    """VA-to-file mapping and optional content-anchor checks."""
 
     def setUp(self) -> None:
         self.data = le_fixture.build()
@@ -139,14 +146,25 @@ class TestAddressMapping(unittest.TestCase):
         self.assertIsNone(self.image.va_to_file_offset(0xFFFFFFF))
 
     def test_zero_filled_tail_is_unmapped(self) -> None:
-        # An object whose virtual size exceeds the bytes its pages provide: the
-        # tail is bss/stack/heap and has no file offset at all.
-        image = le_image.LEImage(le_fixture.build(objects=[
-            {"flags": le_fixture.CODE_FLAGS, "base": 0x10000, "pages": 1,
-             "vsize": 0x200},
-            {"flags": le_fixture.DATA_FLAGS, "base": 0x20000, "pages": 1,
-             "vsize": 0x3000},
-        ]), "bss.le")
+        image = le_image.LEImage(
+            le_fixture.build(
+                objects=[
+                    {
+                        "flags": le_fixture.CODE_FLAGS,
+                        "base": 0x10000,
+                        "pages": 1,
+                        "vsize": 0x200,
+                    },
+                    {
+                        "flags": le_fixture.DATA_FLAGS,
+                        "base": 0x20000,
+                        "pages": 1,
+                        "vsize": 0x3000,
+                    },
+                ]
+            ),
+            "bss.le",
+        )
         data = image.objects[1]
         self.assertIsNotNone(image.va_to_file_offset(data.base_address))
         self.assertIsNone(image.va_to_file_offset(data.end_address - 1))
@@ -168,32 +186,33 @@ class TestAddressMapping(unittest.TestCase):
         with self.assertRaises(LEError):
             self.image.check_anchor(0xFFFFFFF, b"x")
 
-    def test_anchor_catches_a_page_offset_read_from_the_wrong_field(self) -> None:
-        # The point of the anchor check: if the page-data offset came from the
-        # wrong header field, content no longer sits at its expected address.
-        # Written to 0x80 instead of 0x70, so the parser reads 0 and mis-maps.
-        marker = b"ANCHOR-MARKER"
-        good = le_fixture.build()
-        reference = le_image.LEImage(good, "good.le")
-        address = reference.objects[1].base_address + 0x20
-        offset = reference.page_file_offset(reference.objects[1].first_page) + 0x20
+    def test_legacy_0x70_page_offset_is_refused(self) -> None:
+        # Regression for the first CF2 draft: +0x70 is impmod_off, not page_off.
+        # A fixture that puts the page-data offset only there must fail closed,
+        # rather than "discovering" a layout from content.
+        with self.assertRaises(LEError) as caught:
+            le_image.LEImage(
+                le_fixture.build(page_off_field=0x70), "legacy-mismapped.le"
+            )
+        self.assertIn("page_off at +0x80", str(caught.exception))
 
-        raw = bytearray(le_fixture.build(page_off_field=0x80))
-        raw[offset : offset + len(marker)] = marker
-        image = le_image.LEImage(bytes(raw), "mismapped.le")
-        self.assertNotEqual(reference.data_page_offset, image.data_page_offset)
-        with self.assertRaises(LEError):
-            image.check_anchor(address, marker)
-
-    def test_parser_reads_the_documented_page_offset_field(self) -> None:
-        # Guards against silently changing H_DATAPAGE: the value written to
-        # 0x70 must be the one the parser uses.
-        image = le_image.LEImage(le_fixture.build(), "fixture.le")
-        import struct
-
-        expected = struct.unpack_from("<I", le_fixture.build(),
-                                      image.lfanew + le_image.H_DATAPAGE)[0]
+    def test_parser_reads_page_off_at_0x80(self) -> None:
+        raw = le_fixture.build()
+        image = le_image.LEImage(raw, "fixture.le")
+        expected = struct.unpack_from(
+            "<I", raw, image.lfanew + le_image.H_DATAPAGE
+        )[0]
         self.assertEqual(expected, image.data_page_offset)
+
+    def test_debug_fields_are_read_from_0x98_and_0x9c(self) -> None:
+        raw = bytearray(le_fixture.build())
+        lfanew = struct.unpack_from("<I", raw, 0x3C)[0]
+        # Keep size zero so this does not claim the offset points to real data.
+        struct.pack_into("<I", raw, lfanew + 0x98, 0x1234)
+        struct.pack_into("<I", raw, lfanew + 0x9C, 0)
+        image = le_image.LEImage(bytes(raw), "debug-fields.le")
+        self.assertEqual(0x1234, image.debug_offset)
+        self.assertEqual(0, image.debug_size)
 
 
 class TestFailsClosed(unittest.TestCase):
@@ -206,7 +225,6 @@ class TestFailsClosed(unittest.TestCase):
         self.assertRefused("not an mz", mz_magic=b"ZZ")
 
     def test_lx_image_is_named_as_such(self) -> None:
-        # LX has a different page table; guessing at it would be worse than failing.
         self.assertRefused("lx", signature=b"LX")
 
     def test_missing_le_signature(self) -> None:
@@ -227,13 +245,14 @@ class TestFailsClosed(unittest.TestCase):
 
     def test_last_page_size_out_of_range(self) -> None:
         self.assertRefused("last page size", last_page_size=0)
-        self.assertRefused("last page size", page_size=0x1000, last_page_size=0x2000)
+        self.assertRefused(
+            "last page size", page_size=0x1000, last_page_size=0x2000
+        )
 
     def test_zero_objects_declared(self) -> None:
         self.assertRefused("zero objects", declared_object_count=0)
 
     def test_object_page_sum_mismatch(self) -> None:
-        # A page map that is internally valid, but longer than the objects map.
         self.assertRefused(
             "objects map",
             declared_page_count=3,
@@ -254,10 +273,18 @@ class TestFailsClosed(unittest.TestCase):
         self.assertRefused(
             "invalid",
             objects=[
-                {"flags": le_fixture.CODE_FLAGS | 0x0080, "base": 0x10000,
-                 "pages": 1, "vsize": 0x200},
-                {"flags": le_fixture.DATA_FLAGS, "base": 0x20000,
-                 "pages": 1, "vsize": 0x800},
+                {
+                    "flags": le_fixture.CODE_FLAGS | 0x0080,
+                    "base": 0x10000,
+                    "pages": 1,
+                    "vsize": 0x200,
+                },
+                {
+                    "flags": le_fixture.DATA_FLAGS,
+                    "base": 0x20000,
+                    "pages": 1,
+                    "vsize": 0x800,
+                },
             ],
         )
 
@@ -274,7 +301,6 @@ class TestFailsClosed(unittest.TestCase):
         self.assertRefused("past end of file", truncate_to=6000)
 
     def test_lfanew_past_end_of_file(self) -> None:
-        # Header start survives truncation, but the LE header no longer fits.
         self.assertRefused("e_lfanew", truncate_to=0x100)
 
     def test_file_too_small(self) -> None:
@@ -283,8 +309,10 @@ class TestFailsClosed(unittest.TestCase):
         self.assertIn("too small", str(caught.exception))
 
     def test_object_table_past_end_of_file(self) -> None:
-        # Truncating just after the header leaves no room for the object table.
-        self.assertRefused("object table", truncate_to=0x80 + 0x90 + 4)
+        # Enough bytes for fields through +0x9c, but not the object table.
+        self.assertRefused(
+            "object table", truncate_to=0x80 + le_image.H_MIN_SIZE + 4
+        )
 
 
 class TestLoadAndCli(unittest.TestCase):
@@ -309,11 +337,15 @@ class TestLoadAndCli(unittest.TestCase):
 
     def test_cli_info_json(self) -> None:
         with quiet():
-            self.assertEqual(0, le_image.main(["info", str(self.path), "--json"]))
+            self.assertEqual(
+                0, le_image.main(["info", str(self.path), "--json"])
+            )
 
     def test_cli_strings(self) -> None:
         with quiet():
-            self.assertEqual(0, le_image.main(["strings", str(self.path), "--json"]))
+            self.assertEqual(
+                0, le_image.main(["strings", str(self.path), "--json"])
+            )
 
     def test_cli_extract_writes_object(self) -> None:
         out = self.tmp / "obj1.bin"

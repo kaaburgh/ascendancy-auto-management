@@ -3,8 +3,8 @@
 - Roadmap item: CF2
 - Date: 2026-08-11
 - Targets: `ANTAG_EN.EXE` `8d91e89e…`, `ANTAG_INTL.EXE` `9d44b1ca…`, `PATCH_EN.EXE` `7c944866…`, `PATCH_INTL.EXE` `16fa81fc…`
-- Current state: **corrected; clean-checkout real-target regression is the completion gate**
-- Evidence: **primary-source static** for LE layout, **real-target static** for container/disassembly/diff measurements, **synthetic** for fixture-driven tests, **runtime** for cloud tool availability
+- Current state: **Completed and verified** — clean-checkout validation passed for PR head `67631baa78aada001103b58659364c8908e538db` / merge-ref `d0f0342f24274a9afd2575555324acf16eed4961` in Actions run `31534837880`
+- Evidence: **primary-source static** for LE layout, **real-target static** for container/disassembly/diff measurements, **synthetic** for fixture-driven tests, **runtime/CI** for cloud tool availability and clean-checkout reproducibility
 
 ## Question
 
@@ -125,7 +125,7 @@ This is a consistency check, not source-lineage proof.
 - Whole-image Antagonizer-vs-patch differences may still include unrelated source-snapshot/compiler/bug-fix changes; T1 owns lineage constraints.
 - Watcom's default `__watcall` remains a hypothesis. RE2/RE3 must confirm calling convention at real known-arity call sites before argument interpretation or later hook/trampoline design depends on it.
 
-## Reproduction and completion gate
+## Reproduction and validation evidence
 
 Network-free synthetic/unit validation remains:
 
@@ -139,10 +139,14 @@ The authoritative checkout-level CF2 gate is:
 python3 scripts/validate_cf2_real_targets.py --fetch
 ```
 
-That command fetches/verifies the four CF1 targets, checks all reconstructed-object fingerprints, invokes the repository `le_disasm.py` on all four, and invokes the repository `le_diff.py` on product and locale pairs while asserting the metrics above. `.github/workflows/tests.yml` runs it in its own `CF2 real-target regression` job; CF2 must not be described as `Completed and verified` unless that current-head job is green.
+That command fetches/verifies the four CF1 targets, checks all reconstructed-object fingerprints, invokes the repository `le_disasm.py` on all four, and invokes the repository `le_diff.py` on product and locale pairs while asserting the metrics above. `.github/workflows/tests.yml` runs it in its own `CF2 real-target regression` job.
+
+The gate **passed** in GitHub Actions run `31534837880` for PR head `67631baa78aada001103b58659364c8908e538db` (checked out as merge-ref `d0f0342f24274a9afd2575555324acf16eed4961` against `main`). The `Unit tests` job ran **205 tests** and finished `OK`; the separate `CF2 real-target regression` job fetched and verified all four pinned executables, regenerated all four inventories with repository `le_disasm.py`, ran all four repository `le_diff.py` comparisons, and finished `CF2 real-target regression: PASS`.
+
+This status-only documentation update does not change the validated parser/disassembler/diff/validator code. Future code changes touching the CF2 pipeline must satisfy the same workflow again; the recorded run is the evidence that closed the CF2 completion gate for this implementation.
 
 ## Outcome for the roadmap
 
-The feasibility conclusion remains: **T2, RE1, RE2 and RE3 have a viable headless static-analysis path in cloud** once their normal dependencies are satisfied. The current PR's final completion status is tied to the clean-checkout real-target regression, not to a hand-reproduced algorithm run.
+CF2 is **Completed and verified**. T2, RE1, RE2 and RE3 have a viable headless static-analysis path in cloud subject only to their normal task dependencies; CF2 no longer blocks T2 selection.
 
 The Antagonizer code object remains exactly 19,440 bytes larger than the corresponding patch code object in both locale pairs. That is a measured size fact only, not “19,440 bytes of AI changes.”

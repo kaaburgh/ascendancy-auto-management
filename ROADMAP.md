@@ -88,11 +88,12 @@ The intended production target is the **Antagonizer** executable because the pro
 
 ### Established by CF2 (static)
 
-Full detail in [`docs/re/targets.md`](./docs/re/targets.md) and [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md).
+Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md), and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
 
-- **Load layout.** LE format level 0, little-endian, CPU `0x02` (80386), 4096-byte pages, all page-map entries plain "legal" pages, no debug info. Exactly two objects per image: object 1 code at base `0x10000` (flags `0x2045`), object 2 data (flags `0x2043`) at `0x90000` for the Antagonizer and `0x80000` for the bug patch. Roughly 11 KB at the end of each file is not described by the LE structures.
-- **Build toolchain.** Watcom C/C++32 (runtime banner at code VA `0x7afe0`) under the Rational DOS/4G extender (string at data VA `0x98267`).
-- **A headless static-analysis pipeline exists in cloud** and needs only the standard library plus `objdump`.
+- **Load layout.** LE format level 0, little-endian, CPU `0x02` (80386), 4096-byte pages, all page-map entries plain "legal" pages, no debug info. Exactly two objects per image: object 1 code at base `0x10000` (flags `0x2045`), object 2 data (flags `0x2043`) at `0x90000` for the Antagonizer and `0x80000` for the bug patch. Open Watcom's absolute enumerated-page `page_off @ +0x80` is `0x18000` for the Antagonizer pair and `0x17600` for the patch pair; enumerated page data ends exactly at EOF in all four targets. The old ~11 KB trailing-region claim was a parser artifact from treating `impmod_off @ +0x70` as the page base.
+- **Build toolchain.** Watcom C/C++32 under the Rational DOS/4G extender. Corrected `ANTAG_EN` VAs are Watcom runtime banner `0x783b6` and `RATIONAL DOS/4G` `0x9563c`.
+- **Headless static analysis.** A dependency-light cloud pipeline exists using the standard library plus GNU `objdump`. With corrected reconstructed objects, `ANTAG_EN` yields 144696 decoded instructions, 1326 candidate functions, 7472 direct in-object call sites, and 4259 call-graph edges.
+- **Corrected differential.** English Antagonizer ↔ patch: 685 strict matches, 525 same-shape/different-constant candidates, 116 / 87 structurally different candidates; 588 of the 685 strict matches relocate and 97 remain at the same address. International: 683 / 520 / 123 / 93, with 586 relocated strict matches and 97 same-address. These are derived analysis candidates, not confirmed behavioral functions.
 
 ### Still assumptions
 
@@ -195,7 +196,7 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 
 ## CF2 — Investigate cloud static reverse-engineering workflow
 
-- **Status:** **Completed and verified** — see [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md). Evidence: `static` for every binary finding, `runtime` for toolchain behavior in a Claude cloud sandbox, `synthetic` for the fixture-driven tests.
+- **Status:** **Completed and verified** — see [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md). Evidence: `static` for binary/container/disassembly/diff findings, `runtime` for toolchain behavior in a Claude cloud sandbox, `synthetic` for fixture-driven tests.
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / static RE
@@ -208,30 +209,38 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 
 **Yes, with the standard library and preinstalled binutils.** No GUI, no JVM, no Ghidra LE loader, and no `pip install`.
 
-The decisive negative result: **nothing in the standard toolchain reads the LE container.** `objdump` answers `file format not recognized`; `file` identifies the format but cannot lay it out; `radare2`, `rizin`, `ghidra`, `ndisasm`, `capstone` and `lief` are all absent from the image. The gap was the container parser, not disassembly — `objdump` disassembles a flat range fine once given the right base address (`-b binary -m i386 --adjust-vma`).
+The decisive negative result: GNU `objdump` does not read the LE container itself (`file format not recognized`), while it disassembles flat i386 ranges correctly when given `-b binary -m i386 --adjust-vma`. The gap was the container reader, not the disassembler.
 
 Built, each fail-closed and tested against synthetic LE fixtures:
 
-- `tools/le_image.py` — LE container parser; rebuilds objects as linear ranges at correct virtual addresses; `info` / `extract` / `strings` / `verify`. The page-data field offset is contested between published LE enumerations, so `verify --anchor ADDRESS=TEXT` re-runs the content check that established it (known bytes at their known virtual address) rather than asking a reader to trust a constant;
-- `tools/le_disasm.py` — drives `objdump` over a rebuilt object; derives candidate function starts, a call graph, caller counts and a normalized signature per candidate;
-- `tools/le_diff.py` — compares two inventories by signature, so code that merely moved still matches;
-- `tools/le_fixture.py` — synthetic LE builder, including defective images, so CI needs no proprietary bytes.
+- `tools/le_image.py` — LE container parser/reconstructor using Open Watcom's packed `os2_flat_header`; authoritative absolute enumerated-page `page_off @ +0x80`; `info` / `extract` / `strings` / `verify`. `verify --anchor` is only an optional content cross-check and never selects an alternate layout;
+- `tools/le_disasm.py` — drives `objdump` over a rebuilt object; derives candidate function starts, a call graph, caller counts, and strict/shape signatures per candidate;
+- `tools/le_diff.py` — compares inventories by strict signature and then shape signature so relocation-tolerant matches, same-shape/different-constant candidates, and structural differences remain separate;
+- `tools/le_fixture.py` — synthetic LE builder, including malformed images, so CI needs no target bytes.
 
-Established on the targets (`static`, see [`docs/re/targets.md`](./docs/re/targets.md)):
+Review of Open Watcom `wdump` exposed the original parser's `+0x70` mistake. The correction was then checked against all four exact hash-pinned targets: `page_off @ +0x80` makes all page ranges end exactly at EOF, every declared entry begins with `EB 76` immediately before the Watcom runtime banner, and the old ~11 KB “trailing” regions disappear. Reconstructed object SHA-256 fingerprints are recorded in `CF2-real-target-regeneration.md` so future parser changes can detect byte-stream drift before downstream counts are trusted.
 
-- container layout for all four: LE format level 0, little-endian, CPU `0x02` (80386), 4096-byte pages, exactly two objects (code + data), no iterated/zero-filled pages, no debug info, ~11 KB trailing bytes not described by the LE structures;
-- **build toolchain: Watcom C/C++32** (runtime banner at code VA `0x7afe0`) under the **Rational DOS/4G** extender (string at data VA `0x98267`);
-- the Antagonizer code object is 19440 bytes larger than the English bug patch's, moving the data object base from `0x80000` to `0x90000`. Whether that growth *is* the AI change is **not** established.
+Corrected real-target inventory using current branch semantics and GNU objdump 2.44:
 
-Capability demonstrated end to end on real bytes: 144,684 instructions and 1242 candidate functions for `ANTAG_EN` in 1.4 s; 1609 strings with virtual addresses in 0.16 s; 7252 direct call sites and 4089 call-graph edges; the English differential completes in 2.6 s and reduces RE1's search space to **115 structurally different candidates out of 1242**, every match relocated.
+- `ANTAG_EN`: 144696 decoded instructions, 1326 candidate functions, 7472 direct call sites, 4259 call-graph edges;
+- `ANTAG_INTL`: 144691 / 1326 / 7477 / 4260;
+- `PATCH_EN`: 139093 / 1297 / 7251 / 4162;
+- `PATCH_INTL`: 139129 / 1296 / 7255 / 4162.
 
-The diff reports **three** buckets, not two: 620 strict matches, 507 *constant-only* differences, and 115/87 structurally different. The middle bucket exists because this build reaches data through DS-relative offsets (`mov ebx,0x59d8`) that are relocations by nature but indistinguishable by value from a genuine threshold. Masking all constants would hide real threshold changes; masking none would bury the signal under hundreds of relocations — so that class is labelled rather than guessed at.
+Corrected differential:
 
-Limits that RE1 and T2 must respect, recorded in full in the experiment: linear sweep means embedded data decodes as nonsense and instruction counts are upper bounds; candidate boundaries come from direct call targets, so regions with no incoming direct call merge (11 of the 115 structurally different exceed 2000 bytes and are probably spans, not functions); indirect calls are unresolved; the 76% matched-byte figure counts only the structural bucket and **overstates** the delta because those candidates skew large; and the constant-only bucket cannot be split without parsing the LE fixup table, which is the obvious next improvement if RE1 finds it unwieldy.
+- **English:** 685 strict matches, 525 constant-only differences, 116 / 87 structurally different candidates. Of the strict matches, 588 relocate and 97 remain at the same address. The Antagonizer structural-only matched-byte fraction is `0.765115`; 11 Antagonizer-only structural candidates exceed 2000 bytes.
+- **International:** 683 strict, 520 constant-only, 123 / 93 structural; 586 strict matches relocate and 97 remain at the same address. Antagonizer structural-only matched-byte fraction `0.759166`; 12 Antagonizer-only structural candidates exceed 2000 bytes.
 
-**Open implication, not established:** Watcom's default 32-bit convention is register-based (`__watcall`, args in EAX/EDX/EBX/ECX) rather than cdecl. If true it shapes how RE2/RE3 read signatures and how A2/P1 build any hook. Confirm against real call sites before depending on it.
+The old `144684 / 1242 / 7252 / 4089` ANTAG_EN inventory, old `620 / 507 / 115 / 87` English buckets, and “every strict match relocated” statement are superseded. Do not copy them from git history or review comments.
 
-Consequence for the roadmap: **T2 becomes `CLOUD`**; RE1, RE2 and RE3 lose their toolchain gate and are now blocked only by their own dependencies.
+Limits that RE1/T2 must retain: linear sweep can decode embedded data; candidate starts are direct-call-derived leads, not verified function boundaries; indirect calls are unresolved; large spans can merge unrelated code; the constant-only bucket mixes DS-relative layout movement with genuine constant changes; and whole-image Antagonizer ↔ patch differences may include unrelated source-snapshot or bug-fix changes until T1 establishes or constrains lineage.
+
+The Antagonizer code object remains exactly 19440 bytes larger than the corresponding patch code object in both locales. This is a measured layout fact only, not evidence that those bytes are all AI changes.
+
+**Open implication, not established:** Watcom's default 32-bit convention is register-based (`__watcall`, args in EAX/EDX/EBX/ECX) rather than cdecl. Confirm against real call sites before RE2/RE3 or patch code depends on it.
+
+Consequence for the roadmap: **T2 remains `CLOUD`; RE1, RE2 and RE3 remain `CLOUD` and are blocked only by their normal dependencies.**
 
 ### Required investigation
 

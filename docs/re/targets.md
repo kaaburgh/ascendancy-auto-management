@@ -71,17 +71,39 @@ Raw-file strings identify **Watcom C/C++32** and **Rational DOS/4G**. With the c
 
 Watcom's default 32-bit convention is register-based (`__watcall`: arguments in EAX/EDX/EBX/ECX), but this project still treats that as an **open implication**, not an established calling convention for Ascendancy. Confirm it against real call sites in RE2/RE3 before any hook/trampoline or signature reading depends on it.
 
-## What still needs regeneration from CF2
+## Corrected reconstructed-object fingerprints
 
-The container correction changes the byte stream previously handed to `objdump`. Therefore the old real-target disassembly/diff measurements remain invalid until rerun with the corrected repository tools, including:
+The post-correction regeneration records SHA-256 fingerprints for the exact flat object streams produced by `le_image.py`. These are regression anchors for future container changes; the object bytes themselves remain uncommitted.
 
-- instruction, call-site, call-graph and candidate-function counts;
-- normalized and shape signatures;
-- the old `620 / 507 / 115 / 87` English diff buckets and non-English equivalents;
-- matched-byte percentages and large-candidate/span statistics;
-- DS-relative examples derived from the old shifted disassembly.
+| Target | Code object SHA-256 | Data object SHA-256 |
+| --- | --- | --- |
+| `ANTAG_EN` | `7772d00e6e36d5a2828d43410c59c601ca2149e3dcee33187b53d7a2d278c8e8` | `3bb3ddc418aa5eaceedd2de0cc8d20034b3fa99c3db36181d08de2992e1c4797` |
+| `ANTAG_INTL` | `f86803f21c9144f10b02f558ff9b30378812dd497061ef05b31cb1b3e29bde15` | `6397503cf6a093f5a9bb60117e6bc3044395363c46a59c25eb30f1d8167f79fe` |
+| `PATCH_EN` | `9a6055067d153af08c40c4d368c339881a2a50f06e3a8c41500a1748737a84a2` | `5eb4889b6c23dff80464e5686fa84a4e1269402b8e3d58070ce3869ec91e3c6a` |
+| `PATCH_INTL` | `be79ae2b1e393af4de5b32682432ff4f4664a96531d6f90473a26310b905e4b6` | `4506b1c9c569f0d9c2145e9b49887b1dcce6e42bd962457bcf4856377587fa96` |
 
-Do not restore those numbers by arithmetic offset adjustment; regenerate them from the corrected object bytes.
+## Regenerated disassembly inventory
+
+The corrected code objects were swept with the current `le_disasm.py` algorithm and GNU objdump 2.44:
+
+| Target | Instructions | Candidate functions | Direct call sites | Branch targets | Call-graph edges |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `ANTAG_EN` | 144696 | 1326 | 7472 | 11059 | 4259 |
+| `ANTAG_INTL` | 144691 | 1326 | 7477 | 11018 | 4260 |
+| `PATCH_EN` | 139093 | 1297 | 7251 | 10433 | 4162 |
+| `PATCH_INTL` | 139129 | 1296 | 7255 | 10448 | 4162 |
+
+These counts are analysis metadata from a linear sweep, not proven function or instruction boundaries.
+
+## Regenerated Antagonizer ↔ patch differential
+
+The English pair now has **685 strict matches, 525 constant-only differences, and 116 / 87 structurally different candidates** (Antagonizer / patch). Of the strict matches, 588 are relocated and 97 remain at the same address. The structural-only matched-byte fraction is `0.765115` on the Antagonizer side and `0.798235` on the patch side. Eleven Antagonizer-only structural candidates exceed 2000 bytes.
+
+The international pair has **683 strict matches, 520 constant-only differences, and 123 / 93 structurally different candidates**. Of the strict matches, 586 are relocated and 97 stay at the same address. The structural-only matched-byte fraction is `0.759166` / `0.792016`; twelve Antagonizer-only structural candidates exceed 2000 bytes.
+
+The old `620 / 507 / 115 / 87` English bucket values and the old `ANTAG_EN` inventory counts were produced from the shifted `+0x70` object stream and are superseded.
+
+Full regenerated metrics, object sizes/hashes, bucket arithmetic, largest candidates and a locale-pair sanity check are in [`../experiments/CF2-real-target-regeneration.md`](../experiments/CF2-real-target-regeneration.md).
 
 ## Reading these binaries
 

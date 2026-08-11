@@ -2,9 +2,10 @@
 
 - Date: 2026-08-11
 - Scope: PR #4, post-`page_off @ +0x80` regeneration and review hardening
-- Evidence: **real-target static** against all four CF1 hash-pinned executables
+- Evidence: **real-target static** against all four CF1 hash-pinned executables; **clean-checkout CI** for repository-level reproduction
 - Disassembler: GNU objdump, `-D -b binary -m i386 -M intel --adjust-vma=<object-base>`
 - Analysis model: current PR `le_image.py` reconstruction semantics + current `le_disasm.py` / `le_diff.py` algorithms
+- Validation: GitHub Actions run `31534837880`, PR head `67631baa78aada001103b58659364c8908e538db`, merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`
 
 ## Purpose
 
@@ -196,7 +197,7 @@ The structural matched-byte fraction deliberately ignores both unresolved middle
 
 Review correctly identified that the initial corrected regeneration was performed in a sandbox without a Git checkout: current branch source was read through the GitHub connector and the algorithms were faithfully reproduced locally. That was useful evidence, but it was not sufficient to call the current repository pipeline verified end to end.
 
-The repository therefore now contains `scripts/validate_cf2_real_targets.py`. In a clean checkout it:
+The repository therefore contains `scripts/validate_cf2_real_targets.py`. In a clean checkout it:
 
 1. runs `tools/fetch_free_targets.py` and `--verify`;
 2. parses all four exact target files with repository `le_image.py`;
@@ -205,9 +206,14 @@ The repository therefore now contains `scripts/validate_cf2_real_targets.py`. In
 5. invokes repository `tools/le_disasm.py` for all four targets and checks the inventory counts;
 6. invokes repository `tools/le_diff.py` on both product pairs and both locale sanity pairs and checks all four-class metrics above.
 
-GitHub Actions runs this as the separate **CF2 real-target regression** job so the normal unit suite remains network-free. The workflow is the authoritative checkout-level gate; CF2 must not be called `Completed and verified` if this job is not green on the current head.
+The gate passed in GitHub Actions run `31534837880` for PR head `67631baa78aada001103b58659364c8908e538db`, checked out as merge-ref `d0f0342f24274a9afd2575555324acf16eed4961` against `main`.
 
-Local focused regression while implementing the review fix: 77 `le_disasm` / `le_diff` tests passed, including explicit in-image call-retarget visibility and fail-closed stale-inventory cases. The full repository suite and real-target gate are delegated to the clean-checkout workflow above.
+- `Unit tests`: **205 tests**, `OK`.
+- `CF2 real-target regression`: all four pinned executables fetched and verified; repository `le_disasm.py` regenerated all four inventories; repository `le_diff.py` ran both product and both locale comparisons; final line `CF2 real-target regression: PASS`.
+
+This clean-checkout workflow is the authoritative repository-level validation that closes the gap between the earlier connector-read reproduction and the actual checked-out implementation. Future changes to the CF2 pipeline must continue to satisfy it.
+
+Local focused regression while implementing the review fix was 77 `le_disasm` / `le_diff` tests, including explicit in-image call-retarget visibility and fail-closed stale-inventory cases; the later Actions run above is the authoritative full-suite and real-target result.
 
 ## Important superseded statements
 

@@ -14,7 +14,9 @@ Can the static analysis this milestone needs run headlessly and reproducibly in 
 
 **Yes.** The useful cloud path remains a small fail-closed LE reader plus preinstalled GNU `objdump` over reconstructed flat i386 objects. No GUI, JVM, Ghidra install or Python package dependency is required for the current CF2 capability.
 
-A review-discovered container bug temporarily invalidated the first real-target measurements: the initial parser used LE-header `impmod_off @ +0x70` as the enumerated-page base. Open Watcom's packed header, linker and `wdump`/exedump all establish that the absolute enumerated-data-page `page_off` is at `+0x80`. The parser was corrected and the four exact targets were then rerun from scratch.
+A review-discovered container bug temporarily invalidated the first real-target measurements: the initial parser used LE-header `impmod_off @ +0x70` as the enumerated-page base. Open Watcom's packed header, linker and `wdump`/exedump all establish that the absolute enumerated-data-page `page_off` is at `+0x80`. The parser was corrected and the four exact targets were then re-analysed from scratch with the current branch semantics.
+
+The execution sandbox did not contain a Git checkout and shell DNS could not resolve `github.com`. Current `le_image.py`, `le_disasm.py` and `le_diff.py` source was therefore read from the PR branch through the GitHub connector, and the relevant reconstruction/disassembly/diff logic was reproduced for the local target run rather than substituting another algorithm. Exact reconstructed-object hashes are recorded below as regression anchors. A checkout-capable run should reproduce the same figures with the repository CLIs directly.
 
 The layout correction evidence is preserved in [`CF2-wdump-layout-correction.md`](./CF2-wdump-layout-correction.md). The complete regenerated disassembly/diff evidence is in [`CF2-real-target-regeneration.md`](./CF2-real-target-regeneration.md).
 

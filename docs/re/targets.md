@@ -73,7 +73,7 @@ Watcom's default 32-bit convention is register-based (`__watcall`: arguments in 
 
 ## Corrected reconstructed-object fingerprints
 
-The post-correction regeneration records SHA-256 fingerprints for the exact flat object streams produced by `le_image.py`. These are regression anchors for future container changes; the object bytes themselves remain uncommitted.
+The post-correction regeneration records SHA-256 fingerprints for the exact flat object streams. These are regression anchors for future container changes; the object bytes themselves remain uncommitted.
 
 | Target | Code object SHA-256 | Data object SHA-256 |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ The post-correction regeneration records SHA-256 fingerprints for the exact flat
 
 ## Regenerated disassembly inventory
 
-The corrected code objects were swept with the current `le_disasm.py` algorithm and GNU objdump 2.44:
+Using the current branch reconstruction/disassembly semantics with GNU objdump 2.44 gives:
 
 | Target | Instructions | Candidate functions | Direct call sites | Branch targets | Call-graph edges |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -103,7 +103,7 @@ The international pair has **683 strict matches, 520 constant-only differences, 
 
 The old `620 / 507 / 115 / 87` English bucket values and the old `ANTAG_EN` inventory counts were produced from the shifted `+0x70` object stream and are superseded.
 
-Full regenerated metrics, object sizes/hashes, bucket arithmetic, largest candidates and a locale-pair sanity check are in [`../experiments/CF2-real-target-regeneration.md`](../experiments/CF2-real-target-regeneration.md).
+Full regenerated metrics, object sizes/hashes, bucket arithmetic, largest candidates, a locale-pair sanity check, and the exact execution-method note are in [`../experiments/CF2-real-target-regeneration.md`](../experiments/CF2-real-target-regeneration.md).
 
 ## Reading these binaries
 

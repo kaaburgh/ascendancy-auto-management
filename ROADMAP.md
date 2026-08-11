@@ -86,13 +86,24 @@ The intended production target is the **Antagonizer** executable because the pro
 - Both were distributed free of charge by The Logic Factory and are lawfully fetchable in cloud; the retail game **data** files are not.
 - Container format: DOS `MZ` stub at offset 0, Linear Executable (`LE`) image at `e_lfanew = 0x2a50`, bound DOS/4G extender. Not PE.
 
+### Established by CF2 (static)
+
+Full detail in [`docs/re/targets.md`](./docs/re/targets.md) and [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md).
+
+- **Load layout.** LE format level 0, little-endian, CPU `0x02` (80386), 4096-byte pages, all page-map entries plain "legal" pages, no debug info. Exactly two objects per image: object 1 code at base `0x10000` (flags `0x2045`), object 2 data (flags `0x2043`) at `0x90000` for the Antagonizer and `0x80000` for the bug patch. Roughly 11 KB at the end of each file is not described by the LE structures.
+- **Build toolchain.** Watcom C/C++32 (runtime banner at code VA `0x7afe0`) under the Rational DOS/4G extender (string at data VA `0x98267`).
+- **A headless static-analysis pipeline exists in cloud** and needs only the standard library plus `objdump`.
+
 ### Still assumptions
 
 These are project directions, not yet binary facts. Until the remaining target-baseline tasks complete, do not assume:
 
 - which of the four CF1 candidates is the canonical M1 target and baseline (T1 decides);
-- the load layout, segment/selector mapping, architecture details beyond the LE container, or DOS extender runtime behavior;
-- that the size difference between the Antagonizer and bug-patch images is explained by the AI changes;
+- that the Antagonizer and the bug patch are built from comparable source snapshots (T1 owes lineage evidence);
+- **the calling convention.** Watcom's default 32-bit convention is register-based (`__watcall`: EAX/EDX/EBX/ECX), but this build could have been configured for stack calling. Confirm at real call sites (RE2/RE3) before any signature reading or hook design depends on it;
+- segment/selector mapping at run time, or DOS extender runtime behavior — CF2 established the static load layout only;
+- that the 19440-byte growth of the Antagonizer's code object is explained by the AI changes;
+- that a candidate function boundary from `tools/le_disasm.py` is a real function boundary — they are derived from direct call targets by linear sweep;
 - that a particular address or function is stable between the baseline and Antagonizer;
 - that the auto-management state is a field in the planet object;
 - that the existing UI toggle directly writes the persistent state;
@@ -112,7 +123,9 @@ The expected critical path is:
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
 
-**Current front of the path:** CF1 is complete. The immediately available items are **CF2** (highest information — it is the only remaining gate on `T2 → RE1 → RE2/RE3`), **CF3**, and **T0**.
+**Current front of the path:** CF1 and CF2 are complete, so target bytes *and* a headless static-analysis toolchain are available in cloud. The immediately available items are **T0** and **CF3**.
+
+T2 is now `CLOUD` but still dependency-blocked: it needs T1, which needs T0. RE1/RE2/RE3 are `CLOUD` and blocked on T2. So **T0 is the nearest item on the critical path**, and CF3 is the remaining cloud-feasibility unknown (runtime/debugging, including the playable-demo evaluation).
 
 T1 is now classified `CLOUD` but is **not yet selectable**: it depends on T0, which is still `Open`. It becomes available as soon as T0 completes.
 
@@ -182,7 +195,7 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 
 ## CF2 — Investigate cloud static reverse-engineering workflow
 
-- **Status:** Investigation first
+- **Status:** **Completed and verified** — see [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md). Evidence: `static` for every binary finding, `runtime` for toolchain behavior in a Claude cloud sandbox, `synthetic` for the fixture-driven tests.
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / static RE
@@ -191,7 +204,32 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 - **Gates:** T2, RE1, RE2, RE3
 - **Question:** Can the static analysis needed for this milestone be run headlessly and reproducibly in Codex or Claude cloud rather than requiring an interactive local Ghidra session?
 
-> **Input from CF1:** the targets are DOS `MZ` stubs wrapping a Linear Executable (`LE`) image with a bound DOS/4G extender, not PE files. The toolchain must handle LE/DOS-extender images; a PE-only pipeline will not do. This is the highest-information next task on the critical path.
+### Outcome
+
+**Yes, with the standard library and preinstalled binutils.** No GUI, no JVM, no Ghidra LE loader, and no `pip install`.
+
+The decisive negative result: **nothing in the standard toolchain reads the LE container.** `objdump` answers `file format not recognized`; `file` identifies the format but cannot lay it out; `radare2`, `rizin`, `ghidra`, `ndisasm`, `capstone` and `lief` are all absent from the image. The gap was the container parser, not disassembly — `objdump` disassembles a flat range fine once given the right base address (`-b binary -m i386 --adjust-vma`).
+
+Built, each fail-closed and tested against synthetic LE fixtures:
+
+- `tools/le_image.py` — LE container parser; rebuilds objects as linear ranges at correct virtual addresses; `info` / `extract` / `strings`;
+- `tools/le_disasm.py` — drives `objdump` over a rebuilt object; derives candidate function starts, a call graph, caller counts and a normalized signature per candidate;
+- `tools/le_diff.py` — compares two inventories by signature, so code that merely moved still matches;
+- `tools/le_fixture.py` — synthetic LE builder, including defective images, so CI needs no proprietary bytes.
+
+Established on the targets (`static`, see [`docs/re/targets.md`](./docs/re/targets.md)):
+
+- container layout for all four: LE format level 0, little-endian, CPU `0x02` (80386), 4096-byte pages, exactly two objects (code + data), no iterated/zero-filled pages, no debug info, ~11 KB trailing bytes not described by the LE structures;
+- **build toolchain: Watcom C/C++32** (runtime banner at code VA `0x7afe0`) under the **Rational DOS/4G** extender (string at data VA `0x98267`);
+- the Antagonizer code object is 19440 bytes larger than the English bug patch's, moving the data object base from `0x80000` to `0x90000`. Whether that growth *is* the AI change is **not** established.
+
+Capability demonstrated end to end on real bytes: 144,684 instructions and 1242 candidate functions for `ANTAG_EN` in 1.4 s; 1609 strings with virtual addresses in 0.16 s; 7252 direct call sites and 4089 call-graph edges; the English differential completes in 2.6 s and reduces RE1's search space to **115 unmatched candidates out of 1242**, with all 1127 matches relocated.
+
+Limits that RE1 and T2 must respect, recorded in full in the experiment: linear sweep means embedded data decodes as nonsense and instruction counts are upper bounds; candidate boundaries come from direct call targets, so regions with no incoming direct call merge (11 of the 115 unmatched exceed 2000 bytes and are probably spans, not functions); indirect calls are unresolved; and the 76% matched-byte figure **overstates** the delta because unmatched candidates skew large.
+
+**Open implication, not established:** Watcom's default 32-bit convention is register-based (`__watcall`, args in EAX/EDX/EBX/ECX) rather than cdecl. If true it shapes how RE2/RE3 read signatures and how A2/P1 build any hook. Confirm against real call sites before depending on it.
+
+Consequence for the roadmap: **T2 becomes `CLOUD`**; RE1, RE2 and RE3 lose their toolchain gate and are now blocked only by their own dependencies.
 
 ### Required investigation
 
@@ -320,6 +358,8 @@ A future agent does not have to rediscover how to validate the UI. The roadmap c
 - **Depends on:** None
 - **Goal:** Define how the project names, fingerprints, and records candidate vanilla and Antagonizer executables before any offsets or patch decisions are accepted.
 
+> **Input from CF1/CF2 — this is now the nearest item on the critical path.** Do not write a PE-oriented fingerprinter: the targets are LE/DOS-4G images and `objdump` cannot even open them. `tools/le_image.py` already parses the container and emits the header/object/page metadata this item asks for, as JSON via `le_image.py info --json`. T0's remaining job is the **policy and record layer** — the version-label convention, the machine-readable target manifest format and schema, and the `docs/re/targets.md` convention — plus handling files that are *not* LE (a retail `ASCEND.EXE` handoff, or a demo executable) without crashing. Reuse `le_image`; do not reimplement LE parsing.
+
 ### Work
 
 Create a small target-inspection tool/script that can run against a file supplied outside git and emit repo-safe metadata, including at least:
@@ -413,7 +453,7 @@ Every later binary-specific task can name one exact Antagonizer hash as the M1 p
 ## T2 — Produce a reproducible static-analysis bundle
 
 - **Status:** Investigation first
-- **Execution:** GATED — **CF2 only**. CF1 is resolved: target bytes are cloud-fetchable via `tools/fetch_free_targets.py`, so the remaining question is purely the headless toolchain.
+- **Execution:** **CLOUD** — set by CF2. Both gates are resolved: bytes are cloud-fetchable (`tools/fetch_free_targets.py`) and the headless toolchain exists (`tools/le_image.py`, `tools/le_disasm.py`, `tools/le_diff.py`). Still dependency-blocked on T1 (which needs T0).
 - **Priority:** High
 - **Category:** Tooling / static RE
 - **Origin:** High-level step 2
@@ -453,7 +493,7 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
 - **Status:** Investigation first
-- **Execution:** GATED — **CF2 only**. CF1 is resolved: both sides of the diff are cloud-fetchable.
+- **Execution:** **CLOUD** — set by CF2. Both sides of the diff are cloud-fetchable and `tools/le_diff.py` performs the comparison. Still dependency-blocked on T2.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
 - **Origin:** High-level step 3 and the decision to use vanilla as a reference
@@ -484,7 +524,7 @@ The next RE tasks have a bounded set of candidate regions and a reproducible exp
 ## RE2 — Identify the existing auto-management UI/state seam statically
 
 - **Status:** Investigation first
-- **Execution:** GATED — CF2/T2 must resolve the analysis path
+- **Execution:** **CLOUD** — the analysis path is resolved by CF2; still dependency-blocked on T2 and RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / planet state / UI
 - **Origin:** High-level steps 3–4
@@ -517,7 +557,7 @@ RE4 can be executed as a bounded experiment rather than an open-ended debugger s
 ## RE3 — Identify the per-turn self-management decision path statically
 
 - **Status:** Investigation first
-- **Execution:** GATED — CF2/T2 must resolve the analysis path
+- **Execution:** **CLOUD** — the analysis path is resolved by CF2; still dependency-blocked on T2 and RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / turn processing
 - **Origin:** High-level step 3

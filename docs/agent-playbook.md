@@ -8,7 +8,9 @@ This document expands the repository-wide rules in [`AGENTS.md`](../AGENTS.md). 
 
 Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. See [`re/targets.md`](./re/targets.md) for the candidate set and [`experiments/CF1-cloud-target-access.md`](./experiments/CF1-cloud-target-access.md) for provenance.
 
-No canonical target has been selected (T1) and no static-analysis toolchain exists yet (CF2), so there are no established addresses, offsets, or function identities in this repository. Do not invent them.
+Static analysis is solved too: CF2 established a headless cloud pipeline needing only the standard library and `objdump`. `tools/le_image.py` parses the LE container (nothing standard does), `tools/le_disasm.py` derives a candidate function inventory and call graph, and `tools/le_diff.py` compares two builds by normalized function signature. Capabilities and — importantly — limits are in [`experiments/CF2-cloud-static-re.md`](./experiments/CF2-cloud-static-re.md).
+
+No canonical target has been **selected** yet (T1) and no analysis bundle has been committed (T2). The container layout and build toolchain *are* established; see [`re/targets.md`](./re/targets.md). What is not established: any function identity. The inventories contain candidate addresses derived by linear sweep, never named behaviors. Do not invent identities, and do not treat a candidate boundary as a real function.
 
 ## Repository map
 

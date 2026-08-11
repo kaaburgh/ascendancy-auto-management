@@ -57,6 +57,21 @@ Only freely distributed artifacts may be added to the manifest — never full-ga
 
 Details, provenance and hashes: [`docs/re/targets.md`](./docs/re/targets.md) and [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
 
+### Analysing them
+
+The targets are DOS Linear Executable (`LE`) images with a bound Rational DOS/4G extender, built with Watcom C/C++32. No standard tool reads that container — `objdump` reports "file format not recognized" — so the repository carries its own parser. The pipeline needs only the Python standard library and `objdump`; no GUI, no JVM, no `pip install`:
+
+```sh
+python3 tools/le_image.py info binaries/ANTAG_EN.EXE       # container and load map
+python3 tools/le_image.py strings binaries/ANTAG_EN.EXE    # strings with virtual addresses
+python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary # candidate functions, call graph
+python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
+```
+
+`le_diff` compares normalized per-function signatures rather than bytes, so code that merely moved between builds still matches — which is what makes a differential of two independently linked images useful at all.
+
+Read the limits in [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) before trusting any candidate function boundary: the inventory comes from a linear sweep with boundaries inferred from call targets, so it produces leads, not verified functions.
+
 ## Cloud-first development
 
 This repository is intentionally organized so that as much work as possible can be performed by coding agents in **Codex cloud** or **Claude cloud**.

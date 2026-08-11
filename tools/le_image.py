@@ -1,30 +1,22 @@
 #!/usr/bin/env python3
 """Parse DOS Linear Executable (LE) images and rebuild their linear objects.
 
-The project's targets are `MZ` stubs wrapping an `LE` image with a bound DOS
-extender. Nothing in the standard cloud toolchain reads that container:
-`objdump` reports "file format not recognized" and `file` identifies it but
-cannot lay it out. This module supplies the missing piece, so the rest of the
-static pipeline can work in virtual addresses instead of raw file offsets.
+The project's targets are MZ stubs wrapping an LE image with a bound DOS
+extender. GNU objdump in the tested cloud image does not parse that container,
+but it can disassemble a flat byte range. This module supplies the small
+container bridge needed to reconstruct file-backed LE objects at their virtual
+addresses.
 
-It fails closed. Every structural assumption is checked, and anything this
-parser has not been validated against — a different byte order, iterated or
-zero-filled pages, an `LX` image — is refused with a message naming the exact
-feature rather than guessed at.
+The header layout used here follows Open Watcom's packed ``os2_flat_header``
+(``bld/watcom/h/exeflat.h``). In particular, the LE enumerated-data-page
+``page_off`` field is at header offset 0x80 and is an absolute file offset.
+Open Watcom's linker assigns it from the current file position immediately
+before ``WriteDataPages``; Open Watcom's executable dumper (wdump/exedump) uses
+the same field in ``(page_number - 1) * page_size + page_off``.
 
-Field offsets are relative to the start of the LE header. They were not taken
-from a table on trust: published LE/LX field enumerations disagree about the
-region around the page-data offset, and structural invariants alone cannot
-settle it, because a plausible alternative reading of this header also yields a
-page range that fits inside the file. What settles it is content — known bytes
-appearing at their known virtual address. See H_DATAPAGE for the evidence, and
-`verify --anchor` for re-running that check on a new binary rather than
-believing this comment.
-
-Cross-checks that are enforced on every load: object page counts sum to the
-header page count, page numbers form a complete sequence, the entry point lands
-inside an executable object, and the entry point is file-backed. Details in
-docs/experiments/CF2-cloud-static-re.md.
+The parser fails closed for features it has not been validated against. Content
+anchors are optional cross-checks only: they may confirm a mapping, but they
+must never override the format-defined header fields.
 """
 
 from __future__ import annotations
@@ -42,7 +34,7 @@ LE_MAGIC = b"LE"
 LX_MAGIC = b"LX"
 E_LFANEW = 0x3C
 
-# Offsets within the LE header.
+# Offsets within Open Watcom's packed os2_flat_header.
 H_LEVEL = 0x04
 H_CPU = 0x08
 H_OS = 0x0A
@@ -61,28 +53,19 @@ H_OBJTAB = 0x40
 H_OBJCNT = 0x44
 H_OBJMAP = 0x48
 H_ITERMAP = 0x4C
+H_IMPMOD = 0x70
+H_IMPPROC = 0x78
+H_DATAPAGE = 0x80
+H_NONRESOFF = 0x88
+H_NONRESSIZE = 0x8C
+H_AUTODATA = 0x94
+H_DEBUGINFO = 0x98
+H_DEBUGLEN = 0x9C
 
-# Offset of the page-data field. Published LE/LX field enumerations disagree
-# about this region of the header, and an alternative reading puts the data-page
-# offset at H_DATAPAGE_ALT. For the four targets the field at 0x70 is the one
-# that actually locates page data, established four independent ways rather than
-# taken from a table (see docs/experiments/CF2-cloud-static-re.md):
-#
-#   1. a data-object string's virtual address maps to its true file offset;
-#   2. a code-object string's does too;
-#   3. the declared entry point decodes as extender startup, whereas under the
-#      alternative it lands on the literal ASCII "WATCOM C/C++32 Run-Time";
-#   4. the code contains `push 0x34c0`, the DS-relative offset this reading
-#      predicts for the copyright string; nothing references the alternative's.
-#
-# Because the constant cannot be justified from a specification alone, the
-# mapping it produces is validated (see _check_page_mapping) instead of trusted.
-H_DATAPAGE = 0x70
-H_DATAPAGE_ALT = 0x80
-
-H_DEBUGINFO = 0x88
-H_DEBUGLEN = 0x8C
-H_MIN_SIZE = 0x90
+# We read through debug_len, so the file must contain at least bytes 0x00..0x9f
+# from the LE header start. The full os2_flat_header is larger, but fields after
+# debug_len are not currently consumed.
+H_MIN_SIZE = 0xA0
 
 OBJECT_ENTRY_SIZE = 24
 PAGE_MAP_ENTRY_SIZE = 4
@@ -102,8 +85,6 @@ OBJECT_FLAGS = (
     (0x8000, "iopl"),
 )
 
-# Page-map entry flags. Only 0 has been observed and validated on the project's
-# targets, so the others are refused rather than handled speculatively.
 PAGE_FLAG_NAMES = {
     0x00: "legal",
     0x01: "iterated",
@@ -113,7 +94,6 @@ PAGE_FLAG_NAMES = {
 }
 
 KNOWN_CPU = {0x01: "80286", 0x02: "80386", 0x03: "80486", 0x04: "80586"}
-
 PRINTABLE = bytes(range(0x20, 0x7F)) + b"\t"
 
 
@@ -178,8 +158,6 @@ class LEImage:
         self._parse_page_map()
         self._check_invariants()
 
-    # -- parsing -----------------------------------------------------------
-
     def _u16(self, offset: int) -> int:
         return struct.unpack_from("<H", self._data, offset)[0]
 
@@ -195,8 +173,8 @@ class LEImage:
         self.lfanew = self._u32(E_LFANEW)
         if not 0 < self.lfanew or self.lfanew + H_MIN_SIZE > self.size:
             raise LEError(
-                f"e_lfanew 0x{self.lfanew:x} does not leave room for an LE header "
-                f"in {self.size} bytes"
+                f"e_lfanew 0x{self.lfanew:x} does not leave room for the LE "
+                f"header fields this parser reads in {self.size} bytes"
             )
 
         magic = self._data[self.lfanew : self.lfanew + 2]
@@ -242,7 +220,12 @@ class LEImage:
         self.object_count = self._u32(h + H_OBJCNT)
         self.page_map_offset = self._u32(h + H_OBJMAP)
         self.iterated_map_offset = self._u32(h + H_ITERMAP)
+        self.import_module_offset = self._u32(h + H_IMPMOD)
+        self.import_procedure_offset = self._u32(h + H_IMPPROC)
         self.data_page_offset = self._u32(h + H_DATAPAGE)
+        self.nonresident_offset = self._u32(h + H_NONRESOFF)
+        self.nonresident_size = self._u32(h + H_NONRESSIZE)
+        self.autodata_object = self._u32(h + H_AUTODATA)
         self.debug_offset = self._u32(h + H_DEBUGINFO)
         self.debug_size = self._u32(h + H_DEBUGLEN)
 
@@ -252,11 +235,15 @@ class LEImage:
             raise LEError("LE header declares zero pages")
         if not 0 < self.last_page_size <= self.page_size:
             raise LEError(
-                f"last page size {self.last_page_size} is outside "
-                f"1..{self.page_size}"
+                f"last page size {self.last_page_size} is outside 1..{self.page_size}"
             )
         if self.object_count == 0:
             raise LEError("LE header declares zero objects")
+        if self.data_page_offset == 0:
+            raise LEError(
+                "LE header declares zero enumerated-data-page offset "
+                "(page_off at +0x80)"
+            )
 
     def _parse_objects(self) -> None:
         start = self.lfanew + self.object_table_offset
@@ -281,8 +268,9 @@ class LEImage:
                 )
             if pages and first_page + pages - 1 > self.page_count:
                 raise LEError(
-                    f"object {i + 1} maps pages {first_page}..{first_page + pages - 1}, "
-                    f"beyond the {self.page_count} pages declared in the header"
+                    f"object {i + 1} maps pages {first_page}.."
+                    f"{first_page + pages - 1}, beyond the {self.page_count} "
+                    "pages declared in the header"
                 )
             self.objects.append(
                 LEObject(i + 1, vsize, base, flags, first_page, pages)
@@ -297,18 +285,18 @@ class LEImage:
                 f"(0x{self.size:x})"
             )
 
+        self.page_map_file_end = end
         self.page_numbers: list[int] = []
         for i in range(self.page_count):
             entry = self._data[start + i * 4 : start + i * 4 + 4]
-            # LE stores the page number as 24-bit big-endian, then a flag byte.
+            # LE stores the page number as 24-bit big-endian, followed by flags.
             number = (entry[0] << 16) | (entry[1] << 8) | entry[2]
             flags = entry[3]
             if flags != 0x00:
                 raise LEError(
                     f"page map entry {i} has flags 0x{flags:02x} "
-                    f"({PAGE_FLAG_NAMES.get(flags, 'unknown')}); this parser has only "
-                    f"been validated against 'legal' pages. Implement and test the "
-                    f"handling before relying on such an image"
+                    f"({PAGE_FLAG_NAMES.get(flags, 'unknown')}); this parser has "
+                    "only been validated against legal pages"
                 )
             if not 1 <= number <= self.page_count:
                 raise LEError(
@@ -321,8 +309,14 @@ class LEImage:
         mapped = sum(obj.page_count for obj in self.objects)
         if mapped != self.page_count:
             raise LEError(
-                f"objects map {mapped} pages but the header declares "
-                f"{self.page_count}"
+                f"objects map {mapped} pages but the header declares {self.page_count}"
+            )
+
+        if self.data_page_offset < self.page_map_file_end:
+            raise LEError(
+                f"enumerated page data starts at 0x{self.data_page_offset:x}, "
+                f"before the object page map ends at 0x{self.page_map_file_end:x}; "
+                "page_off is not a plausible absolute file offset"
             )
 
         last = self.data_page_offset + (self.page_count - 1) * self.page_size
@@ -340,57 +334,61 @@ class LEImage:
         entry_object = self.objects[self.start_object - 1]
         if self.eip >= entry_object.virtual_size:
             raise LEError(
-                f"entry eip 0x{self.eip:x} is outside object "
-                f"{self.start_object} (virtual size 0x{entry_object.virtual_size:x})"
+                f"entry eip 0x{self.eip:x} is outside object {self.start_object} "
+                f"(virtual size 0x{entry_object.virtual_size:x})"
             )
         if not entry_object.flags & 0x0004:
             raise LEError(
                 f"entry object {self.start_object} is not executable "
                 f"(flags 0x{entry_object.flags:04x})"
             )
+        if self.autodata_object and not 1 <= self.autodata_object <= self.object_count:
+            raise LEError(
+                f"autodata object {self.autodata_object} is outside "
+                f"1..{self.object_count}"
+            )
 
-        # Anything after the page data is not described by the LE structures.
+        if self.debug_size:
+            if self.debug_offset == 0 or self.debug_offset + self.debug_size > self.size:
+                raise LEError(
+                    f"debug information 0x{self.debug_offset:x}+0x{self.debug_size:x} "
+                    f"is outside the {self.size}-byte file"
+                )
+
+        # Bytes after enumerated data pages may be standard LE sections such as
+        # nonresident names or debug info. This parser reports but does not decode
+        # that suffix; it must not call it "unexplained" or "not described".
         self.trailing_offset = self.page_data_end
         self.trailing_size = self.size - self.page_data_end
 
         if self.va_to_file_offset(self.entry_address) is None:
             raise LEError(
-                f"entry point 0x{self.entry_address:x} does not map to any file "
-                f"offset; the page-data offset (0x{self.data_page_offset:x}) or "
-                f"the page map is being read wrongly"
+                f"entry point 0x{self.entry_address:x} is not file-backed; "
+                "page_off or the page map is inconsistent"
             )
 
-    def check_anchor(self, address: int, expected: bytes) -> None:
-        """Assert that ``expected`` really is at ``address`` in this image.
+    @property
+    def entry_address(self) -> int:
+        return self.objects[self.start_object - 1].base_address + self.eip
 
-        This is the check that established the page-data field offset, kept as
-        code so it can be re-run instead of being believed. Structural invariants
-        cannot settle that offset — an alternative reading of this header also
-        produces a page range that fits inside the file — but content can: only
-        the correct mapping puts known bytes at their known virtual address.
+    def page_file_offset(self, number: int) -> int:
+        if not 1 <= number <= self.page_count:
+            raise LEError(f"page number {number} is outside 1..{self.page_count}")
+        return self.data_page_offset + (number - 1) * self.page_size
 
-        Used by `verify --anchor`. Prefer it to trusting H_DATAPAGE whenever a
-        new binary or a header-layout change is in play.
-        """
-        offset = self.va_to_file_offset(address)
-        if offset is None:
-            raise LEError(f"0x{address:x} is not file-backed in {self.name}")
-        actual = self._data[offset : offset + len(expected)]
-        if actual != expected:
-            raise LEError(
-                f"anchor mismatch at 0x{address:x} (file 0x{offset:x}): expected "
-                f"{expected[:32]!r}, found {actual[:32]!r}. If the anchor is "
-                f"right, the page-data offset is being read from the wrong "
-                f"header field (currently +0x{H_DATAPAGE:02x}; an alternative "
-                f"reading uses +0x{H_DATAPAGE_ALT:02x})"
-            )
+    def page_length(self, number: int) -> int:
+        if not 1 <= number <= self.page_count:
+            raise LEError(f"page number {number} is outside 1..{self.page_count}")
+        return self.last_page_size if number == self.page_count else self.page_size
+
+    def object_containing(self, address: int) -> LEObject | None:
+        for obj in self.objects:
+            if obj.base_address <= address < obj.end_address:
+                return obj
+        return None
 
     def va_to_file_offset(self, address: int) -> int | None:
-        """File offset backing a virtual address, or None if not file-backed.
-
-        Addresses in an object's zero-filled tail (bss, stack, heap) have no
-        bytes in the file and return None.
-        """
+        """Return the file offset backing a VA, or None for non-file-backed space."""
         obj = self.object_containing(address)
         if obj is None:
             return None
@@ -399,19 +397,10 @@ class LEImage:
         if page_index >= obj.page_count:
             return None
         number = self.page_numbers[obj.first_page - 1 + page_index]
-        return self.page_file_offset(number) + delta % self.page_size
-
-    # -- access ------------------------------------------------------------
-
-    @property
-    def entry_address(self) -> int:
-        return self.objects[self.start_object - 1].base_address + self.eip
-
-    def page_file_offset(self, number: int) -> int:
-        return self.data_page_offset + (number - 1) * self.page_size
-
-    def page_length(self, number: int) -> int:
-        return self.last_page_size if number == self.page_count else self.page_size
+        offset_in_page = delta % self.page_size
+        if offset_in_page >= self.page_length(number):
+            return None
+        return self.page_file_offset(number) + offset_in_page
 
     def object_bytes(self, index: int) -> bytes:
         """Rebuild one object as a linear byte range of exactly virtual_size."""
@@ -419,7 +408,7 @@ class LEImage:
             raise LEError(f"no object {index}; image has {self.object_count}")
         obj = self.objects[index - 1]
 
-        chunks = []
+        chunks: list[bytes] = []
         for i in range(obj.page_count):
             number = self.page_numbers[obj.first_page - 1 + i]
             offset = self.page_file_offset(number)
@@ -427,20 +416,26 @@ class LEImage:
         image = b"".join(chunks)
 
         if len(image) > obj.virtual_size:
-            # Page granularity overshoots the declared size; the tail is padding.
             return image[: obj.virtual_size]
-        # Short of virtual_size means uninitialised space (bss/stack/heap).
         return image + b"\x00" * (obj.virtual_size - len(image))
 
-    def object_containing(self, address: int) -> LEObject | None:
-        for obj in self.objects:
-            if obj.base_address <= address < obj.end_address:
-                return obj
-        return None
+    def check_anchor(self, address: int, expected: bytes) -> None:
+        """Confirm known bytes at a known VA using the parsed, spec-defined mapping."""
+        offset = self.va_to_file_offset(address)
+        if offset is None:
+            raise LEError(f"0x{address:x} is not file-backed in {self.name}")
+        actual = self._data[offset : offset + len(expected)]
+        if actual != expected:
+            raise LEError(
+                f"anchor mismatch at 0x{address:x} (file 0x{offset:x}): expected "
+                f"{expected[:32]!r}, found {actual[:32]!r}. The anchor or the "
+                "binary version may be wrong; the parser does not switch header "
+                "fields based on content"
+            )
 
     def strings(self, min_length: int = 4) -> list[dict]:
-        """Printable ASCII runs, reported with the virtual address they load at."""
-        found = []
+        """Printable ASCII runs, reported at the virtual address they load at."""
+        found: list[dict] = []
         table = PRINTABLE
         for obj in self.objects:
             data = self.object_bytes(obj.index)
@@ -499,6 +494,11 @@ class LEImage:
                 "fixup_size": self.fixup_size,
                 "loader_size": self.loader_size,
                 "iterated_map_offset": self.iterated_map_offset,
+                "import_module_offset": self.import_module_offset,
+                "import_procedure_offset": self.import_procedure_offset,
+                "nonresident_offset": self.nonresident_offset,
+                "nonresident_size": self.nonresident_size,
+                "autodata_object": self.autodata_object,
                 "debug_offset": self.debug_offset,
                 "debug_size": self.debug_size,
             },
@@ -510,10 +510,18 @@ class LEImage:
                 "esp": self.esp,
             },
             "objects": [obj.to_dict() for obj in self.objects],
+            "after_page_data": {
+                "offset": self.trailing_offset,
+                "size": self.trailing_size,
+                "note": (
+                    "bytes after enumerated data pages; may contain standard LE "
+                    "sections such as nonresident names/debug info; not parsed"
+                ),
+            },
             "trailing": {
                 "offset": self.trailing_offset,
                 "size": self.trailing_size,
-                "note": "not described by the LE structures; not parsed",
+                "note": "alias of after_page_data; not classified by this parser",
             },
         }
 
@@ -524,9 +532,6 @@ def load(path: pathlib.Path) -> LEImage:
     except OSError as exc:
         raise LEError(f"cannot read {path}: {exc}") from exc
     return LEImage(data, name=path.name)
-
-
-# -- CLI -------------------------------------------------------------------
 
 
 def _cmd_info(args: argparse.Namespace) -> int:
@@ -544,11 +549,15 @@ def _cmd_info(args: argparse.Namespace) -> int:
         f"  pages          : {image.page_count} x {image.page_size}"
         f" (last {image.last_page_size}), data at 0x{image.data_page_offset:x}"
     )
-    print(f"  entry point    : object {image.start_object} +0x{image.eip:x}"
-          f" -> 0x{image.entry_address:x}")
+    print(
+        f"  entry point    : object {image.start_object} +0x{image.eip:x}"
+        f" -> 0x{image.entry_address:x}"
+    )
     print(f"  stack          : object {image.stack_object}, esp 0x{image.esp:x}")
-    print(f"  trailing bytes : {image.trailing_size} at 0x{image.trailing_offset:x}"
-          f" (unparsed)")
+    print(
+        f"  after pages    : {image.trailing_size} bytes at "
+        f"0x{image.trailing_offset:x} (not classified)"
+    )
     print("  objects:")
     for obj in image.objects:
         print(
@@ -581,28 +590,36 @@ def _cmd_strings(args: argparse.Namespace) -> int:
         return 0
     for item in found:
         print(f"0x{item['address']:08x}  obj{item['object']}  {item['text']}")
-    print(f"# {len(found)} strings of at least {args.min_length} characters",
-          file=sys.stderr)
+    print(
+        f"# {len(found)} strings of at least {args.min_length} characters",
+        file=sys.stderr,
+    )
     return 0
 
 
 def _cmd_verify(args: argparse.Namespace) -> int:
     image = load(args.file)
-    print(f"{image.name}: container invariants pass "
-          f"(page data 0x{image.data_page_offset:x}..0x{image.page_data_end:x}, "
-          f"entry 0x{image.entry_address:x} -> file "
-          f"0x{image.va_to_file_offset(image.entry_address):x})")
+    entry_file = image.va_to_file_offset(image.entry_address)
+    print(
+        f"{image.name}: container invariants pass "
+        f"(page data 0x{image.data_page_offset:x}..0x{image.page_data_end:x}, "
+        f"entry 0x{image.entry_address:x} -> file 0x{entry_file:x})"
+    )
 
     for anchor in args.anchor or []:
         address_text, _, expected = anchor.partition("=")
         if not expected:
-            print(f"error: --anchor needs ADDRESS=TEXT, got {anchor!r}",
-                  file=sys.stderr)
+            print(
+                f"error: --anchor needs ADDRESS=TEXT, got {anchor!r}",
+                file=sys.stderr,
+            )
             return 2
         address = int(address_text, 0)
         image.check_anchor(address, expected.encode("latin-1"))
-        print(f"  anchor 0x{address:x}: {expected!r} confirmed at file "
-              f"0x{image.va_to_file_offset(address):x}")
+        print(
+            f"  anchor 0x{address:x}: {expected!r} confirmed at file "
+            f"0x{image.va_to_file_offset(address):x}"
+        )
     return 0
 
 
@@ -612,14 +629,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify = sub.add_parser(
         "verify",
-        help="check container invariants, and optionally that known bytes sit "
-             "at a known virtual address",
+        help=(
+            "check container invariants and optionally cross-check known bytes "
+            "at a known virtual address"
+        ),
     )
     verify.add_argument("file", type=pathlib.Path)
     verify.add_argument(
-        "--anchor", action="append", metavar="ADDRESS=TEXT",
-        help="assert TEXT appears at virtual ADDRESS; repeatable. This is how "
-             "the page-data field offset was established",
+        "--anchor",
+        action="append",
+        metavar="ADDRESS=TEXT",
+        help=(
+            "assert TEXT appears at virtual ADDRESS; repeatable. Anchors validate "
+            "a known binary but never select an alternative header layout"
+        ),
     )
     verify.set_defaults(func=_cmd_verify)
 
@@ -647,7 +670,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except LEError as exc:
+    except (LEError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

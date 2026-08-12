@@ -20,6 +20,8 @@ Examples:
 
 Use [`targets.md`](./targets.md) as the canonical supported-binary inventory.
 
+Use [`static-analysis/t2/`](./static-analysis/t2/) for the T2 repo-safe canonical load/candidate handoff and [`../experiments/T2-static-analysis-bundle.md`](../experiments/T2-static-analysis-bundle.md) for its regeneration procedure and independent `wdump` evidence.
+
 ## Suggested note format
 
 ```markdown

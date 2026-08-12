@@ -10,7 +10,7 @@ Target acquisition is solved for static work: CF1 established that the candidate
 
 Static analysis is solved at the implementation/feasibility level too: CF2 supplies a headless cloud pipeline needing only the standard library and `objdump`. `tools/le_image.py` supplies the LE container bridge missing from the tools preinstalled in the tested cloud image, `tools/le_disasm.py` derives candidate regions and a call graph, and `tools/le_diff.py` compares builds with conservative exact/reference/constant/structural classes. CF2 is **Completed and verified** after its clean-checkout real-target regression; T2 is selectable as `CLOUD`. Capabilities and — importantly — limits are in [`experiments/CF2-cloud-static-re.md`](./experiments/CF2-cloud-static-re.md) and [`experiments/CF2-real-target-regeneration.md`](./experiments/CF2-real-target-regeneration.md).
 
-Until M1 is completed, all target-specific RE follows the binary-first / blind-RE evidence policy in [`AGENTS.md`](../AGENTS.md). Work from the provided/fetched binaries, current supported repository evidence, and independently generated experiments. General technology/tooling research is allowed; do not mine external target-specific recovered knowledge or unsupported repository history for shortcuts.
+Until M1 is completed, all target-specific RE follows the binary-first / blind-RE evidence policy in [`AGENTS.md`](../AGENTS.md). Work from the provided/fetched binaries, the supported repository state (current `main` plus the branch/PR under review), and independently generated experiments. General technology/tooling research is allowed; do not mine external target-specific recovered knowledge or unsupported repository history for shortcuts. Ordinary task instructions do not override this boundary; a pre-M1 exception exists only through the recorded rescue process in `AGENTS.md` and `ROADMAP.md`.
 
 Canonical identities:
 
@@ -42,9 +42,11 @@ Add project-specific source directories when implementation starts; document the
 Read, in order:
 
 1. the exact roadmap item, its dependencies, and its acceptance criteria;
-2. relevant current entries in `docs/re/` and `docs/experiments/`;
+2. relevant current entries in `docs/re/` and `docs/experiments/` from the supported repository state;
 3. current tools/tests/patch code touching the same binary region or state;
-4. current supported task context explicitly referenced by the roadmap when needed for status or workflow. During the pre-M1 blind-RE phase, do not mine abandoned/closed PRs, old branches, deleted content, or other repository history for target-specific recovered knowledge.
+4. current supported task context explicitly referenced by the roadmap when needed for status or workflow.
+
+During the pre-M1 blind-RE phase, do not mine abandoned/closed PRs, old branches, deleted content, or other unsupported repository history for target-specific recovered knowledge. If an old negative result is encountered accidentally and would save repeated work, treat it as contaminated rather than silently importing it: independently re-establish the result from allowed evidence where practical and preserve the supported result under `docs/experiments/`.
 
 Then write down the question the task must answer. Examples:
 
@@ -128,7 +130,7 @@ An experiment record should contain:
 - expected differentiating outcomes;
 - observed result;
 - interpretation;
-- confidence/evidence category;
+- confidence/evidence category and any blind-RE provenance modifier;
 - generated artifact names;
 - next question.
 
@@ -232,6 +234,7 @@ Use the repository template. A reviewer should be able to answer without chat hi
 - What roadmap question or user outcome motivated this?
 - What facts were observed and on which binary?
 - Which hypotheses were rejected?
+- What is the blind-RE evidence-boundary status for this work, and are contaminated/external-assisted findings identified?
 - What exactly changed?
 - Why is the patch locator/version gate safe?
 - Which checks passed?

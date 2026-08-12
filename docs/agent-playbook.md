@@ -8,7 +8,9 @@ This document expands the repository-wide rules in [`AGENTS.md`](../AGENTS.md). 
 
 Target acquisition is solved for static work: CF1 established that the candidate executables are lawfully fetchable in cloud, and `tools/fetch_free_targets.py` reproduces that fail-closed into the git-ignored `binaries/`. T1 selected the exact English Antagonizer build as the canonical M1 target and the English official bug-patch build as its comparison baseline. See [`re/targets.md`](./re/targets.md), [`re/target-manifest.json`](./re/target-manifest.json), and [`experiments/T1-canonical-target-selection.md`](./experiments/T1-canonical-target-selection.md).
 
-Static analysis is solved at the implementation/feasibility level too: CF2 supplies a headless cloud pipeline needing only the standard library and `objdump`. `tools/le_image.py` supplies the LE container bridge missing from the tools preinstalled in the tested cloud image, `tools/le_disasm.py` derives candidate regions and a call graph, and `tools/le_diff.py` compares builds with conservative exact/reference/constant/structural classes. CF2 is still **Validation pending** until its clean-checkout real-target regression passes; do not confuse an implemented pipeline with a completed validation gate. Capabilities and — importantly — limits are in [`experiments/CF2-cloud-static-re.md`](./experiments/CF2-cloud-static-re.md).
+Static analysis is solved at the implementation/feasibility level too: CF2 supplies a headless cloud pipeline needing only the standard library and `objdump`. `tools/le_image.py` supplies the LE container bridge missing from the tools preinstalled in the tested cloud image, `tools/le_disasm.py` derives candidate regions and a call graph, and `tools/le_diff.py` compares builds with conservative exact/reference/constant/structural classes. CF2 is **Completed and verified** after its clean-checkout real-target regression; T2 is selectable as `CLOUD`. Capabilities and — importantly — limits are in [`experiments/CF2-cloud-static-re.md`](./experiments/CF2-cloud-static-re.md) and [`experiments/CF2-real-target-regeneration.md`](./experiments/CF2-real-target-regeneration.md).
+
+Until M1 is completed, all target-specific RE follows the binary-first / blind-RE evidence policy in [`AGENTS.md`](../AGENTS.md). Work from the provided/fetched binaries, current supported repository evidence, and independently generated experiments. General technology/tooling research is allowed; do not mine external target-specific recovered knowledge or unsupported repository history for shortcuts.
 
 Canonical identities:
 
@@ -40,9 +42,9 @@ Add project-specific source directories when implementation starts; document the
 Read, in order:
 
 1. the exact roadmap item, its dependencies, and its acceptance criteria;
-2. relevant entries in `docs/re/` and `docs/experiments/`;
+2. relevant current entries in `docs/re/` and `docs/experiments/`;
 3. current tools/tests/patch code touching the same binary region or state;
-4. any prior PR or issue explicitly referenced by the roadmap.
+4. current supported task context explicitly referenced by the roadmap when needed for status or workflow. During the pre-M1 blind-RE phase, do not mine abandoned/closed PRs, old branches, deleted content, or other repository history for target-specific recovered knowledge.
 
 Then write down the question the task must answer. Examples:
 

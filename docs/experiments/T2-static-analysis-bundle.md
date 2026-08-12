@@ -39,7 +39,7 @@ The script fails closed unless all four filenames, sizes, and SHA-256 values mat
 1. runs `tools/le_image.py info --json` on all four targets;
 2. for the canonical English pair, runs `tools/le_image.py strings --json --min-length 4` and `tools/le_disasm.py`;
 3. stores the full canonical layouts, string inventories, and `le_disasm` v2 inventories only under ignored `artifacts/t2-static-analysis/`;
-4. commits only compact summaries: complete candidate-start address inventories, headline counts, layout data, stable digests of candidate records/call edges/full string order, and small non-text runtime/toolchain indicators;
+4. commits only compact summaries: candidate-start samples plus a digest of the complete start list, headline counts, layout data, stable digests of candidate records/call edges/full string order, and small non-text runtime/toolchain indicators;
 5. runs `wdump -q -p` on all four pinned targets;
 6. compares every object record and every emitted page-map entry, plus every LE header field that is also exposed by `le_image.py info --json`;
 7. fails if any compared field differs.
@@ -94,7 +94,7 @@ In particular, Open Watcom independently reports `page_off = 0x18000` for both A
 - the exact source SHA-256 and reconstructed code-object SHA-256;
 - complete `le_image` layout output;
 - `le_disasm` schema/tool/provenance metadata and headline counts;
-- the complete sorted candidate-start address list;
+- candidate-start samples plus SHA-256 of the complete sorted candidate-start list;
 - SHA-256 digests of the full candidate records, call-edge list, and regenerated full inventory file;
 - string counts, object distribution, ordered full-index digest, longest-run metadata without text, and hashed runtime/toolchain indicators.
 

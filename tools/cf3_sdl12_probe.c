@@ -39,13 +39,14 @@ typedef union SDL_Event {
     Uint8 padding[24];
 } SDL_Event;
 
-enum { SDL_KEYDOWN = 2, SDL_KEYUP = 3 };
+enum { SDL_KEYDOWN = 2, SDL_KEYUP = 3, SDLK_PAUSE = 19, KMOD_LALT = 0x0100 };
 #define MAX_EVENTS 32
 #define MAX_CAPTURES 32
 
 typedef struct {
     long due_ms;
     int key;
+    int mod;
     int key_up;
 } KeyEvent;
 
@@ -82,10 +83,15 @@ static long parse_nonnegative(const char *text, const char *what) {
     return value;
 }
 
-static int key_code(const char *name) {
+static int key_code(const char *name, int *mod) {
+    *mod = 0;
     if (!strcmp(name, "space")) return 32;
     if (!strcmp(name, "enter")) return 13;
     if (!strcmp(name, "escape")) return 27;
+    if (!strcmp(name, "alt-pause")) {
+        *mod = KMOD_LALT;
+        return SDLK_PAUSE;
+    }
     if (name[0] && !name[1]) return (unsigned char)name[0];
     return 0;
 }
@@ -102,11 +108,12 @@ static void parse_events(void) {
         if (!colon) config_error("key event must be TIME:KEY");
         *colon++ = '\0';
         long due = parse_nonnegative(item, "bad key event time");
-        int key = key_code(colon);
+        int mod = 0;
+        int key = key_code(colon, &mod);
         if (!key) config_error("unsupported key name");
         if (event_count && due < events[event_count - 1].due_ms) config_error("key events must be sorted");
-        events[event_count++] = (KeyEvent){due, key, 0};
-        events[event_count++] = (KeyEvent){due, key, 1};
+        events[event_count++] = (KeyEvent){due, key, mod, 0};
+        events[event_count++] = (KeyEvent){due, key, mod, 1};
     }
     free(copy);
 }
@@ -217,7 +224,8 @@ int SDL_PollEvent(SDL_Event *event) {
         event->key.type = source->key_up ? SDL_KEYUP : SDL_KEYDOWN;
         event->key.state = source->key_up ? 0 : 1;
         event->key.keysym.sym = source->key;
-        fprintf(stderr, "CF3SDL inject t=%ld %s key=%d\n", elapsed_ms(), source->key_up ? "keyup" : "keydown", source->key);
+        event->key.keysym.mod = source->mod;
+        fprintf(stderr, "CF3SDL inject t=%ld %s key=%d mod=0x%x\n", elapsed_ms(), source->key_up ? "keyup" : "keydown", source->key, source->mod);
         fflush(stderr);
         return 1;
     }
@@ -229,7 +237,7 @@ SDL_Surface *SDL_SetVideoMode(int w, int h, int bpp, Uint32 flags) {
     if (!real_set_mode) real_set_mode = dlsym(RTLD_NEXT, "SDL_SetVideoMode");
     SDL_Surface *surface = real_set_mode(w, h, bpp, flags);
     current_surface = surface;
-    fprintf(stderr, "CF3SDL mode %dx%d bpp=%d result=%p\n", w, h, bpp, (void *)surface);
+    fprintf(stderr, "CF3SDL mode %dx%d bpp=%d ok=%d result=%p\n", w, h, bpp, surface != NULL, (void *)surface);
     fflush(stderr);
     capture_due(surface);
     return surface;

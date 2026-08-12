@@ -39,7 +39,13 @@ typedef union SDL_Event {
     Uint8 padding[24];
 } SDL_Event;
 
-enum { SDL_KEYDOWN = 2, SDL_KEYUP = 3, SDLK_PAUSE = 19, KMOD_LALT = 0x0100 };
+enum {
+    SDL_KEYDOWN = 2,
+    SDL_KEYUP = 3,
+    SDLK_PAUSE = 19,
+    SDLK_LALT = 308,
+    KMOD_LALT = 0x0100
+};
 #define MAX_EVENTS 32
 #define MAX_CAPTURES 32
 
@@ -52,6 +58,7 @@ typedef struct {
 
 static KeyEvent events[MAX_EVENTS];
 static int event_count;
+static int logical_event_count;
 static int event_index;
 static long captures[MAX_CAPTURES];
 static int capture_count;
@@ -83,17 +90,17 @@ static long parse_nonnegative(const char *text, const char *what) {
     return value;
 }
 
-static int key_code(const char *name, int *mod) {
-    *mod = 0;
+static int key_code(const char *name) {
     if (!strcmp(name, "space")) return 32;
     if (!strcmp(name, "enter")) return 13;
     if (!strcmp(name, "escape")) return 27;
-    if (!strcmp(name, "alt-pause")) {
-        *mod = KMOD_LALT;
-        return SDLK_PAUSE;
-    }
     if (name[0] && !name[1]) return (unsigned char)name[0];
     return 0;
+}
+
+static void append_event(long due, int key, int mod, int key_up) {
+    if (event_count >= MAX_EVENTS) config_error("too many key events");
+    events[event_count++] = (KeyEvent){due, key, mod, key_up};
 }
 
 static void parse_events(void) {
@@ -103,17 +110,30 @@ static void parse_events(void) {
     if (!copy) _exit(87);
     char *save = NULL;
     for (char *item = strtok_r(copy, ";", &save); item; item = strtok_r(NULL, ";", &save)) {
-        if (event_count + 2 > MAX_EVENTS) config_error("too many key events");
         char *colon = strchr(item, ':');
         if (!colon) config_error("key event must be TIME:KEY");
         *colon++ = '\0';
         long due = parse_nonnegative(item, "bad key event time");
-        int mod = 0;
-        int key = key_code(colon, &mod);
-        if (!key) config_error("unsupported key name");
         if (event_count && due < events[event_count - 1].due_ms) config_error("key events must be sorted");
-        events[event_count++] = (KeyEvent){due, key, mod, 0};
-        events[event_count++] = (KeyEvent){due, key, mod, 1};
+
+        if (!strcmp(colon, "alt-pause")) {
+            /*
+             * DOSBox's mapper tracks modifier key state, not merely the mod
+             * field on a single SDL event. Emit the physical chord so the
+             * standard debug-build Alt+Pause binding is exercised exactly as
+             * a user's keyboard would exercise it.
+             */
+            append_event(due, SDLK_LALT, KMOD_LALT, 0);
+            append_event(due, SDLK_PAUSE, KMOD_LALT, 0);
+            append_event(due, SDLK_PAUSE, KMOD_LALT, 1);
+            append_event(due, SDLK_LALT, 0, 1);
+        } else {
+            int key = key_code(colon);
+            if (!key) config_error("unsupported key name");
+            append_event(due, key, 0, 0);
+            append_event(due, key, 0, 1);
+        }
+        ++logical_event_count;
     }
     free(copy);
 }
@@ -208,7 +228,7 @@ __attribute__((constructor)) static void init_probe(void) {
     capture_dir = getenv("CF3_CAPTURE_DIR");
     parse_events();
     parse_captures();
-    fprintf(stderr, "CF3SDL init pid=%d key_events=%d captures=%d\n", getpid(), event_count / 2, capture_count);
+    fprintf(stderr, "CF3SDL init pid=%d key_events=%d captures=%d\n", getpid(), logical_event_count, capture_count);
     fflush(stderr);
 }
 

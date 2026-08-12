@@ -41,6 +41,8 @@ The current cloud sandbox could resolve the source through the browser/tooling l
 verified 19 demo files in .../demo
 ```
 
+A clean GitHub Actions runner subsequently exercised the committed network path end to end. Tests run `31611654248`, job `CF3 demo acquisition`, executed `python tools/fetch_demo.py --dest game/demo` followed by `--verify`; both steps succeeded against the pinned public archive. This establishes that the public-source acquisition is reproducible in cloud even though the interactive execution container used for the investigation had no direct DNS egress.
+
 This keeps acquisition fail-closed while avoiding a false `LOCAL ONLY` conclusion from one sandbox's network policy.
 
 ## Does the demo contain planet management and self-management?
@@ -181,6 +183,7 @@ OK
 `runtime`:
 
 - all 19 supplied demo files matched the committed pins;
+- clean GitHub Actions live acquisition fetched and re-verified the pinned demo archive successfully;
 - demo `ASCEND.EXE` smoke: PASS, expected 640x480 game mode observed;
 - canonical `ANTAG.EXE` on the same verified demo tree: expected 640x480 mode **not** observed; negative artifact produced as intended.
 

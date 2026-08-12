@@ -89,60 +89,337 @@
       "seed_address": 473028
     },
     "top_mnemonics": [
-      ["mov", 44918],
-      ["push", 12214],
-      ["add", 9036],
-      ["call", 7593],
-      ["pop", 7434],
-      ["cmp", 7321],
-      ["xor", 5346],
-      ["je", 3878],
-      ["lea", 3594],
-      ["jmp", 3361],
-      ["jne", 3325],
-      ["ret", 3134],
-      ["test", 2976],
-      ["sub", 2620],
-      ["inc", 1970],
-      ["sar", 1797],
-      ["shl", 1273],
-      ["and", 1156],
-      ["movsx", 865],
-      ["jl", 860],
-      ["dec", 819],
-      ["fld", 801],
-      ["jge", 771],
-      ["movs", 714],
-      ["fstp", 665]
+      [
+        "mov",
+        44918
+      ],
+      [
+        "push",
+        12214
+      ],
+      [
+        "add",
+        9036
+      ],
+      [
+        "call",
+        7593
+      ],
+      [
+        "pop",
+        7434
+      ],
+      [
+        "cmp",
+        7321
+      ],
+      [
+        "xor",
+        5346
+      ],
+      [
+        "je",
+        3878
+      ],
+      [
+        "lea",
+        3594
+      ],
+      [
+        "jmp",
+        3361
+      ],
+      [
+        "jne",
+        3325
+      ],
+      [
+        "ret",
+        3134
+      ],
+      [
+        "test",
+        2976
+      ],
+      [
+        "sub",
+        2620
+      ],
+      [
+        "inc",
+        1970
+      ],
+      [
+        "sar",
+        1797
+      ],
+      [
+        "shl",
+        1273
+      ],
+      [
+        "and",
+        1156
+      ],
+      [
+        "movsx",
+        865
+      ],
+      [
+        "jl",
+        860
+      ],
+      [
+        "dec",
+        819
+      ],
+      [
+        "fld",
+        801
+      ],
+      [
+        "jge",
+        771
+      ],
+      [
+        "movs",
+        714
+      ],
+      [
+        "fstp",
+        665
+      ]
     ]
   },
   "layout": {
-    "after_page_data": {"note": "bytes after enumerated data pages; may contain standard LE sections such as nonresident names/debug info; not parsed", "offset": 587451, "size": 0},
-    "container": {"cpu": 2, "cpu_name": "80386", "format_level": 0, "module_flags": 512, "module_version": 0, "mz_lfanew": 10832, "os_type": 1, "signature": "LE"},
-    "entry": {"address": 473028, "eip": 407492, "esp": 685808, "object": 1, "stack_object": 2},
+    "after_page_data": {
+      "note": "bytes after enumerated data pages; may contain standard LE sections such as nonresident names/debug info; not parsed",
+      "offset": 587451,
+      "size": 0
+    },
+    "container": {
+      "cpu": 2,
+      "cpu_name": "80386",
+      "format_level": 0,
+      "module_flags": 512,
+      "module_version": 0,
+      "mz_lfanew": 10832,
+      "os_type": 1,
+      "signature": "LE"
+    },
+    "entry": {
+      "address": 473028,
+      "eip": 407492,
+      "esp": 685808,
+      "object": 1,
+      "stack_object": 2
+    },
     "file_size": 587451,
-    "loader": {"autodata_object": 2, "debug_offset": 0, "debug_size": 0, "fixup_size": 83862, "import_module_offset": 84598, "import_procedure_offset": 84598, "iterated_map_offset": 0, "loader_size": 84403, "nonresident_offset": 0, "nonresident_size": 0},
+    "loader": {
+      "autodata_object": 2,
+      "debug_offset": 0,
+      "debug_size": 0,
+      "fixup_size": 83862,
+      "import_module_offset": 84598,
+      "import_procedure_offset": 84598,
+      "iterated_map_offset": 0,
+      "loader_size": 84403,
+      "nonresident_offset": 0,
+      "nonresident_size": 0
+    },
     "name": "PATCH_EN.EXE",
     "objects": [
-      {"base_address": 65536, "end_address": 514886, "first_page": 1, "flag_names": ["readable", "executable", "preload", "big32"], "flags": 8261, "index": 1, "kind": "code", "page_count": 110, "virtual_size": 449350},
-      {"base_address": 524288, "end_address": 1210096, "first_page": 111, "flag_names": ["readable", "writable", "preload", "big32"], "flags": 8259, "index": 2, "kind": "data", "page_count": 11, "virtual_size": 685808}
+      {
+        "base_address": 65536,
+        "end_address": 514886,
+        "first_page": 1,
+        "flag_names": [
+          "readable",
+          "executable",
+          "preload",
+          "big32"
+        ],
+        "flags": 8261,
+        "index": 1,
+        "kind": "code",
+        "page_count": 110,
+        "virtual_size": 449350
+      },
+      {
+        "base_address": 524288,
+        "end_address": 1210096,
+        "first_page": 111,
+        "flag_names": [
+          "readable",
+          "writable",
+          "preload",
+          "big32"
+        ],
+        "flags": 8259,
+        "index": 2,
+        "kind": "data",
+        "page_count": 11,
+        "virtual_size": 685808
+      }
     ],
-    "pages": {"count": 121, "data_end": 587451, "data_offset": 95744, "last_page_size": 187, "numbers_are_sequential": true, "size": 4096},
+    "pages": {
+      "count": 121,
+      "data_end": 587451,
+      "data_offset": 95744,
+      "last_page_size": 187,
+      "numbers_are_sequential": true,
+      "size": 4096
+    },
     "sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b",
-    "trailing": {"note": "alias of after_page_data; not classified by this parser", "offset": 587451, "size": 0}
+    "trailing": {
+      "note": "alias of after_page_data; not classified by this parser",
+      "offset": 587451,
+      "size": 0
+    }
   },
-  "source": {"base_address": 65536, "data_page_offset": 95744, "end_address": 514886, "entry_address": 473028, "name": "PATCH_EN.EXE", "object": 1, "object_sha256": "9a6055067d153af08c40c4d368c339881a2a50f06e3a8c41500a1748737a84a2", "page_offset_header_offset": 128, "parser_layout": "open-watcom-os2-flat-header-page-off-0x80/v1", "sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b", "virtual_size": 449350},
+  "source": {
+    "base_address": 65536,
+    "data_page_offset": 95744,
+    "end_address": 514886,
+    "entry_address": 473028,
+    "name": "PATCH_EN.EXE",
+    "object": 1,
+    "object_sha256": "9a6055067d153af08c40c4d368c339881a2a50f06e3a8c41500a1748737a84a2",
+    "page_offset_header_offset": 128,
+    "parser_layout": "open-watcom-os2-flat-header-page-off-0x80/v1",
+    "sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b",
+    "virtual_size": 449350
+  },
   "strings": {
-    "count_by_object": {"1": 2308, "2": 1426},
+    "count_by_object": {
+      "1": 2308,
+      "2": 1426
+    },
     "longest_runs_without_text": [
-      {"address": 473029, "length": 108, "object": 1}, {"address": 539451, "length": 79, "object": 2}, {"address": 539624, "length": 79, "object": 2}, {"address": 544968, "length": 77, "object": 2}, {"address": 544775, "length": 75, "object": 2}, {"address": 545047, "length": 75, "object": 2}, {"address": 544624, "length": 74, "object": 2}, {"address": 544892, "length": 74, "object": 2}, {"address": 545124, "length": 74, "object": 2}, {"address": 544700, "length": 73, "object": 2}, {"address": 545200, "length": 72, "object": 2}, {"address": 539537, "length": 69, "object": 2}, {"address": 545554, "length": 68, "object": 2}, {"address": 546271, "length": 65, "object": 2}, {"address": 527704, "length": 60, "object": 2}, {"address": 544504, "length": 60, "object": 2}, {"address": 545443, "length": 60, "object": 2}, {"address": 545712, "length": 59, "object": 2}, {"address": 548980, "length": 57, "object": 2}, {"address": 542988, "length": 56, "object": 2}
+      {
+        "address": 473029,
+        "length": 108,
+        "object": 1
+      },
+      {
+        "address": 539451,
+        "length": 79,
+        "object": 2
+      },
+      {
+        "address": 539624,
+        "length": 79,
+        "object": 2
+      },
+      {
+        "address": 544968,
+        "length": 77,
+        "object": 2
+      },
+      {
+        "address": 544775,
+        "length": 75,
+        "object": 2
+      },
+      {
+        "address": 545047,
+        "length": 75,
+        "object": 2
+      },
+      {
+        "address": 544624,
+        "length": 74,
+        "object": 2
+      },
+      {
+        "address": 544892,
+        "length": 74,
+        "object": 2
+      },
+      {
+        "address": 545124,
+        "length": 74,
+        "object": 2
+      },
+      {
+        "address": 544700,
+        "length": 73,
+        "object": 2
+      },
+      {
+        "address": 545200,
+        "length": 72,
+        "object": 2
+      },
+      {
+        "address": 539537,
+        "length": 69,
+        "object": 2
+      },
+      {
+        "address": 545554,
+        "length": 68,
+        "object": 2
+      },
+      {
+        "address": 546271,
+        "length": 65,
+        "object": 2
+      },
+      {
+        "address": 527704,
+        "length": 60,
+        "object": 2
+      },
+      {
+        "address": 544504,
+        "length": 60,
+        "object": 2
+      },
+      {
+        "address": 545443,
+        "length": 60,
+        "object": 2
+      },
+      {
+        "address": 545712,
+        "length": 59,
+        "object": 2
+      },
+      {
+        "address": 548980,
+        "length": 57,
+        "object": 2
+      },
+      {
+        "address": 542988,
+        "length": 56,
+        "object": 2
+      }
     ],
     "minimum_length": 4,
     "note": "Full target strings are regenerated on demand and are not committed in bulk.",
     "ordered_full_index_sha256": "6347cf98d6507c70428dae3d4d0afcd7c5732f696f383429df467025c7bcacd5",
     "runtime_toolchain_indicators": [
-      {"address": 473029, "length": 108, "matched_tokens": ["WATCOM"], "object": 1, "text_sha256": "59c03ff67e08556c05e55f8709244eb306984321edb9c609d5975286c2d651c5"},
-      {"address": 545980, "length": 15, "matched_tokens": ["DOS/4G", "RATIONAL"], "object": 2, "text_sha256": "9aa7323ec0d9d7ed3cbd726174b33fcd1932d80b8feca6bb37cdddc6b4b016a3"}
+      {
+        "address": 473029,
+        "length": 108,
+        "matched_tokens": [
+          "WATCOM"
+        ],
+        "object": 1,
+        "text_sha256": "59c03ff67e08556c05e55f8709244eb306984321edb9c609d5975286c2d651c5"
+      },
+      {
+        "address": 545980,
+        "length": 15,
+        "matched_tokens": [
+          "DOS/4G",
+          "RATIONAL"
+        ],
+        "object": 2,
+        "text_sha256": "9aa7323ec0d9d7ed3cbd726174b33fcd1932d80b8feca6bb37cdddc6b4b016a3"
+      }
     ],
     "source_sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b",
     "string_count": 3734

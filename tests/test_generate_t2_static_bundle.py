@@ -1,3 +1,4 @@
+import copy
 import importlib.util
 import pathlib
 import tempfile
@@ -60,6 +61,7 @@ INFO = {
     ],
 }
 
+
 class TestT2(unittest.TestCase):
     def test_parse_and_compare_wdump(self):
         parsed = t2.parse_wdump(SAMPLE)
@@ -74,6 +76,46 @@ class TestT2(unittest.TestCase):
         self.assertEqual("fail", result["result"])
         self.assertTrue(any(x["kind"] == "page_file_offset" for x in result["disagreements"]))
 
+    def test_duplicate_page_index_and_missing_page_fail(self):
+        malformed = SAMPLE.replace(
+            "page #   2  map page = 000002H file ofs = 00003000H",
+            "page #   1  map page = 000001H file ofs = 00002000H",
+        )
+        result = t2.compare_wdump(INFO, t2.parse_wdump(malformed))
+        kinds = {item["kind"] for item in result["disagreements"]}
+        self.assertEqual("fail", result["result"])
+        self.assertIn("page_duplicate_indices", kinds)
+        self.assertIn("page_missing_indices", kinds)
+
+    def test_duplicate_object_index_and_missing_object_fail(self):
+        malformed = SAMPLE.replace("object  2: virtual", "object  1: virtual")
+        result = t2.compare_wdump(INFO, t2.parse_wdump(malformed))
+        kinds = {item["kind"] for item in result["disagreements"]}
+        self.assertEqual("fail", result["result"])
+        self.assertIn("object_duplicate_indices", kinds)
+        self.assertIn("object_missing_indices", kinds)
+
+    def test_out_of_range_page_index_fails(self):
+        malformed = SAMPLE.replace(
+            "page #   2  map page = 000002H file ofs = 00003000H",
+            "page #   3  map page = 000003H file ofs = 00004000H",
+        )
+        result = t2.compare_wdump(INFO, t2.parse_wdump(malformed))
+        kinds = {item["kind"] for item in result["disagreements"]}
+        self.assertEqual("fail", result["result"])
+        self.assertIn("page_missing_indices", kinds)
+        self.assertIn("page_out_of_range_indices", kinds)
+
+    def test_nonsequential_le_image_page_map_fails_closed(self):
+        info = copy.deepcopy(INFO)
+        info["pages"]["numbers_are_sequential"] = False
+        result = t2.compare_wdump(info, t2.parse_wdump(SAMPLE))
+        self.assertEqual("fail", result["result"])
+        self.assertTrue(any(
+            item["kind"] == "le_image_page_map_not_sequential"
+            for item in result["disagreements"]
+        ))
+
     def test_string_summary_does_not_bulk_copy_text(self):
         payload = {"sha256":"abc","strings":[
             {"object":1,"address":1,"length":5,"text":"HELLO"},
@@ -85,9 +127,41 @@ class TestT2(unittest.TestCase):
         self.assertNotIn("text", summary["runtime_toolchain_indicators"][0])
         self.assertIn("RATIONAL", summary["runtime_toolchain_indicators"][0]["matched_tokens"])
 
+    def test_repo_output_failure_is_transactional(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo_output = pathlib.Path(td) / "repo-output"
+            repo_output.mkdir()
+            (repo_output / "README.md").write_text("keep\n", encoding="utf-8")
+            (repo_output / "manifest.json").write_text("old\n", encoding="utf-8")
+
+            with self.assertRaises(RuntimeError):
+                with t2.RepoOutputTransaction(repo_output) as transaction:
+                    (transaction.path / "manifest.json").write_text("new\n", encoding="utf-8")
+                    transaction.commit()
+                    raise RuntimeError("simulated late generator failure")
+
+            self.assertEqual("old\n", (repo_output / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual("keep\n", (repo_output / "README.md").read_text(encoding="utf-8"))
+
+    def test_repo_output_success_preserves_unmanaged_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo_output = pathlib.Path(td) / "repo-output"
+            repo_output.mkdir()
+            (repo_output / "README.md").write_text("keep\n", encoding="utf-8")
+            (repo_output / "manifest.json").write_text("old\n", encoding="utf-8")
+
+            with t2.RepoOutputTransaction(repo_output) as transaction:
+                (transaction.path / "manifest.json").write_text("new\n", encoding="utf-8")
+                transaction.commit()
+
+            self.assertEqual("new\n", (repo_output / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual("keep\n", (repo_output / "README.md").read_text(encoding="utf-8"))
+
     def test_verify_targets_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaises(t2.BundleError):
                 t2.verify_targets(pathlib.Path(td))
 
-if __name__ == '__main__': unittest.main()
+
+if __name__ == '__main__':
+    unittest.main()

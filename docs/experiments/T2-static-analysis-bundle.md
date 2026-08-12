@@ -39,10 +39,11 @@ The script fails closed unless all four filenames, sizes, and SHA-256 values mat
 1. runs `tools/le_image.py info --json` on all four targets;
 2. for the canonical English pair, runs `tools/le_image.py strings --json --min-length 4` and `tools/le_disasm.py`;
 3. stores the full canonical layouts, string inventories, and `le_disasm` v2 inventories only under ignored `artifacts/t2-static-analysis/`;
-4. commits only compact summaries: candidate-start samples plus a digest of the complete start list, headline counts, layout data, stable digests of candidate records/call edges/full string order, and small non-text runtime/toolchain indicators;
+4. stages the compact repo-safe summaries in a sibling temporary directory rather than modifying `docs/re/static-analysis/t2/` in place;
 5. runs `wdump -q -p` on all four pinned targets;
-6. compares every object record and every emitted page-map entry, plus every LE header field that is also exposed by `le_image.py info --json`;
-7. fails if any compared field differs.
+6. requires exact object/page index coverage from `wdump` (no duplicates, missing rows, or out-of-range row indices), requires `le_image` to report the pinned target page maps as sequential before using identity page mapping, and then compares every object record/page-map row plus every LE header field also exposed by `le_image.py info --json`;
+7. fails if any coverage invariant or compared field differs;
+8. publishes the staged tracked bundle only after both canonical analyses and all four `wdump` comparisons pass. A failed rerun leaves the previously committed repo-safe bundle unchanged.
 
 The raw `wdump` text is not committed. Its SHA-256 is recorded per target in `wdump-comparison.json`, so a rerun with the same `wdump` build can be compared exactly without adding another bulky dump.
 
@@ -83,6 +84,8 @@ For each target, the script compared 24 LE header values exposed by both tools, 
 | `PATCH_EN` | 24 | 2 | 121 | 0 |
 | `PATCH_INTL` | 24 | 2 | 121 | 0 |
 
+The hardened comparison also checks that those rows cover exactly object indices `{1,2}` and page indices `1..N` once each. A duplicate row can no longer hide a missing row merely because the total count still matches. Because `le_image.py info --json` currently exposes only the boolean `numbers_are_sequential` rather than the individual page-number vector, the row-by-row identity comparison is now explicitly gated on that boolean; if a pinned target is ever parsed as non-sequential, the T2 check fails closed instead of silently assuming identity mapping.
+
 In particular, Open Watcom independently reports `page_off = 0x18000` for both Antagonizer builds and `0x17600` for both bug-patch builds, the same object bases/sizes/page ranges, and the same sequential page-to-file-offset mapping as `le_image.py`. This is the target-level independent tool-output check CF2 review required; it is distinct from the earlier source-code reasoning that established the parser field semantics.
 
 `wdump` also labels the LE header OS type as `1` for all four images. T2 records this only as a static header-field agreement; it does not infer runtime OS/extender semantics from that field.
@@ -100,6 +103,8 @@ In particular, Open Watcom independently reports `page_off = 0x18000` for both A
 
 This deliberately avoids committing target executables, raw disassembly, or bulk target strings. Later work that needs the full `le_disasm` function records/call edges or full strings regenerates them into ignored `artifacts/` with the single script above.
 
+Tracked output is transactional: the generator copies the existing repo-safe directory into a same-filesystem staging directory, overwrites generated files there, and requests publication only after all required checks pass. Publication swaps the staged directory into place and keeps/restores the previous directory if the replacement itself fails. An exception before publication discards staging and leaves the existing repo output untouched.
+
 ## Evidence boundary and limits
 
 - **Static, clean:** all target facts in this record were produced from the supplied exact binaries with current repository tooling or the generic Open Watcom dumper.
@@ -111,8 +116,9 @@ This deliberately avoids committing target executables, raw disassembly, or bulk
 ## Validation performed
 
 - all four supplied executable SHA-256 values matched the pinned target set;
-- focused unit tests for `wdump` parsing/comparison, page-offset mismatch detection, string-summary redaction, and fail-closed missing-target handling passed;
-- full T2 generator completed successfully against all four real targets;
+- focused T2 unit tests: **10 tests, all passed**, covering the normal `wdump` comparison, page-offset mismatch, duplicate/missing page indices, duplicate/missing object indices, out-of-range page indices, non-sequential `le_image` page-map refusal, string-summary redaction, transactional failure/no-publication, transactional success/preservation of unmanaged files, and fail-closed missing-target handling;
+- the supplied real `wdump` output on all four exact targets has object indices `[1,2]`, exact page-index coverage (`1..126`, `1..126`, `1..121`, `1..121`), identity map-page values, and zero page flags, so the new stricter coverage gates accept the same independently observed target output;
+- full T2 generator completed successfully against all four real targets before the hardening; the hardening does not change successful-target summary/comparison data, only acceptance of malformed/regressed inputs and when tracked output is published;
 - canonical `le_disasm` headline counts matched the corrected CF2 measurements;
 - independent `wdump` comparison passed with zero disagreements across 24 shared header fields, two objects, and every page row for all four targets;
 - no target-machine/runtime behavior was claimed or required.

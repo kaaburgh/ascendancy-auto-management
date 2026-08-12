@@ -294,7 +294,7 @@ Future CF2 pipeline code changes must continue to satisfy the same workflow; thi
 
 ## CF3 — Investigate cloud execution and debugging of the target game
 
-- **Status:** **Completed and verified** — demo-own DOS runtime is reproducible in cloud, while the exact canonical Antagonizer exits before game initialization on the pinned demo data; exact-target runtime therefore requires maintainer-owned retail data. See [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
+- **Status:** **Completed and verified** — the public demo is a reproducible cloud fixture; canonical `ANTAG.EXE` still fails on demo data, but the exact canonical target successfully reaches the 640x480 game/menu runtime in cloud when the maintainer supplies the pinned retail installation as task input. See [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / DOS runtime
@@ -682,7 +682,7 @@ There is a falsifiable hypothesis for where mode state is consumed each turn and
 ## RE4 — Runtime-confirm the per-planet mode state and UI transition
 
 - **Status:** Investigation first
-- **Execution:** **LOCAL ONLY** — set by CF3: the canonical Antagonizer exits before game initialization on the pinned demo data, so exact-target runtime evidence requires maintainer-owned retail data. Use `scripts/run_cf3_runtime_smoke.py` for bounded artifact capture; see [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
+- **Execution:** **CLOUD** — set by CF3: the exact canonical Antagonizer reaches the game runtime in cloud on the pinned maintainer-supplied retail fixture. Require `tools/retail-runtime-manifest.json` verification and use `scripts/run_cf3_runtime_smoke.py --verify-retail` for bounded artifact capture; see [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
 - **Priority:** Critical
 - **Category:** Reverse engineering / runtime state
 - **Origin:** High-level steps 3–4
@@ -718,7 +718,7 @@ The project can identify and observe the per-planet auto-management state transi
 ## RE5 — Runtime-confirm the per-turn self-management call path
 
 - **Status:** Investigation first
-- **Execution:** **LOCAL ONLY** — set by CF3: the canonical Antagonizer exits before game initialization on the pinned demo data, so exact-target runtime evidence requires maintainer-owned retail data. Use `scripts/run_cf3_runtime_smoke.py` for bounded artifact capture; see [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
+- **Execution:** **CLOUD** — set by CF3: the exact canonical Antagonizer reaches the game runtime in cloud on the pinned maintainer-supplied retail fixture. Require `tools/retail-runtime-manifest.json` verification and use the CF3 harness with the narrow debugger/instrumentation boundary established by RE3/RE4; see [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
 - **Priority:** Critical
 - **Category:** Reverse engineering / runtime turn processing
 - **Origin:** High-level step 3
@@ -863,7 +863,7 @@ The patch pipeline is independently testable in cloud and fails closed for unsup
 ## P2 — Validate a minimal proof-of-execution modification on the target
 
 - **Status:** Investigation first
-- **Execution:** **LOCAL ONLY** — set by CF3: the canonical Antagonizer exits before game initialization on the pinned demo data, so canonical proof-of-execution requires maintainer-owned retail data. Use `scripts/run_cf3_runtime_smoke.py` for bounded artifact capture; see [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
+- **Execution:** **CLOUD** — set by CF3: canonical `ANTAG.EXE` executes in cloud on the pinned maintainer-supplied retail fixture. Require `tools/retail-runtime-manifest.json` verification and use `scripts/run_cf3_runtime_smoke.py --verify-retail` for bounded proof/rollback evidence; see [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
 - **Priority:** Critical
 - **Category:** Runtime validation / patch mechanism
 - **Origin:** High-level step 5

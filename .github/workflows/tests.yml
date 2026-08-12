@@ -47,3 +47,19 @@ jobs:
       # and then analysed by the repository CLIs from this exact checkout.
       - name: Validate corrected CF2 pipeline on pinned targets
         run: python scripts/validate_cf2_real_targets.py --fetch
+
+  cf3-demo-acquisition:
+    name: CF3 demo acquisition
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Keep live redistribution-source validation out of the deterministic
+      # unit suite. The fetcher is fail-closed on the complete archive and all
+      # extracted member hashes and writes only under git-ignored game/.
+      - name: Fetch and verify pinned playable demo
+        run: |
+          python tools/fetch_demo.py --dest game/demo
+          python tools/fetch_demo.py --verify --dest game/demo

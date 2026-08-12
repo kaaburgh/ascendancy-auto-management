@@ -168,12 +168,13 @@ RE4/RE5 should extend the invocation with the smallest experiment-specific debug
 `synthetic`:
 
 - `tests/test_cf3_demo_fetch.py` verifies successful pinned extraction, re-verification, tampered-archive rejection, and ambiguous case-insensitive ZIP member rejection;
-- `tests/test_cf3_sdl12_probe.py` compiles the probe with warnings-as-errors and uses a tiny synthetic SDL-compatible shared library/program to prove timed key injection and framebuffer capture without any game bytes.
+- `tests/test_cf3_sdl12_probe.py` compiles the probe with warnings-as-errors and uses a tiny synthetic SDL-compatible shared library/program to prove timed key injection and framebuffer capture without any game bytes;
+- `tests/test_cf3_runtime_smoke.py` exercises the one-shot runner end to end against a synthetic DOSBox stand-in and verifies that the artifact contains sanitized metadata/captures but no mounted game bytes or host paths.
 
 Current focused run:
 
 ```text
-Ran 5 tests in 1.214s
+Ran 6 tests in 3.994s
 OK
 ```
 

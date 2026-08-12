@@ -4,7 +4,7 @@ This directory is the repo-safe handoff produced by `scripts/generate_t2_static_
 
 Start with [`manifest.json`](./manifest.json). The two `*.summary.json` files cover the canonical English Antagonizer target and English bug-patch baseline. [`wdump-comparison.json`](./wdump-comparison.json) records the independent Open Watcom header/object/page-map cross-check across all four pinned CF1 targets.
 
-The generator deliberately keeps full target strings and full `le_disasm` v2 inventories under ignored `artifacts/t2-static-analysis/`; they are reproducible but not useful to bulk-commit. The committed summaries preserve exact target/object provenance, complete candidate-start lists, headline counts, and stable digests of the omitted full records/call edges/string order.
+The generator deliberately keeps full target strings and full `le_disasm` v2 inventories under ignored `artifacts/t2-static-analysis/`; they are reproducible but not useful to bulk-commit. The committed summaries preserve exact target/object provenance, candidate-start samples plus a digest of the complete start list, headline counts, and stable digests of the omitted full candidate records/call edges/string order.
 
 Regenerate from a checkout containing the four exact pinned files under `binaries/`:
 

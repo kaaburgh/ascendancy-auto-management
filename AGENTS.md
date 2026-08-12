@@ -6,14 +6,18 @@ These instructions apply to the whole repository. Read this file before planning
 
 When sources disagree, use this order:
 
-1. The current task and explicit maintainer decisions.
+1. The current task and explicit maintainer decisions, subject to the pre-M1 blind-RE evidence boundary below.
 2. Evidence from the exact target binary or runtime being investigated.
 3. Current source, tools, tests, and generated diagnostic output.
 4. [`ROADMAP.md`](./ROADMAP.md), which is the live status and sequencing document.
 5. Durable reverse-engineering notes under [`docs/re/`](./docs/re/) and experiment records under [`docs/experiments/`](./docs/experiments/).
-6. Historical notes and superseded experiments that remain part of the current supported branch.
+6. Historical notes and superseded experiments that are still present in the supported repository state.
 
-Do not implement a roadmap item merely because an old note suggests it. First check the item's current status, dependencies, evidence, and accepted direction.
+For these rules, the **supported repository state** is the current `main` tree plus the changes on the branch/PR being reviewed. Files intentionally retained there remain usable according to the precedence above even when they describe superseded results. Closed/abandoned PRs, deleted content, old experimental branches, and other repository history outside that state are not supported evidence sources for target-specific RE before M1.
+
+The blind-RE boundary is a constraint on item 1, not a lower-priority suggestion. An ordinary task instruction cannot waive it. Before M1, external target-specific recovered knowledge may be used only through the documented rescue unlock below; after M1, only through the verification/corroboration path below.
+
+Do not implement a roadmap item merely because an old note suggests it. First check the item's current status, dependencies, evidence, and accepted direction. If a useful negative result is discovered accidentally in unsupported repository history, do not silently reuse its target-specific conclusion. Re-establish it from allowed evidence where practical and record the supported result under [`docs/experiments/`](./docs/experiments/) so future work does not repeat the same experiment.
 
 For the detailed workflow, repository map, and validation rules, read [`docs/agent-playbook.md`](./docs/agent-playbook.md). For writing or restructuring roadmap items, read [`docs/roadmap-authoring.md`](./docs/roadmap-authoring.md).
 
@@ -30,7 +34,7 @@ Agents may use:
 - executable files provided to or reproducibly acquired by this project, plus hashes and metadata computed from those binaries;
 - disassembly, decoded structures, traces, diffs, signatures, experiments, and other artifacts independently produced by this project's agents or tools from those binaries;
 - results of runtime experiments performed by this project;
-- current supported repository source, tools, tests, `docs/re/` findings, and `docs/experiments/` records that were produced within this evidence boundary;
+- source, tools, tests, `docs/re/` findings, and `docs/experiments/` records in the supported repository state that were produced within this evidence boundary;
 - general documentation for executable formats, DOS/extenders, compilers, ABIs, emulators, debuggers, disassemblers, and other applicable technologies;
 - official user-facing documentation and descriptions of game behavior when they do not disclose reverse-engineered implementation details.
 
@@ -48,8 +52,9 @@ Before the explicit unlock described below, do not intentionally search for, ins
 - target-specific cheat tables, address databases, or patch-location collections;
 - source ports or reconstructed source code when they expose target internals;
 - source code or internal implementation details of third-party mods when they can reveal target-specific RE shortcuts;
-- any other material that substantially substitutes for independently discovering the target's structure or behavior;
-- abandoned/closed PRs, deleted content, old experimental branches, or other repository history that is not part of the current supported branch when the purpose is to mine target-specific RE clues.
+- any other external material that substantially substitutes for independently discovering the target's structure or behavior.
+
+Unsupported repository history is governed separately by the source-of-truth rule above: do not mine closed/abandoned PRs, deleted content, old experimental branches, or other history outside the supported repository state for target-specific RE clues before M1.
 
 Do not turn this policy into a catalog of known external RE material. Repository-facing policy, roadmap text, commit messages, and PR descriptions should describe source classes rather than naming target-specific external projects, authors, symbols, addresses, or layouts.
 
@@ -60,19 +65,21 @@ If target-specific recovered knowledge is encountered accidentally:
 - stop investigating that source rather than following it further;
 - do not copy target-specific names, addresses, types, pseudocode, or semantic conclusions from it into the project;
 - record that accidental contamination occurred in the current task/PR result;
-- label conclusions that may have been suggested by what was seen as **contaminated**;
-- where practical, re-establish those conclusions independently from target binaries or project-generated evidence before treating them as blind-RE findings.
+- label conclusions that may have been suggested by what was seen as **`contaminated`**;
+- where practical, re-establish the factual conclusion independently from target binaries or project-generated evidence to check correctness.
 
-Accidentally seeing a source name or link does not by itself invalidate the whole task. The important boundary is not using recovered target-specific knowledge as evidence or as a shortcut.
+Independent re-establishment can increase confidence that a contaminated conclusion is correct, but it cannot restore blindness: the conclusion remains `contaminated` and is excluded from blind-RE success accounting because the disclosed answer may have influenced search strategy or confirmation thresholds.
+
+Accidentally seeing a source name or link does not by itself invalidate the whole task. The important boundary is not using recovered target-specific knowledge as evidence or as a shortcut, and accurately separating contaminated results from blind findings.
 
 ### Unlocking external target-specific RE
 
 External target-specific RE has exactly two supported unlock paths:
 
 1. **After M1 — independent verification/corroboration.** First preserve the blind-RE result, then external research may be used to compare independently discovered addresses, structures, control flow, and semantics, record agreements/disagreements, and assess blind-RE quality as a separate project result.
-2. **Before M1 — maintainer-approved rescue.** A documented blocker or negative result must exist first and must state what could not be recovered independently. Only an explicit maintainer decision can unlock the bounded external evidence needed for rescue. Any finding that depends on that source must be labeled **`external-assisted`** and must not be counted as a successful blind-RE result.
+2. **Before M1 — maintainer-approved rescue.** A documented blocker or negative result must exist first under `docs/experiments/` and must state what could not be recovered independently. The maintainer unlock must then be recorded as a dated decision in the relevant `ROADMAP.md` item, naming the bounded question and allowed source class and stating that the decision does not generalize. Only that recorded decision can unlock the bounded external evidence needed for rescue. Any finding that depends on that source must be labeled **`external-assisted`** and must not be counted as a successful blind-RE result.
 
-An agent must not self-authorize a rescue unlock merely because external material could make the work faster.
+An agent must not self-authorize a rescue unlock merely because external material could make the work faster. A maintainer instruction in chat or task text that is not backed by the required blocker record and dated roadmap decision is not a valid unlock.
 
 ## Working model
 
@@ -82,13 +89,15 @@ Prefer this loop:
 
 If the cause is unknown, observability comes before a final patch. Prefer an experiment that can eliminate several hypotheses over a narrow experiment that confirms only one guess.
 
-Keep these categories distinct in docs and PRs:
+Keep these evidence classes distinct in docs and PRs:
 
 - **static** — established from PE metadata, disassembly, xrefs, strings, data-flow, or binary comparison for a named binary/hash;
 - **runtime** — observed by debugger, hook, trace, dump, capture, or memory inspection against a named binary/hash;
 - **synthetic** — established by unit/integration tests or fixtures that do not execute the actual game;
 - **reported** — observed by the maintainer/user but not captured independently in a repository artifact;
 - **assumed** — plausible, but not established.
+
+Blind-RE provenance is a separate dimension from evidence class. Use **`contaminated`** and **`external-assisted`** as modifiers, not replacement evidence classes; for example, `static, contaminated` or `runtime, external-assisted`. `contaminated` means accidental target-specific disclosure may have influenced the finding and it is excluded from blind-RE success even if independently corroborated. `external-assisted` means the finding depends on a maintainer-unlocked pre-M1 external source and is likewise excluded from blind-RE success.
 
 A hypothesis is not a fact because it has a plausible function name. If a function is only believed to be `ManagePlanet`, label it that way until the call path or state transition establishes the role.
 
@@ -192,6 +201,7 @@ A PR must be reviewable without chat history and should state:
 - the roadmap item and goal;
 - what was established experimentally;
 - what remains a hypothesis;
+- blind-RE evidence-boundary status when applicable (`clean`, `contaminated`, or `external-assisted`, with required records linked);
 - how the implementation or diagnostic works;
 - supported binaries/hashes and fail-closed behavior;
 - validation actually performed;

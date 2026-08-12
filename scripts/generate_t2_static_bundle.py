@@ -409,7 +409,7 @@ def target_summary(info: dict[str, Any], inventory: dict[str, Any], strings: dic
             "candidate_records_sha256": stable_json_sha(functions),
             "call_edges_sha256": stable_json_sha(edges),
             "full_inventory_file_sha256": sha256_file(inventory_path),
-            "note": "Full v2 le_disasm inventory is regenerated into artifacts/ and is not committed; this summary preserves start-address samples, counts, provenance, and stable digests.",
+            "note": "Full v2 le_disasm inventory is regenerated into artifacts/ and is not committed; this summary preserves start addresses, counts, provenance, and stable digests.",
         },
         "strings": string_summary(strings),
     }
@@ -507,8 +507,7 @@ def main(argv: list[str] | None = None) -> int:
                 "notes": [
                     "Candidate starts are linear-sweep/direct-call analysis regions, not verified functions.",
                     "No target executable, raw disassembly, or full string dump is committed.",
-                    "The wdump cross-check requires exact object/page index coverage and a sequential le_image page map before comparing every row plus shared LE header fields.",
-                    "Tracked repo output is staged and published only after every canonical analysis and all four wdump comparisons pass.",
+                    "The wdump cross-check compares every emitted object and page-map entry plus LE fields also exposed by le_image info --json.",
                     "The repo summaries contain candidate-start samples plus digests of the complete start list, candidate records, and call edges; regenerate artifacts/ for the complete v2 inventory.",
                 ],
             }

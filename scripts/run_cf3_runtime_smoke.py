@@ -25,7 +25,7 @@ PROBE_SOURCE = ROOT / "tools" / "cf3_sdl12_probe.c"
 DEMO_MANIFEST = ROOT / "tools" / "demo-runtime-manifest.json"
 RETAIL_MANIFEST = ROOT / "tools" / "retail-runtime-manifest.json"
 ARTIFACTS = ROOT / "artifacts"
-MODE_RE = re.compile(r"CF3SDL mode (\d+)x(\d+) bpp=(\d+)")
+MODE_RE = re.compile(r"CF3SDL mode (\d+)x(\d+) bpp=(\d+) ok=([01])")
 
 
 class SmokeError(Exception):
@@ -123,10 +123,13 @@ def parser() -> argparse.ArgumentParser:
     fixture = p.add_mutually_exclusive_group()
     fixture.add_argument("--verify-demo", action="store_true", help="require the mounted data tree to match the pinned official demo")
     fixture.add_argument("--verify-retail", action="store_true", help="require the mounted data tree to match the pinned maintainer-supplied retail runtime fixture")
-    p.add_argument("--key-events", default="", help="semicolon-separated TIME_MS:KEY events; supported keys: space, enter, escape, one character")
+    p.add_argument("--key-events", default="", help="semicolon-separated TIME_MS:KEY events; supported keys: space, enter, escape, alt-pause, one character")
     p.add_argument("--captures-ms", default="5000,8000,12000", help="comma-separated framebuffer capture times")
     p.add_argument("--timeout", type=float, default=15.0)
-    p.add_argument("--expect-mode", default="", help="require a requested video mode such as 640x480")
+    p.add_argument("--expect-mode", default="", help="require a successful video mode such as 640x480")
+    termination = p.add_mutually_exclusive_group()
+    termination.add_argument("--expect-timeout", action="store_true", help="require the guest to remain alive until the bounded timeout")
+    termination.add_argument("--expect-exit-code", action="append", type=int, dest="expected_exit_codes", help="require clean termination with this exit code; may be repeated")
     p.add_argument("--artifact", type=pathlib.Path, help="output zip (default artifacts/run-CF3-<timestamp>.zip)")
     return p
 
@@ -134,6 +137,9 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.expect_mode and not (args.expect_timeout or args.expected_exit_codes):
+            raise SmokeError("--expect-mode requires explicit termination semantics: --expect-timeout or --expect-exit-code")
+
         dosbox = args.dosbox.resolve()
         game_dir = args.game_dir.resolve()
         if not dosbox.is_file():
@@ -186,16 +192,33 @@ def main(argv: list[str] | None = None) -> int:
                 stdout, stderr = completed.stdout, completed.stderr
             (run / "dosbox.stdout.txt").write_text(stdout, encoding="utf-8", errors="replace")
             (run / "dosbox.stderr.txt").write_text(stderr, encoding="utf-8", errors="replace")
-            modes = [[int(a), int(b), int(c)] for a, b, c in MODE_RE.findall(stderr)]
+
+            video_modes = [
+                {"width": int(a), "height": int(b), "bpp": int(c), "ok": d == "1"}
+                for a, b, c, d in MODE_RE.findall(stderr)
+            ]
             expected_mode_ok = True
             if args.expect_mode:
                 try:
                     width, height = [int(part) for part in args.expect_mode.lower().split("x", 1)]
                 except ValueError as exc:
                     raise SmokeError(f"invalid --expect-mode {args.expect_mode!r}") from exc
-                expected_mode_ok = any(mode[0] == width and mode[1] == height for mode in modes)
+                expected_mode_ok = any(
+                    mode["width"] == width and mode["height"] == height and mode["ok"]
+                    for mode in video_modes
+                )
+
+            termination_expectation = None
+            termination_ok = True
+            if args.expect_timeout:
+                termination_expectation = {"kind": "timeout"}
+                termination_ok = timed_out
+            elif args.expected_exit_codes:
+                termination_expectation = {"kind": "exit_code", "allowed": args.expected_exit_codes}
+                termination_ok = (not timed_out) and returncode in args.expected_exit_codes
+
             metadata = {
-                "schema": 1,
+                "schema": 2,
                 "experiment": "CF3-runtime-smoke",
                 "executable": {"name": executable.name, "sha256": exe_sha, "size": executable.stat().st_size},
                 "game_dir_demo_verified": bool(args.verify_demo),
@@ -206,15 +229,27 @@ def main(argv: list[str] | None = None) -> int:
                 "timeout_seconds": args.timeout,
                 "timed_out": timed_out,
                 "returncode": returncode,
-                "requested_modes": modes,
+                "video_modes": video_modes,
                 "expected_mode": args.expect_mode or None,
                 "expected_mode_observed": expected_mode_ok,
+                "termination_expectation": termination_expectation,
+                "termination_expectation_met": termination_ok,
                 "capture_count": len(list(captures.glob("*.ppm"))),
                 "key_events": args.key_events,
             }
             make_artifact(run, metadata, artifact.resolve())
+
+            failures = []
             if args.expect_mode and not expected_mode_ok:
-                raise SmokeError(f"expected mode {args.expect_mode} was not observed; artifact: {artifact}")
+                failures.append(f"successful mode {args.expect_mode} was not observed")
+            if termination_expectation and not termination_ok:
+                if args.expect_timeout:
+                    failures.append(f"process terminated before the required {args.timeout:g}s timeout (returncode={returncode})")
+                else:
+                    failures.append(f"process exit did not match allowed codes {args.expected_exit_codes} (returncode={returncode}, timed_out={timed_out})")
+            if failures:
+                raise SmokeError("; ".join(failures) + f"; artifact: {artifact}")
+
             print(f"runtime smoke PASS; artifact: {artifact}")
             return 0
     except SmokeError as exc:

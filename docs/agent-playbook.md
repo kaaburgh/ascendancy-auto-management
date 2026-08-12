@@ -57,6 +57,24 @@ Then write down the question the task must answer. Examples:
 
 If the task cannot be stated as a question or a bounded user-visible outcome, it is probably still too broad.
 
+### Tool acquisition failures
+
+Escalate a missing tool only when its capability is actually required to satisfy the task's evidence or acceptance criteria and no equally adequate available method can do so. An optional cross-check that would merely be useful does not block autonomous work.
+
+Treat "build the missing capability here" as a first-class option. If the required capability is bounded, testable, and reasonably task-sized to implement from allowed general documentation, prefer a reusable project tool/script over weakening the analysis. CF2's `tools/le_image.py` is the worked example: the environment lacked the needed container-reading capability, so the project implemented and validated the bounded bridge instead of declaring the capability unavailable.
+
+For a genuinely external capability that is not reasonable to reproduce in-project, try the environment's normal install/download/bootstrap paths. If those fail because of sandbox egress, packages, permissions, platform support, or similar infrastructure, pause only the blocked line and continue every independent line of work. The handoff is a partial-progress report, not a task exit.
+
+The handoff should be specific enough for the operator to resolve in one round:
+
+- exact tool/capability, version/platform requirement when known, and why the task requires it;
+- installation/download/artifact paths already attempted and their concrete errors;
+- the smallest acceptable generic package/artifact that would unblock the line without carrying target-specific recovered knowledge.
+
+A generic operator-provided tool/artifact may be accepted directly when it stays inside the blind-RE evidence policy. If the offered material embeds target-specific recovered knowledge about the executable, stop: before M1 that is a rescue unlock and requires the documented blocker plus dated bounded roadmap decision; dependent findings remain `external-assisted`.
+
+If no operator response is available during the current session, do not idle. Preserve a bounded blocker/status, continue independent work, and return the task with the blocked line explicit. Once resolved, make the outcome durable: preserve a reusable acquisition/bootstrap path under `tools/`, `scripts/`, configuration, or docs as appropriate, or record a still-unavailable path under `docs/experiments/` when the negative result would otherwise be rediscovered. A sandbox acquisition failure alone is not evidence for `LOCAL ONLY`; execution-classification changes still follow `ROADMAP.md`'s cloud-feasibility contract.
+
 ## Investigation workflow
 
 ### 1. Establish the target

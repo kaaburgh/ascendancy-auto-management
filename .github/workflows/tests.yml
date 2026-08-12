@@ -66,17 +66,18 @@ jobs:
 
   cf3-debugger:
     name: CF3 debugger capability
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # Ubuntu Noble publishes DOSBox 0.74-3's ncurses debugger separately.
-      # The smoke is target-free: it installs a BPINT on a six-byte synthetic
-      # COM loop, resumes, and requires a byte-exact debugger memory dump after
-      # the breakpoint fires. A pseudo-TTY makes the interactive debugger
-      # scriptable without weakening the evidence to "the package installs".
+      # The current ubuntu-latest image is Ubuntu Noble, which publishes
+      # DOSBox 0.74-3's ncurses debugger separately. The smoke is target-free:
+      # it installs a BPINT on a six-byte synthetic COM loop, resumes, and
+      # requires a byte-exact debugger memory dump after the breakpoint fires.
+      # A pseudo-TTY makes the interactive debugger scriptable without
+      # weakening the evidence to "the package installs".
       - name: Install DOSBox debugger
         run: |
           sudo apt-get update

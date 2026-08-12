@@ -30,6 +30,18 @@ For M1:
 
 M1 is complete only after the behavior is observed on the canonical target executable, not merely compiled or validated synthetically.
 
+## Research gate through M1 — binary-first / blind RE
+
+M1 is also the boundary of a research experiment: the project is testing whether modern coding/research agents can independently recover enough target structure and behavior to build a safe binary patch without pre-existing target-specific RE knowledge.
+
+Until M1 is **Completed and verified**, all target-specific reverse engineering and binary-patch design must stay within the binary-first / blind-RE evidence policy in [`AGENTS.md`](./AGENTS.md). Existing T2/RE/A/P/UI work must continue from the supplied or project-acquired binaries, current supported repository evidence, and independently generated experiments. External target-specific recovered knowledge is not a normal dependency, candidate-ranking corpus, or shortcut.
+
+This gate is orthogonal to the cloud-first execution contract below. General documentation and web research about formats, compilers, ABIs, extenders, emulators, debuggers, disassemblers, and tooling remain allowed; `CLOUD` or `CLOUD RESEARCH` status does not unlock target-specific recovered knowledge.
+
+A pre-M1 rescue unlock is an exception, not part of the critical path. It requires an explicit maintainer decision after a documented blocker/negative result identifies what could not be recovered independently. Findings that depend on the unlocked source must remain marked `external-assisted` and do not count as a successful blind-RE result.
+
+After M1, external target-specific research may be used for independent verification/corroboration in X1 below, after the blind-RE result has been preserved for comparison.
+
 ---
 
 ## Execution-environment contract
@@ -128,6 +140,8 @@ The expected critical path is:
 `CF4` may run after `CF3` and gates visual/end-to-end UI validation.
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
+
+The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone.
 
 **Current front of the path:** CF1, CF2, T0 and T1 are complete. The immediately selectable independent items are **T2** and **CF3**. RE1/RE2/RE3 remain downstream of T2.
 
@@ -1017,13 +1031,27 @@ M1 may be marked **Completed and verified** only when all of the following are t
 - returning a planet to Manual works;
 - target-runtime validation is recorded against the canonical hash;
 - install/remove/rollback behavior is documented and verified;
-- all significant RE findings and negative experiments are preserved in the repository.
+- all significant RE findings and negative experiments are preserved in the repository;
+- any pre-M1 rescue use of external target-specific RE is recorded, and dependent findings are marked `external-assisted` rather than counted as blind-RE success.
 
 ---
 
 # Explicitly after M1
 
 Do not pull these into M1 unless new evidence proves they are inseparable:
+
+### X1 — External verification of blind-RE results
+
+After M1 is **Completed and verified**, preserve the independently produced blind-RE result and then allow external target-specific RE sources for verification/corroboration.
+
+X1 should:
+
+- compare independently discovered addresses, structures, control-flow relationships, and semantics with external research;
+- record both agreements and disagreements without rewriting the pre-comparison evidence trail;
+- distinguish blind-RE findings from any later externally assisted corrections;
+- assess the quality and limits of the blind agent RE experiment as a separate project outcome.
+
+A maintainer-approved rescue unlock used before M1 does not satisfy X1 and does not retroactively count external-assisted findings as blind-RE success.
 
 1. **M2 — Differentiated policies**
    - define and implement actual Agricultural and Industrial planning rules;

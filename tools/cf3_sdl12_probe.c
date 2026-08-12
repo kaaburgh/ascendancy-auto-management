@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
-#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,7 +58,6 @@ static int capture_index;
 static SDL_Surface *current_surface;
 static const char *capture_dir;
 static long long start_ms;
-static pthread_t capture_thread;
 
 static long long monotonic_ms(void) {
     struct timespec ts;
@@ -184,19 +182,18 @@ static void dump_ppm(SDL_Surface *surface, long due, long actual) {
     fflush(stderr);
 }
 
-static void *capture_worker(void *unused) {
-    (void)unused;
-    while (capture_index < capture_count) {
-        long now = elapsed_ms();
-        if (current_surface && now >= captures[capture_index]) {
-            dump_ppm(current_surface, captures[capture_index], now);
-            ++capture_index;
-            continue;
-        }
-        struct timespec delay = {0, 20 * 1000 * 1000};
-        nanosleep(&delay, NULL);
+/*
+ * Captures run synchronously on the same SDL thread that calls PollEvent or
+ * SetVideoMode. This intentionally avoids retaining/dereferencing a surface
+ * from a worker thread while SDL may replace or free it during a mode switch.
+ */
+static void capture_due(SDL_Surface *surface) {
+    if (!surface) return;
+    long now = elapsed_ms();
+    while (capture_index < capture_count && now >= captures[capture_index]) {
+        dump_ppm(surface, captures[capture_index], now);
+        ++capture_index;
     }
-    return NULL;
 }
 
 __attribute__((constructor)) static void init_probe(void) {
@@ -204,7 +201,6 @@ __attribute__((constructor)) static void init_probe(void) {
     capture_dir = getenv("CF3_CAPTURE_DIR");
     parse_events();
     parse_captures();
-    if (pthread_create(&capture_thread, NULL, capture_worker, NULL) != 0) config_error("capture thread creation failed");
     fprintf(stderr, "CF3SDL init pid=%d key_events=%d captures=%d\n", getpid(), event_count / 2, capture_count);
     fflush(stderr);
 }
@@ -212,6 +208,9 @@ __attribute__((constructor)) static void init_probe(void) {
 int SDL_PollEvent(SDL_Event *event) {
     static int (*real_poll)(SDL_Event *);
     if (!real_poll) real_poll = dlsym(RTLD_NEXT, "SDL_PollEvent");
+
+    capture_due(current_surface);
+
     if (event && event_index < event_count && elapsed_ms() >= events[event_index].due_ms) {
         KeyEvent *source = &events[event_index++];
         memset(event, 0, sizeof(*event));
@@ -228,8 +227,10 @@ int SDL_PollEvent(SDL_Event *event) {
 SDL_Surface *SDL_SetVideoMode(int w, int h, int bpp, Uint32 flags) {
     static SDL_Surface *(*real_set_mode)(int, int, int, Uint32);
     if (!real_set_mode) real_set_mode = dlsym(RTLD_NEXT, "SDL_SetVideoMode");
-    current_surface = real_set_mode(w, h, bpp, flags);
-    fprintf(stderr, "CF3SDL mode %dx%d bpp=%d result=%p\n", w, h, bpp, (void *)current_surface);
+    SDL_Surface *surface = real_set_mode(w, h, bpp, flags);
+    current_surface = surface;
+    fprintf(stderr, "CF3SDL mode %dx%d bpp=%d result=%p\n", w, h, bpp, (void *)surface);
     fflush(stderr);
-    return current_surface;
+    capture_due(surface);
+    return surface;
 }

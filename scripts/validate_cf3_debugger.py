@@ -3,9 +3,10 @@
 
 The fixture is a six-byte synthetic COM program. The smoke enters the distro
 DOSBox debugger through the standard Alt+Pause mapper binding, installs an
-INT 21h/AH=2Ch breakpoint, resumes execution, and only then asks the debugger
-to dump CS:0100. A byte-exact dump proves both that execution returned to the
-debugger on the breakpoint and that guest state can be observed non-manually.
+INT 21h/AH=2Ch breakpoint, resumes execution with the debugger's F5 binding,
+and only then asks the debugger to dump CS:0100. A byte-exact dump proves both
+that execution returned to the debugger on the breakpoint and that guest state
+can be observed non-manually.
 """
 from __future__ import annotations
 
@@ -27,6 +28,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROBE_SOURCE = ROOT / "tools" / "cf3_sdl12_probe.c"
 # mov ah,2ch ; int 21h ; jmp short 0100h
 COM_BYTES = bytes.fromhex("b42ccd21ebfa")
+# xterm terminfo sequence for F5. DOSBox 0.74 uses F5 to resume emulation.
+F5 = b"\x1b[15~"
 
 
 class DebuggerSmokeError(Exception):
@@ -63,8 +66,19 @@ def drain(master: int, transcript: bytearray) -> None:
         transcript.extend(chunk)
 
 
-def send(master: int, text: str, delay: float = 0.25) -> None:
-    os.write(master, text.encode("ascii") + b"\r")
+def send_command(master: int, text: str, delay: float = 0.25) -> None:
+    # DOSBox 0.74 does not accept debugger commands directly in the code view.
+    # ENTER first opens the command line ("->"), a second ENTER executes it.
+    os.write(master, b"\r")
+    time.sleep(0.08)
+    os.write(master, text.encode("ascii"))
+    time.sleep(0.08)
+    os.write(master, b"\r")
+    time.sleep(delay)
+
+
+def send_key(master: int, sequence: bytes, delay: float = 0.25) -> None:
+    os.write(master, sequence)
     time.sleep(delay)
 
 
@@ -117,20 +131,25 @@ def run_smoke(dosbox_debug: pathlib.Path, timeout: float) -> None:
         deadline = time.monotonic() + timeout
         try:
             # Allow DOSBox to start the looping COM and the SDL probe to inject
-            # the standard debugger shortcut. Commands sent before debugger
-            # entry are harmless guest keystrokes and cannot create MEMDUMP.BIN.
+            # the standard debugger shortcut. If that shortcut did not pause
+            # execution, the terminal keystrokes below cannot create a dump.
             time.sleep(1.5)
             drain(master, transcript)
-            send(master, "BPINT 21 2C *")
-            drain(master, transcript)
-            send(master, "RUN", delay=0.7)
+
+            # The 0.74 UI requires ENTER to open its command input.
+            send_command(master, "BPINT 21 2C *")
             drain(master, transcript)
 
-            # If BPINT fired, DOSBox is back in the debugger. Only then can this
-            # command create a host-side dump. If it did not fire, these bytes
-            # remain ordinary guest keyboard input and the smoke fails closed.
-            send(master, "MEMDUMPBIN CS:100 6", delay=0.4)
-            send(master, "EV AH", delay=0.2)
+            # 0.74 documents F5 as "Run"; it does not rely on newer forks'
+            # textual RUN command. The looping fixture immediately executes
+            # INT 21h/AH=2Ch again, so the BPINT should return to the debugger.
+            send_key(master, F5, delay=0.7)
+            drain(master, transcript)
+
+            # Only a debugger that has regained control after the breakpoint
+            # can execute this command and create the host-side file.
+            send_command(master, "MEMDUMPBIN CS:100 6", delay=0.4)
+            send_command(master, "EV AH", delay=0.2)
 
             while time.monotonic() < deadline and not dump.is_file():
                 drain(master, transcript)
@@ -141,7 +160,7 @@ def run_smoke(dosbox_debug: pathlib.Path, timeout: float) -> None:
 
             if not dump.is_file():
                 raise DebuggerSmokeError(
-                    "debugger did not produce MEMDUMP.BIN after BPINT/continue; transcript tail:\n"
+                    "debugger did not produce MEMDUMP.BIN after BPINT/F5; transcript tail:\n"
                     + transcript_tail(transcript)
                 )
             observed = dump.read_bytes()

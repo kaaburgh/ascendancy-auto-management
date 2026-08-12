@@ -32,7 +32,7 @@ Dependencies matter more than nominal priority. An investigation that unlocks th
 
 ## Evidence vocabulary
 
-Use the same vocabulary as `AGENTS.md`:
+Use the same evidence classes as `AGENTS.md`:
 
 - `static`
 - `runtime`
@@ -40,7 +40,15 @@ Use the same vocabulary as `AGENTS.md`:
 - `reported`
 - `assumed`
 
+Blind-RE provenance is separate from evidence class. Use `contaminated` and `external-assisted` only as modifiers that combine with an evidence class, for example `static, contaminated` or `runtime, external-assisted`. Both modifiers exclude the affected finding from blind-RE success accounting; independent corroboration does not remove `contaminated`.
+
 Confidence should describe the premise, not the author's confidence in prose.
+
+## Pre-M1 evidence-source gate
+
+While the binary-first / blind-RE gate in [`AGENTS.md`](../AGENTS.md) is active, roadmap items that recover target internals or design binary patches must depend on the provided binaries, supported repository state, or new independently generated experiments. The supported repository state is the current `main` tree plus the branch/PR under review; do not introduce closed/abandoned PRs, deleted content, old experimental branches, other unsupported repository history, or external target-specific recovered knowledge as a dependency, shortcut, or normal critical-path input.
+
+General technology/tooling research remains valid. A pre-M1 external rescue is an explicit maintainer exception after a blocker/negative result has been recorded under `docs/experiments/`. The unlock itself must be a dated decision in the relevant roadmap item that names the bounded question and allowed source class and states that it does not generalize. Dependent findings remain `external-assisted`; rescue must not be authored as routine sequencing. Post-M1 external comparison belongs in the separate verification phase described by the roadmap.
 
 ## Recommended item schema
 

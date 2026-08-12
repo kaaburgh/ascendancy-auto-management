@@ -12,6 +12,10 @@
 
 <!-- Facts only. Label static/runtime/synthetic/reported evidence and name the target hash when applicable. -->
 
+### Blind-RE evidence boundary
+
+<!-- For target-specific RE/patch work through M1, state `clean`, `contaminated`, or `external-assisted`. If contaminated, identify affected conclusions. If a rescue unlock was used, link both the blocker/negative result under docs/experiments/ and the dated ROADMAP decision that defines the bounded unlock. Use `not applicable` for non-target-specific work or work after M1. -->
+
 ### Still hypotheses / unknowns
 
 <!-- Keep unverified interpretations explicit. -->

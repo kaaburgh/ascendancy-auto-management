@@ -30,6 +30,18 @@ For M1:
 
 M1 is complete only after the behavior is observed on the canonical target executable, not merely compiled or validated synthetically.
 
+## Research gate through M1 — binary-first / blind RE
+
+M1 is also the boundary of a research experiment: the project is testing whether modern coding/research agents can independently recover enough target structure and behavior to build a safe binary patch without pre-existing target-specific RE knowledge.
+
+Until M1 is **Completed and verified**, all target-specific reverse engineering and binary-patch design must stay within the binary-first / blind-RE evidence policy in [`AGENTS.md`](./AGENTS.md). Existing T2/RE/A/P/UI work must continue from the supplied or project-acquired binaries, the supported repository state defined there, and independently generated experiments. External target-specific recovered knowledge is not a normal dependency, candidate-ranking corpus, or shortcut.
+
+This gate is orthogonal to the cloud-first execution contract below. General documentation and web research about formats, compilers, ABIs, extenders, emulators, debuggers, disassemblers, and tooling remain allowed; `CLOUD` or `CLOUD RESEARCH` status does not unlock target-specific recovered knowledge.
+
+A pre-M1 rescue unlock is an exception, not part of the critical path. The blocker/negative result must first be recorded under `docs/experiments/`. An explicit maintainer unlock must then be recorded as a dated decision in the relevant roadmap item, naming the bounded question and allowed source class and stating that the decision does not generalize. Findings that depend on the unlocked source must remain marked `external-assisted` and do not count as a successful blind-RE result.
+
+After M1, external target-specific research may be used for independent verification/corroboration in X1 below, after the blind-RE result has been preserved for comparison.
+
 ---
 
 ## Execution-environment contract
@@ -128,6 +140,8 @@ The expected critical path is:
 `CF4` may run after `CF3` and gates visual/end-to-end UI validation.
 
 Cloud-feasibility tasks are intentionally near the front so later work is not unnecessarily pushed to a local machine.
+
+The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone. X1 is `Open`/`CLOUD` but remains unselectable until its M1 dependency is completed.
 
 **Current front of the path:** CF1, CF2, T0 and T1 are complete. The immediately selectable independent items are **T2** and **CF3**. RE1/RE2/RE3 remain downstream of T2.
 
@@ -1017,7 +1031,8 @@ M1 may be marked **Completed and verified** only when all of the following are t
 - returning a planet to Manual works;
 - target-runtime validation is recorded against the canonical hash;
 - install/remove/rollback behavior is documented and verified;
-- all significant RE findings and negative experiments are preserved in the repository.
+- all significant RE findings and negative experiments are preserved in the repository;
+- any accidental contamination or pre-M1 rescue use of external target-specific RE is recorded, and affected findings remain marked `contaminated` or `external-assisted` and excluded from blind-RE success accounting.
 
 ---
 
@@ -1047,6 +1062,36 @@ Do not pull these into M1 unless new evidence proves they are inseparable:
    - support other Antagonizer/vanilla releases only after M1 is stable on one canonical target;
    - every additional target must have its own compatibility evidence and fail-closed validation.
 
+## X1 — External verification of blind-RE results
+
+- **Status:** Open
+- **Execution:** CLOUD
+- **Priority:** Medium
+- **Category:** Research validation / blind-RE evaluation
+- **Origin:** Project meta-goal: evaluate autonomous blind reverse engineering
+- **Depends on:** M1 (**Completed and verified**)
+- **Goal:** Preserve the independently produced blind-RE result, then compare it with external target-specific research as an independent verification/corroboration phase.
+
+### Work
+
+After M1 is completed, external target-specific RE sources are allowed for this bounded verification task. Compare independently discovered addresses, structures, control-flow relationships, and semantics with external research without rewriting the pre-comparison evidence trail.
+
+A maintainer-approved rescue unlock used before M1 does not satisfy X1 and does not retroactively count `external-assisted` findings as blind-RE success. Likewise, independently corroborated `contaminated` findings remain contaminated for experiment accounting.
+
+### Deliverables
+
+- `docs/experiments/X1-external-verification.md` recording the external-comparison procedure and source classes used without turning repository policy into a target-specific source catalog;
+- a comparison of agreements, disagreements, and externally assisted corrections against the preserved blind-RE result;
+- an explicit assessment of blind-RE coverage, correctness, and remaining limits;
+- roadmap/docs updates for any later work whose assumptions change because verification found a material discrepancy.
+
+### Acceptance criteria
+
+- the pre-X1 blind-RE evidence trail remains identifiable and unchanged as the baseline for comparison;
+- independently discovered addresses, structures, control-flow relationships, and semantics have been compared with external research where comparable evidence exists;
+- agreements, disagreements, `contaminated` findings, and `external-assisted` findings are distinguished explicitly;
+- the repository records a bounded assessment of the blind agent RE experiment rather than merely importing external knowledge into the project.
+
 ---
 
 ## Roadmap maintenance rules
@@ -1058,6 +1103,7 @@ Examples:
 - a feasibility task establishes cloud DOS execution → convert its gated runtime tasks to `CLOUD` and link the harness;
 - cloud runtime fails for a concrete, reproduced reason → mark the relevant task `LOCAL ONLY`, preserve the experiment, and provide the one-shot local artifact workflow;
 - runtime evidence disproves a state-field hypothesis → update RE2/RE4 and dependent architecture tasks before implementing anything;
+- a pre-M1 rescue unlock is approved → preserve the blocker under `docs/experiments/`, add a dated bounded unlock decision to the relevant roadmap item, and mark dependent findings `external-assisted`;
 - implementation exists but target validation is pending → use `Implemented, validation incomplete`;
 - a task premise is invalid → mark it `Superseded` or `Dropped` and preserve why.
 

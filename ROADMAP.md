@@ -178,7 +178,7 @@ Rejected / bounded:
 
 - the **retail game data files are not available as a lawful public dependency**, and the repository must not obtain them from abandonware or full retail distributions. This is a constraint handed to CF3/CF4, not a blocker for static RE. CF1 did **not** investigate the freely distributed official playable demo as a runtime fixture; that is CF3's, and CF1 must not be cited as ruling out a cloud runtime path.
 - the **retail unpatched `ASCEND.EXE`** is not freely distributed. It is an optional third reference, not a prerequisite.
-- CF1 settled only the **packaging** relationship: the Antagonizer and the bug patch are separate standalone executables, not a patch stacked on a base. T1 supplied the stronger binary evidence needed to make the baseline decision.
+- CF1 settled the **packaging** relationship between the bug patch and the Antagonizer (both standalone executables), **not** their **build lineage**. T1 subsequently resolved the baseline decision with stronger cross-locale static lineage evidence; see [`docs/experiments/T1-canonical-target-selection.md`](./docs/experiments/T1-canonical-target-selection.md).
 - `web.archive.org` was **blocked by egress policy** in the sandbox where this ran even though `archive.org` was reachable. Do not build tooling on a Wayback fallback without re-probing.
 - abandonware full-game sources must never be added to the acquisition manifest, regardless of reachability.
 

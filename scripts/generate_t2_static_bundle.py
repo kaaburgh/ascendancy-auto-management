@@ -277,7 +277,11 @@ def target_summary(info: dict[str, Any], inventory: dict[str, Any], strings: dic
             "branch_target_count": inventory["branch_target_count"],
             "call_edge_count": len(edges),
             "top_mnemonics": inventory["top_mnemonics"],
-            "candidate_starts": [item["address"] for item in functions],
+            "candidate_starts_sha256": stable_json_sha([item["address"] for item in functions]),
+            "candidate_start_sample": {
+                "first_32": [item["address"] for item in functions[:32]],
+                "last_32": [item["address"] for item in functions[-32:]],
+            },
             "candidate_records_sha256": stable_json_sha(functions),
             "call_edges_sha256": stable_json_sha(edges),
             "full_inventory_file_sha256": sha256_file(inventory_path),
@@ -373,7 +377,7 @@ def main(argv: list[str] | None = None) -> int:
                 "Candidate starts are linear-sweep/direct-call analysis regions, not verified functions.",
                 "No target executable, raw disassembly, or full string dump is committed.",
                 "The wdump cross-check compares every emitted object and page-map entry plus LE fields also exposed by le_image info --json.",
-                "The repo summaries contain the complete candidate-start inventories and digests of the full candidate records/call edges; regenerate artifacts/ for the complete v2 inventory.",
+                "The repo summaries contain candidate-start samples plus digests of the complete start list, candidate records, and call edges; regenerate artifacts/ for the complete v2 inventory.",
             ],
         }
         write_json(repo_output / "manifest.json", manifest)

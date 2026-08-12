@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import collections
 import hashlib
 import json
+import os
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -54,8 +57,95 @@ HEADER_MAP = {
     "size of the debugging information": ("loader", "debug_size"),
 }
 
+
 class BundleError(RuntimeError):
     pass
+
+
+class RepoOutputTransaction:
+    """Stage the complete tracked bundle and publish it only after all checks pass."""
+
+    def __init__(self, destination: pathlib.Path) -> None:
+        self.destination = destination
+        self.staging: pathlib.Path | None = None
+        self._commit_requested = False
+
+    @property
+    def path(self) -> pathlib.Path:
+        if self.staging is None:
+            raise BundleError("repo-output transaction has not been entered")
+        return self.staging
+
+    def __enter__(self) -> "RepoOutputTransaction":
+        parent = self.destination.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        if self.destination.exists() and not self.destination.is_dir():
+            raise BundleError(f"repo output is not a directory: {self.destination}")
+
+        self.staging = pathlib.Path(
+            tempfile.mkdtemp(prefix=f".{self.destination.name}.staging-", dir=parent)
+        )
+        if self.destination.exists():
+            for child in self.destination.iterdir():
+                target = self.staging / child.name
+                if child.is_dir():
+                    shutil.copytree(child, target)
+                else:
+                    shutil.copy2(child, target)
+        return self
+
+    def commit(self) -> None:
+        if self.staging is None:
+            raise BundleError("cannot commit repo-output transaction before entering it")
+        self._commit_requested = True
+
+    def _publish(self) -> None:
+        assert self.staging is not None
+        backup: pathlib.Path | None = None
+        if self.destination.exists():
+            backup = pathlib.Path(
+                tempfile.mkdtemp(
+                    prefix=f".{self.destination.name}.backup-",
+                    dir=self.destination.parent,
+                )
+            )
+            backup.rmdir()
+            try:
+                os.replace(self.destination, backup)
+            except OSError as exc:
+                raise BundleError(
+                    f"cannot stage existing repo output for replacement: {exc}"
+                ) from exc
+
+        try:
+            os.replace(self.staging, self.destination)
+            self.staging = None
+        except OSError as exc:
+            rollback_error: OSError | None = None
+            if backup is not None and backup.exists():
+                try:
+                    if self.destination.exists():
+                        shutil.rmtree(self.destination)
+                    os.replace(backup, self.destination)
+                except OSError as rollback_exc:
+                    rollback_error = rollback_exc
+            detail = f"cannot publish repo output transaction: {exc}"
+            if rollback_error is not None:
+                detail += f"; rollback also failed: {rollback_error}"
+            raise BundleError(detail) from exc
+        else:
+            if backup is not None and backup.exists():
+                shutil.rmtree(backup, ignore_errors=True)
+
+    def __exit__(self, exc_type, exc, traceback) -> bool:
+        try:
+            if exc_type is None and self._commit_requested:
+                self._publish()
+        finally:
+            if self.staging is not None and self.staging.exists():
+                shutil.rmtree(self.staging, ignore_errors=True)
+            self.staging = None
+        return False
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -155,6 +245,24 @@ def nested(info: dict[str, Any], path: tuple[str, str]) -> int:
     return int(info[path[0]][path[1]])
 
 
+def _check_index_coverage(
+    kind: str,
+    actual_indices: list[int],
+    expected_indices: set[int],
+    disagreements: list[dict[str, Any]],
+) -> None:
+    counts = collections.Counter(actual_indices)
+    duplicates = sorted(index for index, count in counts.items() if count > 1)
+    missing = sorted(expected_indices - set(actual_indices))
+    unexpected = sorted(set(actual_indices) - expected_indices)
+    if duplicates:
+        disagreements.append({"kind": f"{kind}_duplicate_indices", "indices": duplicates})
+    if missing:
+        disagreements.append({"kind": f"{kind}_missing_indices", "indices": missing})
+    if unexpected:
+        disagreements.append({"kind": f"{kind}_out_of_range_indices", "indices": unexpected})
+
+
 def compare_wdump(info: dict[str, Any], parsed: dict[str, Any]) -> dict[str, Any]:
     disagreements: list[dict[str, Any]] = []
     agreements: dict[str, int] = {}
@@ -170,40 +278,56 @@ def compare_wdump(info: dict[str, Any], parsed: dict[str, Any]) -> dict[str, Any
             agreements[label] = repo_value
 
     repo_objects = {int(obj["index"]): obj for obj in info["objects"]}
+    wdump_object_indices = [int(obj["index"]) for obj in parsed["objects"]]
+    _check_index_coverage(
+        "object", wdump_object_indices, set(repo_objects), disagreements
+    )
     for obj in parsed["objects"]:
-        idx = obj["index"]
+        idx = int(obj["index"])
         expected = repo_objects.get(idx)
         if expected is None:
-            disagreements.append({"kind": "unexpected_wdump_object", "object": idx})
             continue
         for key in ("virtual_size", "base_address", "flags", "first_page", "page_count"):
             if obj.get(key) != int(expected[key]):
                 disagreements.append({"kind": "object", "object": idx, "field": key, "wdump": obj.get(key), "le_image": int(expected[key])})
-    if len(parsed["objects"]) != len(repo_objects):
-        disagreements.append({"kind": "object_count", "wdump": len(parsed["objects"]), "le_image": len(repo_objects)})
 
     page_count = int(info["pages"]["count"])
     page_size = int(info["pages"]["size"])
     data_offset = int(info["pages"]["data_offset"])
-    if len(parsed["pages"]) != page_count:
-        disagreements.append({"kind": "page_count", "wdump": len(parsed["pages"]), "le_image": page_count})
+    page_numbers_are_sequential = bool(info["pages"]["numbers_are_sequential"])
+    wdump_page_indices = [int(page["index"]) for page in parsed["pages"]]
+    _check_index_coverage(
+        "page", wdump_page_indices, set(range(1, page_count + 1)), disagreements
+    )
+    if not page_numbers_are_sequential:
+        disagreements.append({
+            "kind": "le_image_page_map_not_sequential",
+            "detail": (
+                "le_image reports a non-sequential page map, but info --json does "
+                "not expose the individual page numbers required for an independent "
+                "wdump row-by-row comparison"
+            ),
+        })
+
     for page in parsed["pages"]:
-        index = page["index"]
+        index = int(page["index"])
+        if page["flags"] != 0:
+            disagreements.append({"kind": "page_flags", "page": index, "wdump": page["flags"], "le_image": 0})
+        if not 1 <= index <= page_count or not page_numbers_are_sequential:
+            continue
         expected_map = index
         expected_offset = data_offset + (expected_map - 1) * page_size
         if page["map_page"] != expected_map:
             disagreements.append({"kind": "page_map", "page": index, "wdump": page["map_page"], "le_image": expected_map})
         if page["file_offset"] != expected_offset:
             disagreements.append({"kind": "page_file_offset", "page": index, "wdump": page["file_offset"], "le_image": expected_offset})
-        if page["flags"] != 0:
-            disagreements.append({"kind": "page_flags", "page": index, "wdump": page["flags"], "le_image": 0})
 
     return {
         "header_fields_compared": len(HEADER_MAP),
         "header_agreements": agreements,
         "objects_compared": len(parsed["objects"]),
         "page_entries_compared": len(parsed["pages"]),
-        "page_numbers_are_sequential": bool(info["pages"]["numbers_are_sequential"]),
+        "page_numbers_are_sequential": page_numbers_are_sequential,
         "disagreements": disagreements,
         "result": "pass" if not disagreements else "fail",
     }
@@ -285,10 +409,11 @@ def target_summary(info: dict[str, Any], inventory: dict[str, Any], strings: dic
             "candidate_records_sha256": stable_json_sha(functions),
             "call_edges_sha256": stable_json_sha(edges),
             "full_inventory_file_sha256": sha256_file(inventory_path),
-            "note": "Full v2 le_disasm inventory is regenerated into artifacts/ and is not committed; this summary preserves start addresses, counts, provenance, and stable digests.",
+            "note": "Full v2 le_disasm inventory is regenerated into artifacts/ and is not committed; this summary preserves start-address samples, counts, provenance, and stable digests.",
         },
         "strings": string_summary(strings),
     }
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -309,78 +434,87 @@ def main(argv: list[str] | None = None) -> int:
         artifact_output = args.artifact_output
         repo_output = args.repo_output
         artifact_output.mkdir(parents=True, exist_ok=True)
-        repo_output.mkdir(parents=True, exist_ok=True)
 
         infos: dict[str, dict[str, Any]] = {}
         for target_id, path in targets.items():
             infos[target_id] = run_json([sys.executable, str(ROOT / "tools/le_image.py"), "info", "--json", str(path)])
 
-        repo_files: list[pathlib.Path] = []
-        for target_id in CANONICAL:
-            path = targets[target_id]
-            layout_path = artifact_output / f"{target_id}.layout.json"
-            write_json(layout_path, infos[target_id])
+        with RepoOutputTransaction(repo_output) as transaction:
+            staged_repo_output = transaction.path
+            repo_files: list[pathlib.Path] = []
+            for target_id in CANONICAL:
+                path = targets[target_id]
+                layout_path = artifact_output / f"{target_id}.layout.json"
+                write_json(layout_path, infos[target_id])
 
-            strings_payload = run_json([sys.executable, str(ROOT / "tools/le_image.py"), "strings", "--json", str(path), "--min-length", "4"])
-            strings_path = artifact_output / f"{target_id}.strings.json"
-            write_json(strings_path, strings_payload)
+                strings_payload = run_json([sys.executable, str(ROOT / "tools/le_image.py"), "strings", "--json", str(path), "--min-length", "4"])
+                strings_path = artifact_output / f"{target_id}.strings.json"
+                write_json(strings_path, strings_payload)
 
-            inventory_path = artifact_output / f"{target_id}.code-inventory.json"
-            command = [sys.executable, str(ROOT / "tools/le_disasm.py"), str(path), "-o", str(inventory_path)]
-            if args.objdump:
-                command.extend(["--objdump", args.objdump])
-            result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
-            if result.returncode != 0:
-                raise BundleError(f"le_disasm failed for {path.name}: {result.stderr.strip()}")
-            inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+                inventory_path = artifact_output / f"{target_id}.code-inventory.json"
+                command = [sys.executable, str(ROOT / "tools/le_disasm.py"), str(path), "-o", str(inventory_path)]
+                if args.objdump:
+                    command.extend(["--objdump", args.objdump])
+                result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+                if result.returncode != 0:
+                    raise BundleError(f"le_disasm failed for {path.name}: {result.stderr.strip()}")
+                try:
+                    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise BundleError(
+                        f"cannot read le_disasm inventory for {path.name}: {exc}"
+                    ) from exc
 
-            summary_path = repo_output / f"{target_id}.summary.json"
-            write_json(summary_path, target_summary(infos[target_id], inventory, strings_payload, inventory_path))
-            repo_files.append(summary_path)
+                summary_path = staged_repo_output / f"{target_id}.summary.json"
+                write_json(summary_path, target_summary(infos[target_id], inventory, strings_payload, inventory_path))
+                repo_files.append(summary_path)
 
-        comparisons: dict[str, Any] = {}
-        for target_id, path in targets.items():
-            raw, parsed = run_wdump(wdump, path)
-            comparison = compare_wdump(infos[target_id], parsed)
-            comparison["source_sha256"] = infos[target_id]["sha256"]
-            comparison["wdump_output_sha256"] = sha256_bytes(raw.encode("utf-8"))
-            comparisons[target_id] = comparison
-            if comparison["result"] != "pass":
-                raise BundleError(f"wdump disagreement for {target_id}: {comparison['disagreements']}")
+            comparisons: dict[str, Any] = {}
+            for target_id, path in targets.items():
+                raw, parsed = run_wdump(wdump, path)
+                comparison = compare_wdump(infos[target_id], parsed)
+                comparison["source_sha256"] = infos[target_id]["sha256"]
+                comparison["wdump_output_sha256"] = sha256_bytes(raw.encode("utf-8"))
+                comparisons[target_id] = comparison
+                if comparison["result"] != "pass":
+                    raise BundleError(f"wdump disagreement for {target_id}: {comparison['disagreements']}")
 
-        wdump_path = repo_output / "wdump-comparison.json"
-        write_json(wdump_path, {
-            "schema": WDUMP_SCHEMA,
-            "wdump_version": wdump_version(wdump),
-            "wdump_sha256": sha256_file(pathlib.Path(wdump)),
-            "targets": comparisons,
-        })
-        repo_files.append(wdump_path)
+            wdump_path = staged_repo_output / "wdump-comparison.json"
+            write_json(wdump_path, {
+                "schema": WDUMP_SCHEMA,
+                "wdump_version": wdump_version(wdump),
+                "wdump_sha256": sha256_file(pathlib.Path(wdump)),
+                "targets": comparisons,
+            })
+            repo_files.append(wdump_path)
 
-        files = {path.relative_to(repo_output).as_posix(): {"sha256": sha256_file(path), "size": path.stat().st_size} for path in sorted(repo_files)}
-        manifest = {
-            "schema": SCHEMA,
-            "blind_re_provenance": "clean",
-            "canonical_targets": list(CANONICAL),
-            "wdump_cross_check_targets": list(TARGETS),
-            "source_targets": {key: {"filename": value[0], "size": value[1], "sha256": value[2]} for key, value in TARGETS.items()},
-            "commands": {
-                "full_bundle": "python3 scripts/generate_t2_static_bundle.py --wdump /path/to/wdump",
-                "layout": "python3 tools/le_image.py info --json <target>",
-                "strings": "python3 tools/le_image.py strings --json --min-length 4 <target>",
-                "inventory": "python3 tools/le_disasm.py <target> -o <inventory.json>",
-                "wdump": "wdump -q -p <target>",
-            },
-            "repo_files": files,
-            "artifact_output": "artifacts/t2-static-analysis/ (ignored; full layouts, strings, and v2 le_disasm inventories)",
-            "notes": [
-                "Candidate starts are linear-sweep/direct-call analysis regions, not verified functions.",
-                "No target executable, raw disassembly, or full string dump is committed.",
-                "The wdump cross-check compares every emitted object and page-map entry plus LE fields also exposed by le_image info --json.",
-                "The repo summaries contain candidate-start samples plus digests of the complete start list, candidate records, and call edges; regenerate artifacts/ for the complete v2 inventory.",
-            ],
-        }
-        write_json(repo_output / "manifest.json", manifest)
+            files = {path.relative_to(staged_repo_output).as_posix(): {"sha256": sha256_file(path), "size": path.stat().st_size} for path in sorted(repo_files)}
+            manifest = {
+                "schema": SCHEMA,
+                "blind_re_provenance": "clean",
+                "canonical_targets": list(CANONICAL),
+                "wdump_cross_check_targets": list(TARGETS),
+                "source_targets": {key: {"filename": value[0], "size": value[1], "sha256": value[2]} for key, value in TARGETS.items()},
+                "commands": {
+                    "full_bundle": "python3 scripts/generate_t2_static_bundle.py --wdump /path/to/wdump",
+                    "layout": "python3 tools/le_image.py info --json <target>",
+                    "strings": "python3 tools/le_image.py strings --json --min-length 4 <target>",
+                    "inventory": "python3 tools/le_disasm.py <target> -o <inventory.json>",
+                    "wdump": "wdump -q -p <target>",
+                },
+                "repo_files": files,
+                "artifact_output": "artifacts/t2-static-analysis/ (ignored; full layouts, strings, and v2 le_disasm inventories)",
+                "notes": [
+                    "Candidate starts are linear-sweep/direct-call analysis regions, not verified functions.",
+                    "No target executable, raw disassembly, or full string dump is committed.",
+                    "The wdump cross-check requires exact object/page index coverage and a sequential le_image page map before comparing every row plus shared LE header fields.",
+                    "Tracked repo output is staged and published only after every canonical analysis and all four wdump comparisons pass.",
+                    "The repo summaries contain candidate-start samples plus digests of the complete start list, candidate records, and call edges; regenerate artifacts/ for the complete v2 inventory.",
+                ],
+            }
+            write_json(staged_repo_output / "manifest.json", manifest)
+            transaction.commit()
+
         print(f"T2 static-analysis bundle: PASS ({len(repo_files) + 1} repo files; full artifacts in {artifact_output})")
         return 0
     except BundleError as exc:

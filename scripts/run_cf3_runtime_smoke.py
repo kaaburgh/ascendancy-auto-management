@@ -24,8 +24,6 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROBE_SOURCE = ROOT / "tools" / "cf3_sdl12_probe.c"
 DEMO_MANIFEST = ROOT / "tools" / "demo-runtime-manifest.json"
 ARTIFACTS = ROOT / "artifacts"
-CANONICAL_ANTAG_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
-DEMO_EXE_SHA256 = "0183b75cb44ce52b52ba57baf2b9521e21a7611e487a1ebb5b768067441960a9"
 MODE_RE = re.compile(r"CF3SDL mode (\d+)x(\d+) bpp=(\d+)")
 
 
@@ -173,8 +171,9 @@ def main(argv: list[str] | None = None) -> int:
                 "experiment": "CF3-runtime-smoke",
                 "executable": {"name": executable.name, "sha256": exe_sha, "size": executable.stat().st_size},
                 "game_dir_demo_verified": bool(args.verify_demo),
-                "dosbox": str(dosbox),
-                "command": command,
+                "dosbox": {"name": dosbox.name, "sha256": sha256_file(dosbox), "size": dosbox.stat().st_size},
+                "command": ["dosbox", "-c", "mount c <TEMP_MOUNT>", "-c", "c:", "-c", mounted_exe.name],
+                "environment": {"SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"},
                 "timeout_seconds": args.timeout,
                 "timed_out": timed_out,
                 "returncode": returncode,

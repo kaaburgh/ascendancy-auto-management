@@ -168,11 +168,29 @@ A hook must preserve original semantics except for the intended behavioral chang
 
 ## Observability and experiments
 
-When the target behavior cannot be reproduced in the current environment, continue autonomously with static analysis, tooling, parsers, signatures, fixtures, and diagnostic builds.
+When the target behavior cannot be reproduced in the current environment, continue autonomously with static analysis, tooling, parsers, signatures, fixtures, and diagnostic builds. If one required line is blocked by a missing tool or capability, follow the handoff rule below for that line while continuing every independent line of work.
 
 If a target-machine run is genuinely required, prepare one minimal reproducible experiment. Prefer one command/script/DLL that produces a self-contained `artifacts/run-*.zip` containing only safe-to-share metadata, logs, hashes, configuration, and requested dumps/captures.
 
 Diagnostics should be structured, bounded, and cheap enough for their intended mode. Avoid per-frame filesystem I/O, allocations, global locks, expensive formatting, or stack walking in production patch mode.
+
+## Tool availability and operator handoff
+
+A missing tool in one agent environment is **not** evidence that the tool or capability is unavailable to the project.
+
+Use this handoff only when the current task actually requires the missing capability to satisfy its evidence or acceptance criteria and no equally adequate available path exists. A merely useful optional cross-check does not require escalation.
+
+When a required capability is missing:
+
+- first decide whether the missing capability is bounded and testable enough to implement in-project from allowed general documentation. Prefer building that capability under `tools/` or `scripts/` when doing so is a reasonable task-sized solution rather than substituting a weaker analysis method;
+- otherwise try the normal installation, download, bootstrap, or attached-artifact paths available in the environment, while staying inside the blind-RE evidence policy;
+- if acquisition fails because of sandbox, network/egress, package-manager, permission, platform, or similar environment constraints, pause **only** the line of work that requires that capability. Continue every independent line of the task. The operator handoff is a partial-progress report, not permission to exit the whole task;
+- report the blocker with the exact tool/capability, required version/platform when relevant, why the task requires it, acquisition paths already attempted, and the concrete failures;
+- an operator-provided generic tool or artifact that carries no target-specific recovered knowledge may be accepted directly. Anything that embeds target-specific recovered knowledge about this executable is not a normal tool handoff: before M1 it requires the documented rescue-unlock process above, and dependent findings remain `external-assisted`;
+- if the operator is not available within the current session, do not idle. Preserve a bounded blocker/status, continue independent work, and hand back the task with the blocked line explicit;
+- once the blocker is resolved, preserve the reusable outcome: commit or document the working acquisition/bootstrap path when appropriate, or record the failed/unavailable path under `docs/experiments/` when the negative result would otherwise be rediscovered. Any execution-classification change must still follow the cloud-feasibility rules in `ROADMAP.md`.
+
+Failure to acquire a tool inside one sandbox is not, by itself, sufficient evidence to classify a task `LOCAL ONLY` or to record the underlying RE capability as unavailable.
 
 ## Reverse-engineering records
 

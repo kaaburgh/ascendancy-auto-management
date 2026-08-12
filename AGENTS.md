@@ -11,11 +11,68 @@ When sources disagree, use this order:
 3. Current source, tools, tests, and generated diagnostic output.
 4. [`ROADMAP.md`](./ROADMAP.md), which is the live status and sequencing document.
 5. Durable reverse-engineering notes under [`docs/re/`](./docs/re/) and experiment records under [`docs/experiments/`](./docs/experiments/).
-6. Historical notes and superseded experiments.
+6. Historical notes and superseded experiments that remain part of the current supported branch.
 
 Do not implement a roadmap item merely because an old note suggests it. First check the item's current status, dependencies, evidence, and accepted direction.
 
 For the detailed workflow, repository map, and validation rules, read [`docs/agent-playbook.md`](./docs/agent-playbook.md). For writing or restructuring roadmap items, read [`docs/roadmap-authoring.md`](./docs/roadmap-authoring.md).
+
+## Binary-first / blind-RE phase through M1
+
+The project has two equal goals: ship a working mod and measure how well modern coding/research agents can independently reverse engineer a closed binary and build safe binary patches without pre-existing target-specific RE knowledge.
+
+Until milestone M1 is **Completed and verified**, target-specific reverse engineering and binary-patch design are therefore a **binary-first / blind-RE experiment**. The evidence boundary below is repository policy, not a suggestion to avoid convenient sources.
+
+### Allowed evidence
+
+Agents may use:
+
+- executable files provided to or reproducibly acquired by this project, plus hashes and metadata computed from those binaries;
+- disassembly, decoded structures, traces, diffs, signatures, experiments, and other artifacts independently produced by this project's agents or tools from those binaries;
+- results of runtime experiments performed by this project;
+- current supported repository source, tools, tests, `docs/re/` findings, and `docs/experiments/` records that were produced within this evidence boundary;
+- general documentation for executable formats, DOS/extenders, compilers, ABIs, emulators, debuggers, disassemblers, and other applicable technologies;
+- official user-facing documentation and descriptions of game behavior when they do not disclose reverse-engineered implementation details.
+
+General web research and searches for tooling problems are allowed. The restriction is specifically on **target-specific recovered knowledge** that would replace independent discovery from the binaries and project-generated evidence.
+
+### Disallowed target-specific recovered knowledge before unlock
+
+Before the explicit unlock described below, do not intentionally search for, inspect, or use:
+
+- external decompilations or disassemblies of this target;
+- symbol, function, address, or patch maps for the target;
+- target-specific IDA/Ghidra databases, exports, or equivalent analysis databases;
+- externally reconstructed target structs, types, layouts, or semantic maps;
+- reverse-engineering notes or writeups about the internal implementation of this executable;
+- target-specific cheat tables, address databases, or patch-location collections;
+- source ports or reconstructed source code when they expose target internals;
+- source code or internal implementation details of third-party mods when they can reveal target-specific RE shortcuts;
+- any other material that substantially substitutes for independently discovering the target's structure or behavior;
+- abandoned/closed PRs, deleted content, old experimental branches, or other repository history that is not part of the current supported branch when the purpose is to mine target-specific RE clues.
+
+Do not turn this policy into a catalog of known external RE material. Repository-facing policy, roadmap text, commit messages, and PR descriptions should describe source classes rather than naming target-specific external projects, authors, symbols, addresses, or layouts.
+
+### Accidental contamination
+
+If target-specific recovered knowledge is encountered accidentally:
+
+- stop investigating that source rather than following it further;
+- do not copy target-specific names, addresses, types, pseudocode, or semantic conclusions from it into the project;
+- record that accidental contamination occurred in the current task/PR result;
+- label conclusions that may have been suggested by what was seen as **contaminated**;
+- where practical, re-establish those conclusions independently from target binaries or project-generated evidence before treating them as blind-RE findings.
+
+Accidentally seeing a source name or link does not by itself invalidate the whole task. The important boundary is not using recovered target-specific knowledge as evidence or as a shortcut.
+
+### Unlocking external target-specific RE
+
+External target-specific RE has exactly two supported unlock paths:
+
+1. **After M1 — independent verification/corroboration.** First preserve the blind-RE result, then external research may be used to compare independently discovered addresses, structures, control flow, and semantics, record agreements/disagreements, and assess blind-RE quality as a separate project result.
+2. **Before M1 — maintainer-approved rescue.** A documented blocker or negative result must exist first and must state what could not be recovered independently. Only an explicit maintainer decision can unlock the bounded external evidence needed for rescue. Any finding that depends on that source must be labeled **`external-assisted`** and must not be counted as a successful blind-RE result.
+
+An agent must not self-authorize a rescue unlock merely because external material could make the work faster.
 
 ## Working model
 

@@ -1,0 +1,427 @@
+{
+  "inventory": {
+    "branch_target_count": 11059,
+    "call_edge_count": 4259,
+    "call_edges_sha256": "d2ef349d040e64a06cec2d32e202542b5b5353a47195c93ced591bf7dcf21adc",
+    "call_site_count": 7472,
+    "candidate_function_count": 1326,
+    "candidate_records_sha256": "da3401e796e0eb9876bb2af4bf711f0b5f2a2abe1c6f2af48eb8a15dd26c8573",
+    "candidate_start_sample": {
+      "first_32": [
+        65552,
+        68156,
+        68292,
+        72612,
+        74048,
+        74296,
+        74396,
+        74600,
+        74880,
+        75288,
+        75380,
+        75512,
+        76516,
+        76620,
+        76952,
+        77448,
+        77692,
+        78704,
+        79556,
+        79884,
+        80352,
+        80424,
+        80600,
+        80912,
+        82468,
+        82648,
+        83088,
+        83392,
+        83916,
+        84760,
+        86136,
+        86372
+      ],
+      "last_32": [
+        530147,
+        530246,
+        530353,
+        530901,
+        531326,
+        531375,
+        531447,
+        531496,
+        531528,
+        531533,
+        531542,
+        531784,
+        532088,
+        532132,
+        532147,
+        532161,
+        532293,
+        532353,
+        532418,
+        532649,
+        533280,
+        533355,
+        533441,
+        533472,
+        533604,
+        533732,
+        533758,
+        533816,
+        533923,
+        534029,
+        534210,
+        534212
+      ]
+    },
+    "candidate_starts_sha256": "046bd3b185d0c7d4280179a90c073c69e099c174f0298bd16cbf864174910293",
+    "full_inventory_file_sha256": "03a597b5d9fbbaf169d03d088b7882c3b451bc9781f9b2f48a965b83bd4a34cb",
+    "instruction_count": 144696,
+    "note": "Full v2 le_disasm inventory is regenerated into artifacts/ and is not committed; this summary preserves start addresses, counts, provenance, and stable digests.",
+    "schema": "ascendancy.le-disasm.inventory/v2",
+    "tool": {
+      "arch": "i386",
+      "method": "linear sweep of the whole object; candidate functions are direct call targets plus a seed at the entry point when it lies in this object, otherwise the object base",
+      "normalization": "signature preserves every operand; reference_signature masks hex operands inside image object ranges; shape_signature masks all hex operands",
+      "objdump": "GNU objdump (GNU Binutils for Debian) 2.44",
+      "seed_address": 492468
+    },
+    "top_mnemonics": [
+      [
+        "mov",
+        46633
+      ],
+      [
+        "push",
+        12276
+      ],
+      [
+        "add",
+        9262
+      ],
+      [
+        "cmp",
+        7909
+      ],
+      [
+        "call",
+        7814
+      ],
+      [
+        "pop",
+        7666
+      ],
+      [
+        "xor",
+        5683
+      ],
+      [
+        "je",
+        4145
+      ],
+      [
+        "lea",
+        3660
+      ],
+      [
+        "jmp",
+        3604
+      ],
+      [
+        "jne",
+        3501
+      ],
+      [
+        "ret",
+        3188
+      ],
+      [
+        "test",
+        3138
+      ],
+      [
+        "sub",
+        2695
+      ],
+      [
+        "inc",
+        2095
+      ],
+      [
+        "sar",
+        1932
+      ],
+      [
+        "shl",
+        1318
+      ],
+      [
+        "and",
+        1234
+      ],
+      [
+        "movsx",
+        918
+      ],
+      [
+        "jl",
+        895
+      ],
+      [
+        "jge",
+        868
+      ],
+      [
+        "dec",
+        851
+      ],
+      [
+        "fld",
+        838
+      ],
+      [
+        "jle",
+        742
+      ],
+      [
+        "fstp",
+        729
+      ]
+    ]
+  },
+  "layout": {
+    "after_page_data": {
+      "note": "bytes after enumerated data pages; may contain standard LE sections such as nonresident names/debug info; not parsed",
+      "offset": 610863,
+      "size": 0
+    },
+    "container": {
+      "cpu": 2,
+      "cpu_name": "80386",
+      "format_level": 0,
+      "module_flags": 512,
+      "module_version": 0,
+      "mz_lfanew": 10832,
+      "os_type": 1,
+      "signature": "LE"
+    },
+    "entry": {
+      "address": 492468,
+      "eip": 426932,
+      "esp": 688672,
+      "object": 1,
+      "stack_object": 2
+    },
+    "file_size": 610863,
+    "loader": {
+      "autodata_object": 2,
+      "debug_offset": 0,
+      "debug_size": 0,
+      "fixup_size": 86241,
+      "import_module_offset": 86997,
+      "import_procedure_offset": 86997,
+      "iterated_map_offset": 0,
+      "loader_size": 86802,
+      "nonresident_offset": 0,
+      "nonresident_size": 0
+    },
+    "name": "ANTAG_EN.EXE",
+    "objects": [
+      {
+        "base_address": 65536,
+        "end_address": 534326,
+        "first_page": 1,
+        "flag_names": [
+          "readable",
+          "executable",
+          "preload",
+          "big32"
+        ],
+        "flags": 8261,
+        "index": 1,
+        "kind": "code",
+        "page_count": 115,
+        "virtual_size": 468790
+      },
+      {
+        "base_address": 589824,
+        "end_address": 1278496,
+        "first_page": 116,
+        "flag_names": [
+          "readable",
+          "writable",
+          "preload",
+          "big32"
+        ],
+        "flags": 8259,
+        "index": 2,
+        "kind": "data",
+        "page_count": 11,
+        "virtual_size": 688672
+      }
+    ],
+    "pages": {
+      "count": 126,
+      "data_end": 610863,
+      "data_offset": 98304,
+      "last_page_size": 559,
+      "numbers_are_sequential": true,
+      "size": 4096
+    },
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+    "trailing": {
+      "note": "alias of after_page_data; not classified by this parser",
+      "offset": 610863,
+      "size": 0
+    }
+  },
+  "source": {
+    "base_address": 65536,
+    "data_page_offset": 98304,
+    "end_address": 534326,
+    "entry_address": 492468,
+    "name": "ANTAG_EN.EXE",
+    "object": 1,
+    "object_sha256": "7772d00e6e36d5a2828d43410c59c601ca2149e3dcee33187b53d7a2d278c8e8",
+    "page_offset_header_offset": 128,
+    "parser_layout": "open-watcom-os2-flat-header-page-off-0x80/v1",
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+    "virtual_size": 468790
+  },
+  "strings": {
+    "count_by_object": {
+      "1": 2395,
+      "2": 1454
+    },
+    "longest_runs_without_text": [
+      {
+        "address": 492469,
+        "length": 108,
+        "object": 1
+      },
+      {
+        "address": 605371,
+        "length": 79,
+        "object": 2
+      },
+      {
+        "address": 605544,
+        "length": 79,
+        "object": 2
+      },
+      {
+        "address": 610888,
+        "length": 77,
+        "object": 2
+      },
+      {
+        "address": 610695,
+        "length": 75,
+        "object": 2
+      },
+      {
+        "address": 610967,
+        "length": 75,
+        "object": 2
+      },
+      {
+        "address": 610544,
+        "length": 74,
+        "object": 2
+      },
+      {
+        "address": 610812,
+        "length": 74,
+        "object": 2
+      },
+      {
+        "address": 611044,
+        "length": 74,
+        "object": 2
+      },
+      {
+        "address": 610620,
+        "length": 73,
+        "object": 2
+      },
+      {
+        "address": 611120,
+        "length": 72,
+        "object": 2
+      },
+      {
+        "address": 605457,
+        "length": 69,
+        "object": 2
+      },
+      {
+        "address": 611474,
+        "length": 68,
+        "object": 2
+      },
+      {
+        "address": 612191,
+        "length": 65,
+        "object": 2
+      },
+      {
+        "address": 593374,
+        "length": 60,
+        "object": 2
+      },
+      {
+        "address": 610424,
+        "length": 60,
+        "object": 2
+      },
+      {
+        "address": 611363,
+        "length": 60,
+        "object": 2
+      },
+      {
+        "address": 611632,
+        "length": 59,
+        "object": 2
+      },
+      {
+        "address": 614900,
+        "length": 57,
+        "object": 2
+      },
+      {
+        "address": 608908,
+        "length": 56,
+        "object": 2
+      }
+    ],
+    "minimum_length": 4,
+    "note": "Full target strings are regenerated on demand and are not committed in bulk.",
+    "ordered_full_index_sha256": "dfdc88533bafddee3b69ceeb122dc0741313cf1a276fd253b308a5c95032c622",
+    "runtime_toolchain_indicators": [
+      {
+        "address": 492469,
+        "length": 108,
+        "matched_tokens": [
+          "WATCOM"
+        ],
+        "object": 1,
+        "text_sha256": "59c03ff67e08556c05e55f8709244eb306984321edb9c609d5975286c2d651c5"
+      },
+      {
+        "address": 611900,
+        "length": 15,
+        "matched_tokens": [
+          "DOS/4G",
+          "RATIONAL"
+        ],
+        "object": 2,
+        "text_sha256": "9aa7323ec0d9d7ed3cbd726174b33fcd1932d80b8feca6bb37cdddc6b4b016a3"
+      }
+    ],
+    "source_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+    "string_count": 3849
+  }
+}

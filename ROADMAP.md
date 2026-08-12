@@ -113,6 +113,15 @@ Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/
 - **Artifact provenance.** `le_disasm` inventory JSON is schema-versioned and records the source hash, reconstructed-object hash, parser-layout identity, and signature model. `le_diff` rejects legacy/unversioned/pre-`+0x80` inventories rather than silently comparing them.
 - **Clean-checkout validation.** GitHub Actions run `31534837880` validated PR head `67631baa78aada001103b58659364c8908e538db` via merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`: 205 unit tests passed, all four pinned targets were fetched/re-verified, all eight reconstructed-object hashes matched, and the repository `le_disasm.py`/`le_diff.py` pipeline finished `CF2 real-target regression: PASS`.
 
+### Established by T2 (static; clean blind-RE provenance)
+
+Full detail in [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md) and the repo-safe handoff under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/).
+
+- `scripts/generate_t2_static_bundle.py` fail-closes on the exact four CF1/T1 filenames, sizes and SHA-256 values, regenerates canonical layouts/strings/`le_disasm` v2 inventories into ignored `artifacts/`, and writes compact reviewable summaries with stable digests under `docs/re/static-analysis/t2/`.
+- The canonical English summaries reproduce CF2's corrected headline metrics: `ANTAG_EN` 144696 instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162.
+- Open Watcom `wdump` 2.0 beta independently agrees with `le_image.py info --json` on all four pinned targets: 24 shared LE header fields, both object records and every emitted page-map row, with **zero disagreements** (126 + 126 + 121 + 121 = 494 page rows). In particular it independently confirms `page_off = 0x18000` for both Antagonizer builds and `0x17600` for both patch builds.
+- T2 does not establish semantic function identity. Candidate starts remain linear-sweep/direct-call analysis regions and the full target strings/disassembly stay out of git.
+
 ### Still assumptions
 
 These are project directions, not yet binary facts. Do not assume:
@@ -143,9 +152,9 @@ Cloud-feasibility tasks are intentionally near the front so later work is not un
 
 The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone. X1 is `Open`/`CLOUD` but remains unselectable until its M1 dependency is completed.
 
-**Current front of the path:** CF1, CF2, T0 and T1 are complete. The immediately selectable independent items are **T2** and **CF3**. RE1/RE2/RE3 remain downstream of T2.
+**Current front of the path:** CF1, CF2, T0, T1 and T2 are complete. **RE1 is now selectable as CLOUD** under its own item contract. CF3 is independent of T2 and is unchanged by T2 completion; CF4 remains gated on CF3.
 
-T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint. T2 is now selectable as `CLOUD`; RE1 becomes selectable after T2 completes, with RE2/RE3 downstream of RE1.
+T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint. T2 now provides the reproducible canonical static-analysis handoff and independent `wdump` load-map cross-check. RE2/RE3 remain downstream of RE1.
 
 ---
 
@@ -523,13 +532,25 @@ The retail unpatched `ASCEND.EXE` is not freely distributed and remains an optio
 
 ## T2 — Produce a reproducible static-analysis bundle
 
-- **Status:** Investigation first
-- **Execution:** **CLOUD** — set by CF2's completed feasibility result. T1 and CF2 are complete; T2 is selectable.
+- **Status:** **Completed and verified** — see [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md). Evidence is `static` with clean blind-RE provenance from all four exact CF1/T1 hash-pinned executables; the required independent Open Watcom `wdump` check passed with zero disagreements.
+- **Execution:** **CLOUD** — set by CF2's completed feasibility result; T2 itself is complete.
 - **Priority:** High
 - **Category:** Tooling / static RE
 - **Origin:** High-level step 2
 - **Depends on:** T1 (complete), CF2 (complete)
 - **Goal:** Make target static analysis reproducible enough that later agents do not depend on one person's interactive RE database.
+
+### Outcome
+
+T2 now provides a fail-closed, repo-safe handoff rather than an interactive RE database:
+
+- `scripts/generate_t2_static_bundle.py` verifies all four pinned filenames, sizes and SHA-256 values before analysis;
+- the canonical English pair gets full `le_image` layouts, string inventories and `le_disasm` v2 inventories under ignored `artifacts/t2-static-analysis/`, while compact summaries and stable digests are committed under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/);
+- `ANTAG_EN` reproduces 144696 decoded instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` reproduces 139093 / 1297 / 7251 / 10433 / 4162;
+- Open Watcom `wdump` independently matched `le_image.py info --json` on 24 shared LE header fields, both objects and every page row for all four pinned targets: 494 page rows total, zero disagreements;
+- no target executables, raw disassembly, or bulk target strings are committed, and no candidate is promoted to a semantic function identity.
+
+T2 therefore satisfies RE1's dependency. It does not perform RE1 candidate ranking or any runtime analysis.
 
 ### Work
 
@@ -551,13 +572,13 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ### Deliverables
 
-- scripts to regenerate the bundle;
-- repo-safe derived artifacts under `docs/re/` or another documented location;
-- `docs/experiments/T2-static-analysis-bundle.md` including the `wdump` comparison.
+- [x] `scripts/generate_t2_static_bundle.py` to regenerate the bundle;
+- [x] repo-safe derived artifacts under `docs/re/static-analysis/t2/`, with full regenerated outputs kept under ignored `artifacts/`;
+- [x] `docs/experiments/T2-static-analysis-bundle.md` including the four-target `wdump` comparison.
 
 ### Acceptance criteria
 
-A later CLOUD task can reason about target structure and reproduce the relevant derived outputs without relying on undocumented local GUI state, and the LE load-map facts have an independent target-level `wdump` comparison.
+**Met.** A later CLOUD task can reason about target structure and reproduce the relevant derived outputs without relying on undocumented local GUI state, and the LE load-map facts have an independent target-level `wdump` comparison.
 
 ---
 
@@ -565,12 +586,12 @@ A later CLOUD task can reason about target structure and reproduce the relevant 
 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
-- **Status:** Investigation first
-- **Execution:** **CLOUD** — set by completed CF2. Both sides are cloud-fetchable, T1 fixed their exact hashes, and `tools/le_diff.py` performs the comparison. Still dependency-blocked on T2.
+- **Status:** Investigation first — T2 dependency is complete; this item is selectable.
+- **Execution:** **CLOUD** — set by completed CF2. Both sides are cloud-fetchable, T1 fixed their exact hashes, `tools/le_diff.py` performs the comparison, and T2 now provides the reproducible static handoff.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
 - **Origin:** High-level step 3 and the decision to use vanilla as a reference
-- **Depends on:** T2
+- **Depends on:** T2 (complete)
 - **Question:** Which code/data regions changed between canonical vanilla-lineage baseline and Antagonizer, and which changes are plausible candidates for the documented improvement in planetary self-management?
 
 > **Canonical pair from T1:** target is `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`; baseline is English `PATCH.EXE` / `PATCH_EN.EXE` SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b` (publisher-documented 1.6.5). The International pair is corroboration input, not an additional supported M1 target.
@@ -610,11 +631,11 @@ The next RE tasks have a bounded set of candidate regions and a reproducible exp
 ## RE2 — Identify the existing auto-management UI/state seam statically
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2; still dependency-blocked on T2 and RE1
+- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2 and T2; still dependency-blocked on RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / planet state / UI
 - **Origin:** High-level steps 3–4
-- **Depends on:** T2, RE1
+- **Depends on:** T2 (complete), RE1
 - **Question:** What code path handles the existing per-planet self-management control, and what state representation is most likely changed or consulted?
 
 ### Work
@@ -646,11 +667,11 @@ RE4 can be executed as a bounded experiment rather than an open-ended debugger s
 ## RE3 — Identify the per-turn self-management decision path statically
 
 - **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2; still dependency-blocked on T2 and RE1
+- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2 and T2; still dependency-blocked on RE1
 - **Priority:** Critical
 - **Category:** Reverse engineering / turn processing
 - **Origin:** High-level step 3
-- **Depends on:** T2, RE1
+- **Depends on:** T2 (complete), RE1
 - **Question:** Which call path reads planet self-management state and decides/builds the next automatic planet action during turn processing?
 
 ### Work

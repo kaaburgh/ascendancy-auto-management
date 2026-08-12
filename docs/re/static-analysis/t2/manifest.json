@@ -1,0 +1,64 @@
+{
+  "artifact_output": "artifacts/t2-static-analysis/ (ignored; full layouts, strings, and v2 le_disasm inventories)",
+  "blind_re_provenance": "clean",
+  "canonical_targets": [
+    "antag-en",
+    "patch-en"
+  ],
+  "commands": {
+    "full_bundle": "python3 scripts/generate_t2_static_bundle.py --wdump /path/to/wdump",
+    "inventory": "python3 tools/le_disasm.py <target> -o <inventory.json>",
+    "layout": "python3 tools/le_image.py info --json <target>",
+    "strings": "python3 tools/le_image.py strings --json --min-length 4 <target>",
+    "wdump": "wdump -q -p <target>"
+  },
+  "notes": [
+    "Candidate starts are linear-sweep/direct-call analysis regions, not verified functions.",
+    "No target executable, raw disassembly, or full string dump is committed.",
+    "The wdump cross-check compares every emitted object and page-map entry plus LE fields also exposed by le_image info --json.",
+    "The repo summaries contain candidate-start samples plus digests of the complete start list, candidate records, and call edges; regenerate artifacts/ for the complete v2 inventory."
+  ],
+  "repo_files": {
+    "antag-en.summary.json": {
+      "sha256": "a0a62df1f960bc5d2464f88eb31284f6d0546238c21c20df94ead55e58660a78",
+      "size": 8803
+    },
+    "patch-en.summary.json": {
+      "sha256": "ba4401ba3a54dd75d0e420fba88daca346651c4d2807c676a7c685b0ed2e2dac",
+      "size": 8804
+    },
+    "wdump-comparison.json": {
+      "sha256": "91bb84261172883a540a212067b137740b27a381cf5ccb6558595ff87b98b114",
+      "size": 6038
+    }
+  },
+  "schema": "ascendancy.t2-static-analysis-bundle/v1",
+  "source_targets": {
+    "antag-en": {
+      "filename": "ANTAG_EN.EXE",
+      "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+      "size": 610863
+    },
+    "antag-intl": {
+      "filename": "ANTAG_INTL.EXE",
+      "sha256": "9d44b1cafe9181b3bb526afb6daa2cc0cbb7c5c30fce5172f9a8a9e0b54dce0c",
+      "size": 610863
+    },
+    "patch-en": {
+      "filename": "PATCH_EN.EXE",
+      "sha256": "7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b",
+      "size": 587451
+    },
+    "patch-intl": {
+      "filename": "PATCH_INTL.EXE",
+      "sha256": "16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b",
+      "size": 587451
+    }
+  },
+  "wdump_cross_check_targets": [
+    "antag-en",
+    "antag-intl",
+    "patch-en",
+    "patch-intl"
+  ]
+}

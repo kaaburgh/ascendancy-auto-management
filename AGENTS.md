@@ -27,6 +27,12 @@ The project has two equal goals: ship a working mod and measure how well modern 
 
 Until milestone M1 is **Completed and verified**, target-specific reverse engineering and binary-patch design are therefore a **binary-first / blind-RE experiment**. The evidence boundary below is repository policy, not a suggestion to avoid convenient sources.
 
+### Adoption baseline
+
+For experiment accounting, the supported repository evidence present on `main` at commit `0a2ea78bef5a2b521dffdbed9c904b1192c23368` (the state after CF2 merged and before this policy branch) is accepted as the initial in-boundary corpus. That classification is based on the durable supported records describing evidence derived from the project-acquired binaries, project-generated experiments, and allowed general or official user-facing sources; it is a policy baseline, not a claim that every past agent interaction can be audited retrospectively.
+
+If later supported evidence shows that a pre-baseline conclusion was actually influenced by prohibited target-specific recovered knowledge, do not preserve the administrative classification merely for metric continuity: mark the affected conclusion `contaminated` or `external-assisted` as appropriate and exclude it from blind-RE success accounting.
+
 ### Allowed evidence
 
 Agents may use:

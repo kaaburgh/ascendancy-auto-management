@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run a bounded headless DOSBox runtime probe and package its evidence.
 
-This is a CF3 feasibility harness, not a feature-validation driver.  It provides
-only timed key injection plus framebuffer snapshots.  Later UI automation is
+This is a CF3 feasibility harness, not a feature-validation driver. It provides
+only timed key injection plus framebuffer snapshots. Later UI automation is
 intentionally left to CF4.
 """
 from __future__ import annotations
@@ -23,6 +23,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROBE_SOURCE = ROOT / "tools" / "cf3_sdl12_probe.c"
 DEMO_MANIFEST = ROOT / "tools" / "demo-runtime-manifest.json"
+RETAIL_MANIFEST = ROOT / "tools" / "retail-runtime-manifest.json"
 ARTIFACTS = ROOT / "artifacts"
 MODE_RE = re.compile(r"CF3SDL mode (\d+)x(\d+) bpp=(\d+)")
 
@@ -39,18 +40,42 @@ def sha256_file(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
-def verify_demo_tree(path: pathlib.Path) -> None:
-    data = json.loads(DEMO_MANIFEST.read_text(encoding="utf-8"))
+def verify_manifest_tree(path: pathlib.Path, manifest_path: pathlib.Path, label: str) -> None:
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if data.get("schema") != 1 or not isinstance(data.get("files"), list):
+        raise SmokeError(f"{label} manifest is malformed: {manifest_path}")
+
+    by_name: dict[str, pathlib.Path] = {}
+    duplicates: list[str] = []
+    for candidate in path.iterdir():
+        if not candidate.is_file():
+            continue
+        key = candidate.name.casefold()
+        if key in by_name:
+            duplicates.append(candidate.name)
+        else:
+            by_name[key] = candidate
+    if duplicates:
+        raise SmokeError(f"{label} tree has ambiguous case-insensitive filenames: {', '.join(sorted(duplicates))}")
+
     errors = []
     for item in data["files"]:
-        candidate = path / item["name"]
-        if not candidate.is_file():
+        candidate = by_name.get(item["name"].casefold())
+        if candidate is None:
             errors.append(f"missing {item['name']}")
             continue
         if candidate.stat().st_size != item["size"] or sha256_file(candidate) != item["sha256"]:
             errors.append(f"mismatch {item['name']}")
     if errors:
-        raise SmokeError("demo tree failed pinned verification: " + ", ".join(errors))
+        raise SmokeError(f"{label} tree failed pinned verification: " + ", ".join(errors))
+
+
+def verify_demo_tree(path: pathlib.Path) -> None:
+    verify_manifest_tree(path, DEMO_MANIFEST, "demo")
+
+
+def verify_retail_tree(path: pathlib.Path) -> None:
+    verify_manifest_tree(path, RETAIL_MANIFEST, "retail")
 
 
 def compile_probe(build_dir: pathlib.Path) -> pathlib.Path:
@@ -58,7 +83,7 @@ def compile_probe(build_dir: pathlib.Path) -> pathlib.Path:
     if not compiler:
         raise SmokeError("gcc is required to build the SDL 1.2 probe")
     output = build_dir / "cf3_sdl12_probe.so"
-    command = [compiler, "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror", "-pthread", "-o", str(output), str(PROBE_SOURCE), "-ldl"]
+    command = [compiler, "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror", "-o", str(output), str(PROBE_SOURCE), "-ldl"]
     completed = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if completed.returncode:
         raise SmokeError(f"probe build failed ({completed.returncode}):\n{completed.stderr}")
@@ -67,13 +92,12 @@ def compile_probe(build_dir: pathlib.Path) -> pathlib.Path:
 
 def materialize_overlay(game_dir: pathlib.Path, executable: pathlib.Path, mount_dir: pathlib.Path) -> pathlib.Path:
     for source in game_dir.iterdir():
-        if not source.is_file():
-            continue
-        destination = mount_dir / source.name
-        try:
-            os.link(source, destination)
-        except OSError:
-            shutil.copy2(source, destination)
+        if source.is_file():
+            # Never hardlink a maintainer-owned installation: guest writes to a
+            # hardlink would mutate the source inode. The temporary overlay is
+            # intentionally an independent copy so the source tree is read-only
+            # from the experiment's point of view.
+            shutil.copy2(source, mount_dir / source.name)
     target = mount_dir / executable.name.upper()
     if target.exists():
         target.unlink()
@@ -96,7 +120,9 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--game-dir", type=pathlib.Path, required=True, help="data directory to mount as C:")
     p.add_argument("--exe", type=pathlib.Path, help="executable to overlay into the mounted tree; default game-dir/ASCEND.EXE")
     p.add_argument("--expected-exe-sha256", help="fail closed unless the executable has this SHA-256")
-    p.add_argument("--verify-demo", action="store_true", help="require the mounted data tree to match the pinned official demo")
+    fixture = p.add_mutually_exclusive_group()
+    fixture.add_argument("--verify-demo", action="store_true", help="require the mounted data tree to match the pinned official demo")
+    fixture.add_argument("--verify-retail", action="store_true", help="require the mounted data tree to match the pinned maintainer-supplied retail runtime fixture")
     p.add_argument("--key-events", default="", help="semicolon-separated TIME_MS:KEY events; supported keys: space, enter, escape, one character")
     p.add_argument("--captures-ms", default="5000,8000,12000", help="comma-separated framebuffer capture times")
     p.add_argument("--timeout", type=float, default=15.0)
@@ -116,6 +142,8 @@ def main(argv: list[str] | None = None) -> int:
             raise SmokeError(f"game directory not found: {game_dir}")
         if args.verify_demo:
             verify_demo_tree(game_dir)
+        if args.verify_retail:
+            verify_retail_tree(game_dir)
         executable = (args.exe.resolve() if args.exe else game_dir / "ASCEND.EXE")
         if not executable.is_file():
             raise SmokeError(f"executable not found: {executable}")
@@ -171,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
                 "experiment": "CF3-runtime-smoke",
                 "executable": {"name": executable.name, "sha256": exe_sha, "size": executable.stat().st_size},
                 "game_dir_demo_verified": bool(args.verify_demo),
+                "game_dir_retail_verified": bool(args.verify_retail),
                 "dosbox": {"name": dosbox.name, "sha256": sha256_file(dosbox), "size": dosbox.stat().st_size},
                 "command": ["dosbox", "-c", "mount c <TEMP_MOUNT>", "-c", "c:", "-c", mounted_exe.name],
                 "environment": {"SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"},

@@ -16,16 +16,16 @@
     "Candidate starts are linear-sweep/direct-call analysis regions, not verified functions.",
     "No target executable, raw disassembly, or full string dump is committed.",
     "The wdump cross-check compares every emitted object and page-map entry plus LE fields also exposed by le_image info --json.",
-    "The repo summaries contain the complete candidate-start inventories and digests of the full candidate records/call edges; regenerate artifacts/ for the complete v2 inventory."
+    "The repo summaries contain candidate-start samples plus digests of the complete start list, candidate records, and call edges; regenerate artifacts/ for the complete v2 inventory."
   ],
   "repo_files": {
     "antag-en.summary.json": {
-      "sha256": "05dec5d67e8043ce999b87c0f94239345687a1e4c56953cc1b547f352f92e799",
-      "size": 26149
+      "sha256": "a0a62df1f960bc5d2464f88eb31284f6d0546238c21c20df94ead55e58660a78",
+      "size": 8803
     },
     "patch-en.summary.json": {
-      "sha256": "caff559ebb6fa61f1b2e90a47c7c9089b82d7afc8e06aa6c25f72fab30637719",
-      "size": 25744
+      "sha256": "ba4401ba3a54dd75d0e420fba88daca346651c4d2807c676a7c685b0ed2e2dac",
+      "size": 8804
     },
     "wdump-comparison.json": {
       "sha256": "91bb84261172883a540a212067b137740b27a381cf5ccb6558595ff87b98b114",

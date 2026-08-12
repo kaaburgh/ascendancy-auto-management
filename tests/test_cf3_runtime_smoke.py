@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import pathlib
@@ -15,6 +16,8 @@ RUNNER = ROOT / "scripts" / "run_cf3_runtime_smoke.py"
 
 FAKE_DOSBOX = r'''
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 typedef uint32_t Uint32; typedef struct SDL_Surface SDL_Surface;
 typedef struct SDL_keysym { unsigned char scancode; int sym; int mod; unsigned short unicode; } SDL_keysym;
@@ -22,7 +25,7 @@ typedef struct SDL_KeyboardEvent { unsigned char type,which,state,padding; SDL_k
 typedef union SDL_Event { unsigned char type; SDL_KeyboardEvent key; unsigned char padding[24]; } SDL_Event;
 extern SDL_Surface *SDL_SetVideoMode(int,int,int,Uint32);
 extern int SDL_PollEvent(SDL_Event *);
-int main(int argc,char **argv){(void)argc;(void)argv;SDL_SetVideoMode(640,480,32,0);for(int i=0;i<100;i++){SDL_Event ev;if(SDL_PollEvent(&ev)&&ev.type==2&&ev.key.keysym.sym==32){usleep(160000);return 0;}usleep(5000);}return 3;}
+int main(int argc,char **argv){for(int i=0;i<argc;i++){if(!strncmp(argv[i],"mount c ",8)){char path[4096];snprintf(path,sizeof(path),"%s/MUTABLE.CFG",argv[i]+8);FILE *f=fopen(path,"wb");if(f){fwrite("mutated",1,7,f);fclose(f);}}}SDL_SetVideoMode(640,480,32,0);for(int i=0;i<100;i++){SDL_Event ev;if(SDL_PollEvent(&ev)&&ev.type==2&&ev.key.keysym.sym==32){usleep(160000);SDL_PollEvent(&ev);return 0;}usleep(5000);}return 3;}
 '''
 
 FAKE_SDL = r'''
@@ -41,8 +44,16 @@ int SDL_PollEvent(SDL_Event *ev){(void)ev;return 0;}
 '''
 
 
+def load_runner_module():
+    spec = importlib.util.spec_from_file_location("cf3_runtime_smoke", RUNNER)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class RuntimeSmokeTests(unittest.TestCase):
-    def test_runner_packages_sanitized_metadata_and_no_game_bytes(self) -> None:
+    def test_runner_packages_sanitized_metadata_and_isolates_source_tree(self) -> None:
         gcc = shutil.which("gcc")
         self.assertIsNotNone(gcc, "gcc is required by the CF3 cloud harness")
         with tempfile.TemporaryDirectory() as name:
@@ -50,6 +61,8 @@ class RuntimeSmokeTests(unittest.TestCase):
             game = temp / "private-user-game"; game.mkdir()
             executable = game / "ASCEND.EXE"
             executable.write_bytes(b"MZ synthetic executable bytes")
+            mutable = game / "MUTABLE.CFG"
+            mutable.write_bytes(b"original")
             expected_sha = hashlib.sha256(executable.read_bytes()).hexdigest()
 
             (temp / "fake_sdl.c").write_text(FAKE_SDL)
@@ -60,7 +73,6 @@ class RuntimeSmokeTests(unittest.TestCase):
             subprocess.run([gcc, "-o", str(dosbox), str(temp / "fake_dosbox.c"), "-L", str(temp), "-lfakesdl", f"-Wl,-rpath,{temp}"], check=True)
 
             artifact = temp / "artifact.zip"
-            env = os.environ.copy()
             completed = subprocess.run(
                 [
                     "python", str(RUNNER),
@@ -73,17 +85,19 @@ class RuntimeSmokeTests(unittest.TestCase):
                     "--expect-mode", "640x480",
                     "--artifact", str(artifact),
                 ],
-                env=env,
+                env=os.environ.copy(),
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=5,
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(mutable.read_bytes(), b"original", "guest write escaped the temporary overlay")
             with zipfile.ZipFile(artifact) as zf:
                 names = zf.namelist()
                 self.assertIn("metadata.json", names)
                 self.assertNotIn("ASCEND.EXE", names)
+                self.assertNotIn("MUTABLE.CFG", names)
                 self.assertTrue(any(item.startswith("captures/frame-") for item in names))
                 metadata = json.loads(zf.read("metadata.json"))
             serialized = json.dumps(metadata)
@@ -93,6 +107,27 @@ class RuntimeSmokeTests(unittest.TestCase):
             self.assertEqual(metadata["dosbox"]["name"], "dosbox")
             self.assertEqual(metadata["command"][2], "mount c <TEMP_MOUNT>")
             self.assertTrue(metadata["expected_mode_observed"])
+
+    def test_manifest_tree_verification_is_case_insensitive_and_fail_closed(self) -> None:
+        runner = load_runner_module()
+        with tempfile.TemporaryDirectory() as name:
+            temp = pathlib.Path(name)
+            tree = temp / "tree"; tree.mkdir()
+            payload = b"fixture bytes"
+            (tree / "lower.dat").write_bytes(payload)
+            manifest = temp / "manifest.json"
+            manifest.write_text(json.dumps({
+                "schema": 1,
+                "files": [{
+                    "name": "LOWER.DAT",
+                    "size": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                }],
+            }))
+            runner.verify_manifest_tree(tree, manifest, "fixture")
+            (tree / "LOWER.DAT").write_bytes(payload)
+            with self.assertRaises(runner.SmokeError):
+                runner.verify_manifest_tree(tree, manifest, "fixture")
 
 
 if __name__ == "__main__":

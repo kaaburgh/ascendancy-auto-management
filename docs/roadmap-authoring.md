@@ -42,6 +42,12 @@ Use the same vocabulary as `AGENTS.md`:
 
 Confidence should describe the premise, not the author's confidence in prose.
 
+## Pre-M1 evidence-source gate
+
+While the binary-first / blind-RE gate in [`AGENTS.md`](../AGENTS.md) is active, roadmap items that recover target internals or design binary patches must depend on the provided binaries, current supported project evidence, or new independently generated experiments. Do not introduce external target-specific recovered knowledge or unsupported repository history as a dependency, shortcut, or normal critical-path input.
+
+General technology/tooling research remains valid. A pre-M1 external rescue is an explicit maintainer exception after a documented blocker and must keep dependent results marked `external-assisted`; it must not be authored as routine sequencing. Post-M1 external comparison belongs in the separate verification phase described by the roadmap.
+
 ## Recommended item schema
 
 Each active item should contain enough of the following fields to be actionable:

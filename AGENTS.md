@@ -103,7 +103,7 @@ Keep these evidence classes distinct in docs and PRs:
 - **reported** — observed by the maintainer/user but not captured independently in a repository artifact;
 - **assumed** — plausible, but not established.
 
-Blind-RE provenance is a separate dimension from evidence class. Use **`contaminated`** and **`external-assisted`** as modifiers, not replacement evidence classes; for example, `static, contaminated` or `runtime, external-assisted`. `contaminated` means accidental target-specific disclosure may have influenced the finding and it is excluded from blind-RE success even if independently corroborated. `external-assisted` means the finding depends on a maintainer-unlocked pre-M1 external source and is likewise excluded from blind-RE success.
+Blind-RE provenance is a separate dimension from evidence class. Use **`clean`**, **`contaminated`**, and **`external-assisted`** as provenance values/modifiers, not replacement evidence classes. `clean` means no known prohibited target-specific disclosure or pre-M1 external rescue influenced the finding; for example, a clean static finding can simply remain `static`. Use explicit modifiers when provenance is not clean, for example `static, contaminated` or `runtime, external-assisted`. `contaminated` means accidental target-specific disclosure may have influenced the finding and it is excluded from blind-RE success even if independently corroborated. `external-assisted` means the finding depends on a maintainer-unlocked pre-M1 external source and is likewise excluded from blind-RE success.
 
 A hypothesis is not a fact because it has a plausible function name. If a function is only believed to be `ManagePlanet`, label it that way until the call path or state transition establishes the role.
 

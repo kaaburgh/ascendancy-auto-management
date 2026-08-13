@@ -59,7 +59,7 @@ Observed hashes exactly matched the T1/RE1 pins above.
 Run Rizin analysis on the canonical target and inspect RE1's bounded cluster plus its direct callers:
 
 ```sh
-rizin -q ANT​AG_EN.EXE
+rizin -q ANTAG_EN.EXE
 [0x00000000]> e scr.color=false
 [0x00000000]> aaa
 [0x00000000]> s 0x352e0

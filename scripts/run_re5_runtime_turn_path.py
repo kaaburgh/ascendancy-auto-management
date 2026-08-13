@@ -49,6 +49,8 @@ ACTION_WRITE_BYTES = bytes.fromhex("884654")  # mov [esi+0x54], al
 # DOS/4G selector/base address.
 STARDATE_ANCHOR_DELTA = 0x5E657
 DEFAULT_WINDOW_SECONDS = 7.0
+RESULT_SCHEMA = 2
+EXPERIMENT_CONTRACT = "ascendancy.re5-runtime-turn-path/contract-v2"
 
 
 class RE5Error(RuntimeError):
@@ -538,19 +540,29 @@ def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict
     common_window: float | None = None
     for spec, path in zip(SCENARIOS, paths):
         record = json.loads(path.read_text(encoding="utf-8"))
+        if record.get("schema") != RESULT_SCHEMA or record.get("experiment_contract") != EXPERIMENT_CONTRACT:
+            raise RE5Error(f"focused artifact experiment contract mismatch: {path.name}")
         if record.get("status") != "passed" or record.get("target") != expected["target"] or record.get("fixture") != expected["fixture"]:
             raise RE5Error(f"focused artifact identity/status mismatch: {path.name}")
         if len(record.get("scenarios", [])) != 1 or record["scenarios"][0].get("name") != spec.name:
             raise RE5Error(f"focused artifact scenario mismatch: {path.name}")
+        scenario = record["scenarios"][0]
+        if scenario.get("status") != "passed":
+            raise RE5Error(f"focused artifact scenario status mismatch: {path.name}")
+        try:
+            validate_scenario(spec, scenario["turn_trace"])
+        except (KeyError, TypeError, RE5Error) as exc:
+            raise RE5Error(f"focused artifact current-oracle validation failed: {path.name}: {exc}") from exc
         window = record.get("window_seconds")
         if common_window is None:
             common_window = window
         elif window != common_window:
             raise RE5Error("focused artifact window_seconds mismatch")
-        scenarios.append(record["scenarios"][0])
+        scenarios.append(scenario)
     assert common_window is not None
     aggregate = {
-        "schema": 1,
+        "schema": RESULT_SCHEMA,
+        "experiment_contract": EXPERIMENT_CONTRACT,
         "roadmap_item": "RE5",
         "blind_re_provenance": "clean",
         "evidence_class": "runtime",
@@ -596,7 +608,8 @@ def main() -> int:
 
     selected = list(SCENARIOS) if args.scenario == "all" else [next(spec for spec in SCENARIOS if spec.name == args.scenario)]
     result: dict[str, Any] = {
-        "schema": 1,
+        "schema": RESULT_SCHEMA,
+        "experiment_contract": EXPERIMENT_CONTRACT,
         "roadmap_item": "RE5",
         "blind_re_provenance": "clean",
         "evidence_class": "runtime",

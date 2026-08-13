@@ -166,6 +166,8 @@ class RE5RuntimeTests(unittest.TestCase):
                 else:
                     trace = self._trace(4800.0, None)
                 record = {
+                    "schema": re5.RESULT_SCHEMA,
+                    "experiment_contract": re5.EXPERIMENT_CONTRACT,
                     "status": "passed",
                     "target": target,
                     "fixture": fixture,
@@ -185,9 +187,11 @@ class RE5RuntimeTests(unittest.TestCase):
             artifacts = Path(td)
             for spec in re5.SCENARIOS:
                 record = {
+                    "schema": re5.RESULT_SCHEMA,
+                    "experiment_contract": re5.EXPERIMENT_CONTRACT,
                     "status": "passed",
                     "target": target,
-                    "fixture": fixture if spec.name != "managed-control" else {"id": "wrong"},
+                    "fixture": fixture if spec.name != "manual-control" else {"id": "wrong"},
                     "window_seconds": 7.0,
                     "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": self._trace()}],
                 }
@@ -195,6 +199,56 @@ class RE5RuntimeTests(unittest.TestCase):
             with self.assertRaises(re5.RE5Error):
                 re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
 
+    def test_focused_aggregation_rejects_stale_experiment_contract(self):
+        target = {"filename": "ANTAG.EXE", "size": 610863, "sha256": re5.re4.TARGET_SHA256}
+        fixture = {"id": "fixture", "resume": {"sha256": re5.RESUME_SHA256}}
+        with tempfile.TemporaryDirectory() as td:
+            artifacts = Path(td)
+            for spec in re5.SCENARIOS:
+                record = {
+                    "schema": re5.RESULT_SCHEMA,
+                    "experiment_contract": (
+                        "ascendancy.re5-runtime-turn-path/contract-v1"
+                        if spec.name == "manual-control" else re5.EXPERIMENT_CONTRACT
+                    ),
+                    "status": "passed",
+                    "target": target,
+                    "fixture": fixture,
+                    "window_seconds": 7.0,
+                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": self._trace()}],
+                }
+                re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
+            with self.assertRaisesRegex(re5.RE5Error, "experiment contract mismatch"):
+                re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
+
+    def test_focused_aggregation_revalidates_loaded_trace_with_current_oracle(self):
+        target = {"filename": "ANTAG.EXE", "size": 610863, "sha256": re5.re4.TARGET_SHA256}
+        fixture = {"id": "fixture", "resume": {"sha256": re5.RESUME_SHA256}}
+        with tempfile.TemporaryDirectory() as td:
+            artifacts = Path(td)
+            for spec in re5.SCENARIOS:
+                if spec.name in {"manual-control", "manual-gate-probe"}:
+                    trace = self._trace(None, None, state="00000000")
+                elif spec.name == "managed-gate-probe":
+                    trace = self._trace(None, 65.0, final_action="7e")
+                elif spec.name == "managed-control":
+                    trace = self._trace(None, None)  # stale passed artifact; invalid under current oracle
+                elif spec.name == "managed-policy-suppressed":
+                    trace = self._trace(None, None)
+                else:
+                    trace = self._trace(4800.0, None)
+                record = {
+                    "schema": re5.RESULT_SCHEMA,
+                    "experiment_contract": re5.EXPERIMENT_CONTRACT,
+                    "status": "passed",
+                    "target": target,
+                    "fixture": fixture,
+                    "window_seconds": 7.0,
+                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": trace}],
+                }
+                re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
+            with self.assertRaisesRegex(re5.RE5Error, "current-oracle validation failed"):
+                re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ import unittest
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 import re5_followup_model as model
+import run_re5_runtime_turn_path_followup_capture as followup
 
 
 class RE5FollowupContractTests(unittest.TestCase):
@@ -85,6 +86,14 @@ class RE5FollowupContractTests(unittest.TestCase):
         model.validate_scenario(spec, self.trace(spec, progress=4))
         with self.assertRaises(model.RE5FollowupError):
             model.validate_scenario(spec, self.trace(spec, progress=3))
+
+    def test_manual_timeout_is_inconclusive_and_keeps_trace_semantics(self):
+        spec = self.spec("manual-gate-probe")
+        trace = self.trace(spec, progress=2)
+        trace["stop_reason"] = "timeout"
+        status, failure = followup.classify_observation(spec, trace)
+        self.assertEqual(status, "inconclusive")
+        self.assertIn("progress target", failure)
 
     def test_managed_probe_uses_ever_seen_event_not_final_state(self):
         spec = self.spec("managed-gate-probe")

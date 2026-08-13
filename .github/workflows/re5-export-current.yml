@@ -1,0 +1,20 @@
+name: RE5 export current workspace
+
+on:
+  push:
+    branches:
+      - agent/re5-runtime-turn-path
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package repository snapshot
+        run: |
+          tar --exclude=.git -czf /tmp/re5-current-workspace.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: re5-current-workspace
+          path: /tmp/re5-current-workspace.tar.gz
+          if-no-files-found: error

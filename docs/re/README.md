@@ -24,6 +24,8 @@ Use [`static-analysis/t2/`](./static-analysis/t2/) for the T2 repo-safe canonica
 
 Use [`vanilla-antagonizer-diff.md`](./vanilla-antagonizer-diff.md) for the RE1 ranked differential handoff and [`../experiments/RE1-vanilla-antagonizer-differential-map.md`](../experiments/RE1-vanilla-antagonizer-differential-map.md) for the reproducible procedure, evidence boundaries, and negative results.
 
+Use [`auto-management-ui-state.md`](./auto-management-ui-state.md) for the RE2/RE4 static-plus-runtime Managed UI/state model, [`../experiments/RE2-auto-management-ui-state-static.md`](../experiments/RE2-auto-management-ui-state-static.md) for its static recovery, and [`../experiments/RE4-runtime-ui-state.md`](../experiments/RE4-runtime-ui-state.md) for the two-planet runtime ownership/transition confirmation.
+
 Use [`auto-management-turn-path.md`](./auto-management-turn-path.md) for the RE3 static per-turn state-gate/policy/action path and [`../experiments/RE3-static-turn-path.md`](../experiments/RE3-static-turn-path.md) for the reproducible byte-level evidence and bounded RE5 handoff.
 
 ## Suggested note format

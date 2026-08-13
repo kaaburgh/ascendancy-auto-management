@@ -22,7 +22,7 @@ class RE2UIStateMapTests(unittest.TestCase):
             module.parse_pattern("83 xyz")
 
     def test_find_unique_accepts_one_match(self):
-        data = bytes.fromhex("00 aa 11 cc aa 22 cc 00")
+        data = bytes.fromhex("00 aa 11 cc 00 aa 22 dd 00")
         self.assertEqual(module.find_unique(data, "aa ?? cc", "fixture"), 1)
 
     def test_find_unique_fails_closed_on_zero_or_multiple_matches(self):

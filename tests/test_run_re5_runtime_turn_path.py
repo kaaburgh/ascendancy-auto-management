@@ -48,6 +48,7 @@ class RE5RuntimeTests(unittest.TestCase):
         self.assertEqual(len(re5.ACTION_WRITE_SUPPRESSION.replacement), 3)
 
     def test_proc_state_parser_uses_code_after_label_only(self):
+        # Regression guard: never infer stopped state from letters in the literal "State:" label/body.
         self.assertEqual(re5.parse_proc_state_code("State:\tT (stopped)"), "T")
         self.assertEqual(re5.parse_proc_state_code("State:\tt (tracing stop)"), "t")
         self.assertEqual(re5.parse_proc_state_code("State:\tR (running)"), "R")

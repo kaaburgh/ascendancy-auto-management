@@ -1,0 +1,113 @@
+name: RE5 close roadmap status
+
+on:
+  push:
+    branches:
+      - agent/re5-runtime-turn-path
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update roadmap and historical status notes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          roadmap = Path("ROADMAP.md")
+          text = roadmap.read_text(encoding="utf-8")
+          front_start = text.index("**Current front of the path:**")
+          front_end = text.index("\n\n---", front_start)
+          new_front = """**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE5 are complete. **A1 and A2 are now selectable as CLOUD**; each still owns only its documented architecture decision and must not opportunistically absorb later implementation work.
+
+          RE4 runtime-confirmed the existing per-planet Managed state. RE5 now closes the player automation-gate handoff with orthogonal evidence: the established Managed intervention chain plus a separate read-only Manual override witness with two normally progressing exact-target PASS runs. The earlier process-wide marker remains a documented perturbing negative experiment and is not load-bearing for completion."""
+          text = text[:front_start] + new_front + text[front_end:]
+
+          start_marker = "## RE5 — Runtime-confirm the per-turn self-management call path\n"
+          end_marker = "\n---\n\n# Track A — Architecture decisions"
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          section = """## RE5 — Runtime-confirm the per-turn self-management call path
+
+          - **Status:** **Completed and verified** — the 2026-08-14 read-only Manual override witness closes the ambiguity left by the perturbing marker follow-up. See [`docs/experiments/RE5-read-only-override-closure.md`](./docs/experiments/RE5-read-only-override-closure.md).
+          - **Execution:** **CLOUD**
+          - **Priority:** Critical
+          - **Category:** Reverse engineering / runtime turn processing
+          - **Origin:** High-level step 3
+          - **Depends on:** RE3 (complete), RE4 (complete), CF3 (complete)
+          - **Gates:** A1, A2 and downstream implementation work that assumes the completed player automation-gate contract
+          - **Question:** Which runtime path consumes the confirmed auto-management state during a turn, and is the separate Manual override condition inactive in the pinned M1 scenario without materially perturbing the path?
+
+          ### Outcome
+
+          `runtime`, clean blind-RE evidence on the exact canonical target:
+
+          - the Managed-side causal interventions remain established and preserve the existing policy/commit layering;
+          - the earlier process-wide marker is retained as a negative instrumentation result because it severely suppresses normal progress and cannot carry the final Manual claim;
+          - the replacement witness performs no guest code or guest data writes and fails closed unless five independent initialized-data signatures derive one consistent runtime data-object relationship;
+          - two fresh runs tied to published runner revision `a122801ebb0243d8f1d76151f2bbf8beb109bf54` passed the predeclared read-only oracle: 273 samples with stardate `+234`, and 272 samples with stardate `+232`; the separate RE3 override condition was zero in every coherent sample in both runs;
+          - the two repository-safe artifacts are [`RE5-override-witness-a122-run1.json`](./docs/experiments/RE5-override-witness-a122-run1.json) and [`RE5-override-witness-a122-run2.json`](./docs/experiments/RE5-override-witness-a122-run2.json);
+          - static direct-reference inspection supports the bounded runtime result but does not rule out hypothetical indirect writers or establish broader gameplay semantics.
+
+          The old six-scenario marker aggregate is deliberately not reconstructed or retroactively stamped. Its Manual arm is the perturbing experiment that motivated the replacement witness. Completion uses orthogonal evidence: the already established Managed causal chain plus the new read-only Manual override observation.
+
+          For the pinned M1 target, the compatibility handoff is established: preserve the existing automated behavior at the documented pre-policy gate and leave the downstream automatic-management policy/mutation path intact. A1 owns the three-profile in-session representation; A2 owns the integration mechanism.
+
+          ### Deliverables
+
+          - [x] reproducible original RE5 experiment and durable historical findings;
+          - [x] perturbation follow-up preserving the process-wide marker as a negative instrumentation result;
+          - [x] fail-closed read-only Manual override witness with explicit mapping, sampling and progress checks;
+          - [x] two fresh exact-target PASS artifacts tied to a published runner revision/source hash;
+          - [x] M1 preservation handoff documented without reconstructing the complete AI;
+          - [x] remaining override-semantic uncertainty explicitly scoped rather than generalized.
+
+          ### Acceptance criteria
+
+          **Met for M1.** Managed policy/commit layering is runtime-confirmed, and the separate RE3 override condition is observed inactive throughout two independent, normally progressing, read-only Manual windows under the predeclared bounded oracle. Broader override semantics remain out of scope.
+          """
+          text = text[:start] + section.rstrip() + text[end:]
+          roadmap.write_text(text, encoding="utf-8")
+
+          note = """
+
+          > **Status update — 2026-08-14:** this document preserves the earlier perturbation follow-up as historical evidence. The newer read-only acceptance experiment is recorded in [`RE5-read-only-override-closure.md`](RE5-read-only-override-closure.md) and supersedes only the former conclusion that RE5 remained blocked.
+          """.rstrip() + "\n"
+          experiment = Path("docs/experiments/RE5-runtime-turn-path.md")
+          value = experiment.read_text(encoding="utf-8")
+          if "Status update — 2026-08-14" not in value:
+              experiment.write_text(value.rstrip() + "\n" + note, encoding="utf-8")
+
+          re_note = """
+
+          > **Status update — 2026-08-14:** the reopened Manual-gate discussion above is retained as historical evidence. RE5 is now closed for M1 by the read-only acceptance experiment documented in [`../experiments/RE5-read-only-override-closure.md`](../experiments/RE5-read-only-override-closure.md); broader override semantics remain unknown.
+          """.rstrip() + "\n"
+          durable = Path("docs/re/auto-management-turn-path.md")
+          value = durable.read_text(encoding="utf-8")
+          if "Status update — 2026-08-14" not in value:
+              durable.write_text(value.rstrip() + "\n" + re_note, encoding="utf-8")
+          PY
+
+      - name: Validate final tree
+        run: |
+          python -m py_compile scripts/run_re5_override_witness.py tests/test_re5_override_witness.py
+          python -m unittest discover -s tests -v
+          python scripts/check-docs.py
+          git diff --check
+
+      - name: Commit closure and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ROADMAP.md docs/experiments/RE5-runtime-turn-path.md docs/re/auto-management-turn-path.md
+          git rm .github/workflows/re5-close-roadmap.yml
+          git commit -m "RE5: close Manual override ambiguity"
+          git push

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "name": "official-demo-tutorial-1-ui-navigation-smoke",
+  "pre_video_key_chords": [["Return"]],
+  "startup_wait_seconds": 15,
+  "steps": [
+    {"action": "capture", "name": "01-main-menu"},
+    {"action": "mouse_capture", "settle_seconds": 0.3},
+    {"action": "click", "button": 1, "settle_seconds": 2.0},
+    {"action": "capture", "name": "02-tutorial-list"},
+    {"action": "mouse_move", "dx": 0, "dy": -145, "settle_seconds": 0.3},
+    {"action": "click", "button": 1, "settle_seconds": 3.0},
+    {"action": "capture", "name": "03-tutorial-1"}
+  ]
+}

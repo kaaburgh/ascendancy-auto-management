@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import shutil
 import struct
@@ -16,7 +17,17 @@ import tempfile
 import time
 from typing import Any
 
+ACTION_SCHEMA = 2
+RUN_SCHEMA = 2
+MAX_PRE_VIDEO_CHORDS = 8
+MAX_STEPS = 64
+MAX_CAPTURES = 16
+MAX_ORACLES_PER_CAPTURE = 4
+MAX_SETTLE_SECONDS = 10.0
+MAX_RUNTIME_SECONDS = 180.0
+EXPECTED_FRAME = (640, 480)
 SAFE_CAPTURE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DOSBOX_WINDOW_RE = re.compile(r'^\s*(0x[0-9a-fA-F]+)\s+"DOSBox ')
 
 
@@ -26,6 +37,18 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _bounded_number(value: Any, *, low: float, high: float, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not (low <= float(value) <= high):
+        raise ValueError(f"{label} must be between {low:g} and {high:g}")
+    return float(value)
+
+
+def _bounded_int(value: Any, *, low: int, high: int, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not (low <= value <= high):
+        raise ValueError(f"{label} must be between {low} and {high}")
+    return value
 
 
 def _casefold_index(root: Path) -> dict[str, Path]:
@@ -63,57 +86,122 @@ def verify_fixture(root: Path, manifest_path: Path) -> dict[str, Any]:
     return {"id": manifest.get("id"), "schema": 1, "files": verified}
 
 
+def _validate_oracle(oracle: Any, *, step_index: int, oracle_index: int) -> None:
+    label = f"step {step_index} oracle {oracle_index}"
+    if not isinstance(oracle, dict) or oracle.get("type") != "rgb_region_sha256":
+        raise ValueError(f"{label}: unsupported oracle")
+    x = _bounded_int(oracle.get("x"), low=0, high=EXPECTED_FRAME[0] - 1, label=f"{label} x")
+    y = _bounded_int(oracle.get("y"), low=0, high=EXPECTED_FRAME[1] - 1, label=f"{label} y")
+    width = _bounded_int(oracle.get("width"), low=1, high=EXPECTED_FRAME[0], label=f"{label} width")
+    height = _bounded_int(oracle.get("height"), low=1, high=EXPECTED_FRAME[1], label=f"{label} height")
+    if x + width > EXPECTED_FRAME[0] or y + height > EXPECTED_FRAME[1]:
+        raise ValueError(f"{label}: region exceeds {EXPECTED_FRAME[0]}x{EXPECTED_FRAME[1]} frame")
+    digest = oracle.get("sha256")
+    if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+        raise ValueError(f"{label}: sha256 must be 64 lowercase hex characters")
+
+
+def _validate_settle(step: dict[str, Any], *, step_index: int) -> None:
+    if "settle_seconds" in step:
+        _bounded_number(
+            step["settle_seconds"], low=0, high=MAX_SETTLE_SECONDS,
+            label=f"step {step_index} settle_seconds",
+        )
+
+
 def load_actions(path: Path) -> dict[str, Any]:
     cfg = json.loads(path.read_text(encoding="utf-8"))
-    if cfg.get("schema") != 1:
-        raise ValueError("unsupported action schema")
+    if cfg.get("schema") != ACTION_SCHEMA:
+        raise ValueError(f"unsupported action schema; expected {ACTION_SCHEMA}")
     if not isinstance(cfg.get("name"), str) or not cfg["name"]:
         raise ValueError("action config requires a name")
-    startup = cfg.get("startup_wait_seconds", 0)
-    if not isinstance(startup, (int, float)) or not (0 <= startup <= 60):
-        raise ValueError("startup_wait_seconds must be between 0 and 60")
+    startup = _bounded_number(
+        cfg.get("startup_wait_seconds", 0), low=0, high=60,
+        label="startup_wait_seconds",
+    )
+    max_runtime = _bounded_number(
+        cfg.get("max_runtime_seconds", 90), low=5, high=MAX_RUNTIME_SECONDS,
+        label="max_runtime_seconds",
+    )
     pre_video = cfg.get("pre_video_key_chords", [])
-    if not isinstance(pre_video, list):
-        raise ValueError("pre_video_key_chords must be a list")
+    if not isinstance(pre_video, list) or len(pre_video) > MAX_PRE_VIDEO_CHORDS:
+        raise ValueError(f"pre_video_key_chords must be a list with at most {MAX_PRE_VIDEO_CHORDS} entries")
     for i, keys in enumerate(pre_video):
         if not isinstance(keys, list) or not (1 <= len(keys) <= 4) or not all(isinstance(k, str) and k for k in keys):
             raise ValueError(f"pre_video_key_chords[{i}] requires 1..4 key names")
     steps = cfg.get("steps")
     if not isinstance(steps, list) or not steps:
         raise ValueError("action config requires non-empty steps")
-    captures = 0
+    if len(steps) > MAX_STEPS:
+        raise ValueError(f"action config has too many steps; maximum is {MAX_STEPS}")
+
+    capture_names: set[str] = set()
+    capture_steps: list[dict[str, Any]] = []
+    oracle_count = 0
+    estimated_sleep = startup + 0.5 * len(pre_video)
     for i, step in enumerate(steps):
         if not isinstance(step, dict):
             raise ValueError(f"step {i} is not an object")
         action = step.get("action")
         if action == "wait":
-            seconds = step.get("seconds")
-            if not isinstance(seconds, (int, float)) or not (0 <= seconds <= 30):
-                raise ValueError(f"step {i}: wait seconds out of range")
+            seconds = _bounded_number(step.get("seconds"), low=0, high=30, label=f"step {i} wait seconds")
+            estimated_sleep += seconds
         elif action == "capture":
             name = step.get("name")
             if not isinstance(name, str) or not SAFE_CAPTURE_RE.fullmatch(name):
                 raise ValueError(f"step {i}: unsafe capture name")
-            captures += 1
+            if name in capture_names:
+                raise ValueError(f"step {i}: duplicate capture name {name!r}")
+            capture_names.add(name)
+            capture_steps.append(step)
+            if len(capture_steps) > MAX_CAPTURES:
+                raise ValueError(f"action config has too many captures; maximum is {MAX_CAPTURES}")
+            oracles = step.get("oracles", [])
+            if not isinstance(oracles, list) or len(oracles) > MAX_ORACLES_PER_CAPTURE:
+                raise ValueError(f"step {i}: oracles must be a list with at most {MAX_ORACLES_PER_CAPTURE} entries")
+            for j, oracle in enumerate(oracles):
+                _validate_oracle(oracle, step_index=i, oracle_index=j)
+            oracle_count += len(oracles)
+            if "min_change_ratio_from_previous" in step:
+                _bounded_number(
+                    step["min_change_ratio_from_previous"], low=0, high=1,
+                    label=f"step {i} min_change_ratio_from_previous",
+                )
         elif action == "mouse_capture":
-            pass
+            _validate_settle(step, step_index=i)
+            estimated_sleep += float(step.get("settle_seconds", 0.4))
         elif action == "mouse_move":
             for key in ("dx", "dy"):
                 value = step.get(key)
-                if not isinstance(value, int) or not (-2000 <= value <= 2000):
+                if isinstance(value, bool) or not isinstance(value, int) or not (-2000 <= value <= 2000):
                     raise ValueError(f"step {i}: {key} out of range")
+            _validate_settle(step, step_index=i)
+            estimated_sleep += float(step.get("settle_seconds", 0.25))
         elif action == "click":
             button = step.get("button", 1)
-            if not isinstance(button, int) or not (1 <= button <= 5):
+            if isinstance(button, bool) or not isinstance(button, int) or not (1 <= button <= 5):
                 raise ValueError(f"step {i}: invalid mouse button")
+            _validate_settle(step, step_index=i)
+            estimated_sleep += float(step.get("settle_seconds", 0.4))
         elif action == "key_chord":
             keys = step.get("keys")
             if not isinstance(keys, list) or not (1 <= len(keys) <= 4) or not all(isinstance(k, str) and k for k in keys):
                 raise ValueError(f"step {i}: key_chord requires 1..4 key names")
+            _validate_settle(step, step_index=i)
+            estimated_sleep += float(step.get("settle_seconds", 0.25))
         else:
             raise ValueError(f"step {i}: unknown action {action!r}")
-    if captures < 2:
+
+    if len(capture_steps) < 2:
         raise ValueError("action config must capture at least two frames")
+    if "min_change_ratio_from_previous" in capture_steps[0]:
+        raise ValueError("first capture cannot require change from a previous frame")
+    if oracle_count < 1:
+        raise ValueError("action config must include at least one screen-specific capture oracle")
+    if estimated_sleep >= max_runtime:
+        raise ValueError(
+            f"declared waits/settles ({estimated_sleep:.3f}s) leave no runtime budget within max_runtime_seconds={max_runtime:g}"
+        )
     return cfg
 
 
@@ -124,27 +212,60 @@ def png_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", data[16:24])
 
 
-def _run_checked(argv: list[str], *, env: dict[str, str] | None = None) -> str:
-    cp = subprocess.run(argv, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+def _remaining(deadline: float, context: str, cap: float | None = None) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise RuntimeError(f"scenario runtime deadline exceeded during {context}")
+    if cap is not None:
+        remaining = min(remaining, cap)
+    return max(0.05, remaining)
+
+
+def _sleep_bounded(seconds: float, deadline: float, context: str) -> None:
+    if seconds <= 0:
+        return
+    remaining = _remaining(deadline, context)
+    if seconds > remaining:
+        raise RuntimeError(f"scenario runtime deadline would be exceeded during {context}")
+    time.sleep(seconds)
+
+
+def _run_checked(
+    argv: list[str], *, env: dict[str, str] | None = None,
+    deadline: float | None = None, timeout_cap: float = 5.0,
+) -> str:
+    timeout = timeout_cap if deadline is None else _remaining(deadline, "subprocess", timeout_cap)
+    cp = subprocess.run(
+        argv, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        check=True, timeout=timeout,
+    )
     return cp.stdout
 
 
-def find_dosbox_window(display: str, timeout: float, env: dict[str, str], proc: subprocess.Popen[str]) -> str:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+def find_dosbox_window(display: str, timeout: float, env: dict[str, str], proc: subprocess.Popen[str], deadline: float) -> str:
+    local_deadline = min(deadline, time.monotonic() + timeout)
+    while time.monotonic() < local_deadline:
         if proc.poll() is not None:
             raise RuntimeError(f"DOSBox exited before opening a window: rc={proc.returncode}")
-        out = subprocess.run(["xwininfo", "-root", "-tree"], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+        command_timeout = max(0.05, min(2.0, local_deadline - time.monotonic()))
+        out = subprocess.run(
+            ["xwininfo", "-root", "-tree"], env=env, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=command_timeout,
+        ).stdout
         for line in out.splitlines():
             m = DOSBOX_WINDOW_RE.match(line)
             if m:
                 return m.group(1)
-        time.sleep(0.2)
+        delay = min(0.2, max(0.0, local_deadline - time.monotonic()))
+        if delay > 0:
+            time.sleep(delay)
+    if time.monotonic() >= deadline:
+        raise RuntimeError("scenario runtime deadline exceeded while waiting for DOSBox window")
     raise RuntimeError(f"timed out waiting for DOSBox window on {display}")
 
 
-def window_geometry(window_id: str, env: dict[str, str]) -> tuple[int, int, int, int]:
-    out = _run_checked(["xwininfo", "-id", window_id], env=env)
+def window_geometry(window_id: str, env: dict[str, str], deadline: float) -> tuple[int, int, int, int]:
+    out = _run_checked(["xwininfo", "-id", window_id], env=env, deadline=deadline, timeout_cap=2.0)
     vals = {}
     patterns = {
         "x": r"Absolute upper-left X:\s+(-?\d+)",
@@ -160,20 +281,29 @@ def window_geometry(window_id: str, env: dict[str, str]) -> tuple[int, int, int,
     return vals["x"], vals["y"], vals["w"], vals["h"]
 
 
-def wait_for_window_geometry(window_id: str, env: dict[str, str], proc: subprocess.Popen[str], timeout: float, expected: tuple[int, int]) -> tuple[int, int, int, int]:
-    deadline = time.monotonic() + timeout
+def wait_for_window_geometry(
+    window_id: str, env: dict[str, str], proc: subprocess.Popen[str], timeout: float,
+    expected: tuple[int, int], deadline: float,
+) -> tuple[int, int, int, int]:
+    local_deadline = min(deadline, time.monotonic() + timeout)
     last = None
-    while time.monotonic() < deadline:
+    while time.monotonic() < local_deadline:
         if proc.poll() is not None:
             raise RuntimeError(f"DOSBox exited before game video mode: rc={proc.returncode}")
         try:
-            last = window_geometry(window_id, env)
-        except (RuntimeError, subprocess.CalledProcessError):
-            time.sleep(0.2)
+            last = window_geometry(window_id, env, local_deadline)
+        except (RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            delay = min(0.2, max(0.0, local_deadline - time.monotonic()))
+            if delay > 0:
+                time.sleep(delay)
             continue
         if last[2:] == expected:
             return last
-        time.sleep(0.2)
+        delay = min(0.2, max(0.0, local_deadline - time.monotonic()))
+        if delay > 0:
+            time.sleep(delay)
+    if time.monotonic() >= deadline:
+        raise RuntimeError("scenario runtime deadline exceeded while waiting for game video mode")
     raise RuntimeError(f"timed out waiting for DOSBox {expected[0]}x{expected[1]} game window; last={last}")
 
 
@@ -242,7 +372,10 @@ def choose_display() -> str:
     raise RuntimeError("no free X display in :80..:99")
 
 
-def capture_frame(name: str, artifact_dir: Path, display: str, geometry: tuple[int, int, int, int], env: dict[str, str]) -> dict[str, Any]:
+def capture_frame(
+    name: str, artifact_dir: Path, display: str, geometry: tuple[int, int, int, int],
+    env: dict[str, str], deadline: float,
+) -> dict[str, Any]:
     x, y, w, h = geometry
     path = artifact_dir / f"{name}.png"
     subprocess.run(
@@ -252,6 +385,7 @@ def capture_frame(name: str, artifact_dir: Path, display: str, geometry: tuple[i
         ],
         env=env,
         check=True,
+        timeout=_remaining(deadline, f"capture {name}"),
     )
     dims = png_dimensions(path)
     if dims != (w, h):
@@ -259,16 +393,59 @@ def capture_frame(name: str, artifact_dir: Path, display: str, geometry: tuple[i
     return {"name": name, "file": path.name, "width": w, "height": h, "sha256": sha256_file(path), "size": path.stat().st_size}
 
 
-def frame_change_ratio(a: Path, b: Path) -> float:
-    def raw(path: Path) -> bytes:
-        cp = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(path), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
+def _decode_rgb(path: Path, deadline: float, context: str) -> bytes:
+    cp = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(path), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+        timeout=_remaining(deadline, context),
+    )
+    return cp.stdout
+
+
+def hash_rgb_region(raw: bytes, frame_width: int, frame_height: int, x: int, y: int, width: int, height: int) -> str:
+    expected = frame_width * frame_height * 3
+    if len(raw) != expected:
+        raise ValueError(f"RGB byte count mismatch: {len(raw)} != {expected}")
+    row_bytes = frame_width * 3
+    crop_row_bytes = width * 3
+    h = hashlib.sha256()
+    for row in range(y, y + height):
+        start = row * row_bytes + x * 3
+        h.update(raw[start:start + crop_row_bytes])
+    return h.hexdigest()
+
+
+def verify_frame_oracles(frame: dict[str, Any], step: dict[str, Any], artifact_dir: Path, deadline: float) -> None:
+    oracles = step.get("oracles", [])
+    if not oracles:
+        return
+    path = artifact_dir / frame["file"]
+    raw = _decode_rgb(path, deadline, f"oracle decode for {frame['name']}")
+    results = []
+    for oracle in oracles:
+        actual = hash_rgb_region(
+            raw, frame["width"], frame["height"], oracle["x"], oracle["y"], oracle["width"], oracle["height"]
         )
-        return cp.stdout
-    left, right = raw(a), raw(b)
+        result = {
+            "type": "rgb_region_sha256",
+            "region": [oracle["x"], oracle["y"], oracle["width"], oracle["height"]],
+            "expected_sha256": oracle["sha256"],
+            "actual_sha256": actual,
+            "matched": actual == oracle["sha256"],
+        }
+        results.append(result)
+        frame["oracles"] = results
+        if not result["matched"]:
+            raise RuntimeError(
+                f"screen oracle mismatch for {frame['name']} region {result['region']}: {actual} != {oracle['sha256']}"
+            )
+
+
+def frame_change_ratio(a: Path, b: Path, deadline: float) -> float:
+    left = _decode_rgb(a, deadline, f"frame comparison {a.name}")
+    right = _decode_rgb(b, deadline, f"frame comparison {b.name}")
     if len(left) != len(right) or not left:
         raise RuntimeError("cannot compare captured frames")
     changed = sum(x != y for x, y in zip(left, right))
@@ -282,6 +459,26 @@ def sanitize(text: str, replacements: list[tuple[str, str]]) -> str:
     return text
 
 
+def _file_identity(path: Path, logical_name: str) -> dict[str, Any]:
+    return {"name": logical_name, "size": path.stat().st_size, "sha256": sha256_file(path)}
+
+
+def _dosbox_identity(command: str) -> dict[str, Any]:
+    resolved_text = shutil.which(command) or (str(Path(command).resolve()) if Path(command).is_file() else "")
+    if not resolved_text:
+        raise ValueError(f"required tool not found: {command}")
+    resolved = Path(resolved_text)
+    cp = subprocess.run(
+        [command, "-version"], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        timeout=5, check=False,
+    )
+    version = next((line.strip() for line in cp.stdout.splitlines() if line.strip()), "unknown")[:200]
+    identity = {"command": Path(command).name, "resolved_filename": resolved.name, "version": version}
+    if resolved.is_file():
+        identity.update({"size": resolved.stat().st_size, "sha256": sha256_file(resolved)})
+    return identity
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--game-dir", type=Path, required=True)
@@ -293,6 +490,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--artifacts", type=Path, required=True)
     ap.add_argument("--window-timeout", type=float, default=20.0)
     ns = ap.parse_args(argv)
+    if not (0 < ns.window_timeout <= 60):
+        ap.error("window-timeout must be > 0 and <= 60 seconds")
 
     source = ns.game_dir.resolve()
     if not source.is_dir():
@@ -311,6 +510,14 @@ def main(argv: list[str] | None = None) -> int:
         if shutil.which(tool) is None and not Path(tool).is_file():
             ap.error(f"required tool not found: {tool}")
 
+    provenance = {
+        "actions": _file_identity(ns.actions.resolve(), ns.actions.name) | {"schema": cfg["schema"]},
+        "fixture_manifest": _file_identity(ns.fixture_manifest.resolve(), ns.fixture_manifest.name),
+        "harness": _file_identity(Path(__file__).resolve(), "scripts/run_cf4_ui_validation.py"),
+        "python": {"version": platform.python_version()},
+        "dosbox": _dosbox_identity(ns.dosbox),
+    }
+
     ns.artifacts.mkdir(parents=True, exist_ok=True)
     display = choose_display()
     xvfb: subprocess.Popen[str] | None = None
@@ -322,6 +529,8 @@ def main(argv: list[str] | None = None) -> int:
     dosbox_stdout = ""
     dosbox_stderr = ""
     geometry: tuple[int, int, int, int] | None = None
+    started = time.monotonic()
+    deadline = started + float(cfg.get("max_runtime_seconds", 90))
     try:
         tmp = tempfile.TemporaryDirectory(prefix="cf4-ui-")
         mount = Path(tmp.name) / "game"
@@ -332,7 +541,7 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("copy isolation changed executable bytes")
 
         xvfb = subprocess.Popen(["Xvfb", display, "-screen", "0", "1024x768x24", "-nolisten", "tcp"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(0.5)
+        _sleep_bounded(0.5, deadline, "Xvfb startup")
         if xvfb.poll() is not None:
             out, err = xvfb.communicate()
             raise RuntimeError(f"Xvfb failed: {out}{err}")
@@ -346,45 +555,54 @@ def main(argv: list[str] | None = None) -> int:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        window = find_dosbox_window(display, ns.window_timeout, env, dosbox)
+        window = find_dosbox_window(display, ns.window_timeout, env, dosbox, deadline)
         input_dev = XTestInput(display, window)
         for keys in cfg.get("pre_video_key_chords", []):
             input_dev.key_chord(keys)
-            time.sleep(0.5)
-        geometry = wait_for_window_geometry(window, env, dosbox, ns.window_timeout, (640, 480))
-        time.sleep(float(cfg.get("startup_wait_seconds", 0)))
+            _sleep_bounded(0.5, deadline, "pre-video key settle")
+        geometry = wait_for_window_geometry(window, env, dosbox, ns.window_timeout, EXPECTED_FRAME, deadline)
+        _sleep_bounded(float(cfg.get("startup_wait_seconds", 0)), deadline, "startup wait")
         if dosbox.poll() is not None:
             raise RuntimeError(f"DOSBox exited during startup wait: rc={dosbox.returncode}")
 
+        capture_steps: list[dict[str, Any]] = []
         for i, step in enumerate(cfg["steps"]):
+            _remaining(deadline, f"step {i}")
             if dosbox.poll() is not None:
                 raise RuntimeError(f"DOSBox exited before step {i}: rc={dosbox.returncode}")
             action = step["action"]
             if action == "wait":
-                time.sleep(float(step["seconds"]))
+                _sleep_bounded(float(step["seconds"]), deadline, f"step {i} wait")
             elif action == "capture":
-                frames.append(capture_frame(step["name"], ns.artifacts, display, geometry, env))
+                frame = capture_frame(step["name"], ns.artifacts, display, geometry, env, deadline)
+                frames.append(frame)
+                capture_steps.append(step)
+                verify_frame_oracles(frame, step, ns.artifacts, deadline)
             elif action == "mouse_capture":
                 input_dev.focus()
                 input_dev.click(1)
-                time.sleep(float(step.get("settle_seconds", 0.4)))
+                _sleep_bounded(float(step.get("settle_seconds", 0.4)), deadline, f"step {i} mouse_capture settle")
             elif action == "mouse_move":
                 input_dev.mouse_move(step["dx"], step["dy"])
-                time.sleep(float(step.get("settle_seconds", 0.25)))
+                _sleep_bounded(float(step.get("settle_seconds", 0.25)), deadline, f"step {i} mouse_move settle")
             elif action == "click":
                 input_dev.click(step.get("button", 1))
-                time.sleep(float(step.get("settle_seconds", 0.4)))
+                _sleep_bounded(float(step.get("settle_seconds", 0.4)), deadline, f"step {i} click settle")
             elif action == "key_chord":
                 input_dev.key_chord(step["keys"])
-                time.sleep(float(step.get("settle_seconds", 0.25)))
+                _sleep_bounded(float(step.get("settle_seconds", 0.25)), deadline, f"step {i} key_chord settle")
 
-        if len({f["sha256"] for f in frames}) < 2:
-            raise RuntimeError("captured frames did not demonstrate a UI transition")
-        for prev, cur in zip(frames, frames[1:]):
-            ratio = frame_change_ratio(ns.artifacts / prev["file"], ns.artifacts / cur["file"])
+        for index, (prev, cur) in enumerate(zip(frames, frames[1:]), start=1):
+            ratio = frame_change_ratio(ns.artifacts / prev["file"], ns.artifacts / cur["file"], deadline)
             cur["change_ratio_from_previous"] = round(ratio, 6)
-            if ratio < 0.01:
-                raise RuntimeError(f"UI transition too small between {prev['name']} and {cur['name']}: {ratio:.6f}")
+            threshold = capture_steps[index].get("min_change_ratio_from_previous")
+            if threshold is not None:
+                cur["min_change_ratio_required"] = float(threshold)
+                if ratio < float(threshold):
+                    raise RuntimeError(
+                        f"UI transition too small between {prev['name']} and {cur['name']}: {ratio:.6f} < {float(threshold):.6f}"
+                    )
+        _remaining(deadline, "scenario completion")
         status = "passed"
     except Exception as exc:
         failure = f"{type(exc).__name__}: {exc}"
@@ -410,13 +628,16 @@ def main(argv: list[str] | None = None) -> int:
         (ns.artifacts / "dosbox.stdout.log").write_text(sanitize(dosbox_stdout, replacements), encoding="utf-8")
         (ns.artifacts / "dosbox.stderr.log").write_text(sanitize(dosbox_stderr, replacements), encoding="utf-8")
         result = {
-            "schema": 1,
+            "schema": RUN_SCHEMA,
             "roadmap_item": "CF4",
             "status": status,
             "failure": failure,
             "scenario": cfg["name"],
+            "runtime_seconds": round(time.monotonic() - started, 3),
+            "max_runtime_seconds": float(cfg.get("max_runtime_seconds", 90)),
             "target": {"filename": ns.exe, "size": exe_source.stat().st_size, "sha256": exe_hash},
             "fixture": {"id": fixture.get("id"), "verified_file_count": len(fixture["files"])},
+            "provenance": provenance,
             "display": {"driver": "Xvfb", "geometry": list(geometry) if geometry else None},
             "input": "X11 XTEST relative mouse/button/key events",
             "capture": "ffmpeg x11grab cropped to DOSBox window",

@@ -361,7 +361,7 @@ Any `LOCAL ONLY` classification is only valid once the playable demo has actuall
 
 ## CF4 — Investigate cloud UI interaction and visual validation
 
-- **Status:** Investigation first
+- **Status:** **Completed and verified** — cloud UI driving/capture is reproducible with Xvfb + XTEST + ffmpeg on the exact canonical target; see [`docs/experiments/CF4-cloud-ui-validation.md`](./docs/experiments/CF4-cloud-ui-validation.md).
 - **Execution:** CLOUD RESEARCH
 - **Priority:** High
 - **Category:** Cloud enablement / UI validation
@@ -387,7 +387,7 @@ If local validation is unavoidable, prepare a one-command or minimal-step local 
 
 ### Acceptance criteria
 
-A future agent does not have to rediscover how to validate the UI. The roadmap contains a concrete cloud path or an explicit local-only path with automated artifact capture.
+**Met.** A future CLOUD agent can reproduce UI input/capture with the checked-in harness and action schema, and V1 has a concrete cloud execution path rather than an undecided environment.
 
 ---
 
@@ -1001,7 +1001,7 @@ The patch/build output contains the full intended M1 behavior and passes all clo
 ## V1 — Validate M1 end to end on the canonical target
 
 - **Status:** Investigation first
-- **Execution:** GATED — CF4 must change this to `CLOUD` or `LOCAL ONLY`
+- **Execution:** **CLOUD** — set by CF4: use `scripts/run_cf4_ui_validation.py` with a checked-in action file and a retail tree verified by `tools/retail-runtime-manifest.json`; see [`docs/experiments/CF4-cloud-ui-validation.md`](./docs/experiments/CF4-cloud-ui-validation.md).
 - **Priority:** Critical
 - **Category:** End-to-end validation
 - **Origin:** Milestone exit criteria

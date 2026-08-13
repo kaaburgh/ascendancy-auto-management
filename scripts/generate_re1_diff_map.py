@@ -4,13 +4,14 @@
 The script reuses the conservative matcher in tools/le_diff.py instead of
 introducing a looser similarity model. Full inventories stay under ignored
 artifacts/; the compact report contains candidate addresses, class, size,
-caller count, and conservative cross-locale corroboration. Candidate starts
-remain linear-sweep/direct-call analysis regions, not verified functions.
+incoming direct-call-site count, and conservative cross-locale corroboration.
+Candidate starts remain linear-sweep/direct-call analysis regions, not verified
+functions.
 
-Address-level locale mappings are stricter than le_diff's multiset counts: a
-candidate is mapped across locales only when the signature used at that match
-stage is unique on both sides of that stage. Duplicate signatures therefore
-remain unmapped instead of inheriting an arbitrary zip pairing.
+Address-level mappings are stricter than le_diff's multiset counts: a candidate
+is mapped across a product or locale pair only when the signature used at that
+match stage is unique on both sides of that stage. Duplicate signatures remain
+unmapped instead of inheriting an arbitrary zip pairing.
 """
 from __future__ import annotations
 
@@ -92,7 +93,7 @@ EXPECTED_PAIR_COUNTS = {
         "structural_right": 50,
     },
 }
-SCHEMA = "ascendancy.re1-differential-map/v1"
+SCHEMA = "ascendancy.re1-differential-map/v2"
 
 
 class RE1Error(RuntimeError):
@@ -209,7 +210,7 @@ def unambiguous_pair_map(
     """Map left addresses only when the stage signature is unique on both sides.
 
     le_diff deliberately multiset-matches duplicate signatures because that is
-    correct for aggregate counts. Candidate-level locale mapping has a stronger
+    correct for aggregate counts. Candidate-level address mapping has a stronger
     requirement: if two candidates share the same stage signature, choosing one
     right-side address by list order would manufacture evidence. Such pairs are
     counted as ambiguous and omitted from the address map.
@@ -238,6 +239,22 @@ def unambiguous_pair_map(
             result[int(left["address"])] = (int(right["address"]), cls)
 
     return result, ambiguous
+
+
+def resolve_product_pair(
+    mapping: dict[int, tuple[int, str]], left_address: int, cls: str
+) -> tuple[int | None, str]:
+    """Return a right address only for an unambiguous product-pair identity."""
+    pair = mapping.get(left_address)
+    if pair is None:
+        return None, "ambiguous"
+    right_address, mapped_class = pair
+    if mapped_class != cls:
+        raise RE1Error(
+            f"product pair class mismatch at 0x{left_address:x}: "
+            f"expected {cls}, got {mapped_class}"
+        )
+    return right_address, "unambiguous"
 
 
 def cross_locale_status(
@@ -283,7 +300,7 @@ def candidate_sort_key(item: dict[str, Any]) -> tuple[bool, int, int, int, int]:
     return (
         not bool(item["cross_locale"]["corroborated"]),
         class_order[item["class"]],
-        -int(item["callers"]),
+        -int(item["incoming_call_sites"]),
         -int(item["byte_length"]),
         int(item["antag_en_address"]),
     )
@@ -307,6 +324,9 @@ def generate(args: argparse.Namespace) -> dict[str, Any]:
     pair_counts = {name: counts(diff) for name, diff in diffs.items()}
     validate_pair_counts(pair_counts)
 
+    product_en_map, product_en_ambiguous = unambiguous_pair_map(
+        diffs["product-en"]
+    )
     antag_locale, antag_ambiguous = unambiguous_pair_map(diffs["antag-locale"])
     patch_locale, patch_ambiguous = unambiguous_pair_map(diffs["patch-locale"])
     intl_product, intl_product_ambiguous = unambiguous_pair_map(
@@ -319,22 +339,28 @@ def generate(args: argparse.Namespace) -> dict[str, Any]:
 
     candidates: list[dict[str, Any]] = []
     product_en = diffs["product-en"]
-    for key in ("reference_only", "constant_only"):
-        for left, right in product_en[key]:
+    for cls in ("reference_only", "constant_only"):
+        for left, _right in product_en[cls]:
             antag_address = int(left["address"])
-            patch_address = int(right["address"])
+            patch_address, product_pair_status = resolve_product_pair(
+                product_en_map, antag_address, cls
+            )
             candidates.append(
                 {
-                    "class": key,
+                    "class": cls,
                     "antag_en_address": antag_address,
                     "patch_en_address": patch_address,
+                    "product_en_pair_status": product_pair_status,
                     "byte_length": int(left["byte_length"]),
                     "instruction_count": int(left["instruction_count"]),
-                    "callers": int(left["callers"]),
+                    # le_disasm's legacy `callers` field counts direct call sites,
+                    # not distinct caller regions. Preserve the underlying value
+                    # but publish it with an unambiguous RE1 name.
+                    "incoming_call_sites": int(left["callers"]),
                     "cross_locale": cross_locale_status(
                         antag_address,
                         patch_address,
-                        key,
+                        cls,
                         antag_locale,
                         patch_locale,
                         intl_product,
@@ -349,9 +375,10 @@ def generate(args: argparse.Namespace) -> dict[str, Any]:
                 "class": "structural",
                 "antag_en_address": antag_address,
                 "patch_en_address": None,
+                "product_en_pair_status": "structural_unpaired",
                 "byte_length": int(left["byte_length"]),
                 "instruction_count": int(left["instruction_count"]),
-                "callers": int(left["callers"]),
+                "incoming_call_sites": int(left["callers"]),
                 "cross_locale": cross_locale_status(
                     antag_address,
                     None,
@@ -389,7 +416,11 @@ def generate(args: argparse.Namespace) -> dict[str, Any]:
             for target_id, values in TARGETS.items()
         },
         "pair_counts": pair_counts,
-        "locale_mapping": {
+        "address_mapping": {
+            "product-en": {
+                "unambiguous_pairs": len(product_en_map),
+                "ambiguous_pairs_by_class": product_en_ambiguous,
+            },
             "antag-en-to-intl": {
                 "unambiguous_pairs": len(antag_locale),
                 "ambiguous_pairs_by_class": antag_ambiguous,
@@ -407,8 +438,9 @@ def generate(args: argparse.Namespace) -> dict[str, Any]:
         "candidates": candidates,
         "notes": [
             "All EN unresolved Antagonizer candidates are included before ordering.",
-            "Ordering is triage only: cross-locale corroboration, then class, caller count, size, address.",
-            "Address-level locale mappings require a unique stage signature on both sides; ambiguous duplicate signatures remain unmapped.",
+            "Ordering is triage only: cross-locale corroboration, then class, incoming direct-call-site count, size, address.",
+            "Every emitted product/locale right-hand address requires a unique stage signature on both sides; ambiguous duplicate signatures remain unmapped.",
+            "The incoming_call_sites field is the legacy le_disasm callers value: direct call sites targeting the candidate, not distinct caller regions.",
             "Structural entries have no invented baseline pair; fuzzy alignments belong in human RE notes as hypotheses.",
             "Candidate starts remain linear-sweep/direct-call analysis regions, not verified functions.",
         ],
@@ -441,6 +473,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         for pair_name, pair_count in report["pair_counts"].items():
             print(f"  {pair_name}: {pair_count}")
+        for mapping_name, mapping in report["address_mapping"].items():
+            print(
+                f"  {mapping_name} address map: "
+                f"{mapping['unambiguous_pairs']} unambiguous; "
+                f"ambiguous {mapping['ambiguous_pairs_by_class']}"
+            )
         for cls, summary in report["class_summary"].items():
             print(
                 f"  {cls}: {summary['count']} candidates, "

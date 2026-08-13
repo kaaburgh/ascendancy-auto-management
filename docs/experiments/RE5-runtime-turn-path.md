@@ -218,77 +218,126 @@ Before settling on the commit-write intervention, a clean exploratory run suppre
 
 Therefore `0x3df88` is **not** established as the unique runtime policy-to-mutation call for the pinned `Xerxes I` scenario. RE3 already identified several static calls from the policy candidate into `0x34b0c`; RE5 deliberately does not guess which individual caller supplied this particular selected action. The downstream `0x34df2` write is the stronger runtime boundary because suppressing it preserved upstream selection while preventing commit.
 
+## 2026-08-13 perturbation follow-up — current evidence
+
+### Phase -1 facts before code/runtime
+
+No original focused RE5 JSON artifacts were physically available in the working environment, repository, or inspected GitHub Actions artifacts. The four historical result files were therefore **not reconstructed from prose or numbers in this document**. Per the precommitted plan, the follow-up budget became six fresh focused target runs.
+
+The pinned `resume.gam` was also inspected structurally before any new DOSBox run. Relative to the unique `Xerxes I` record, the immediate `-0x7b`/`+0x7b` records are `Stavern IV` and `Xerxes II`, but both have owner byte `0xff` (unowned). RE3's static loop checks owner `+0x57` before the `0x3c118` gate, so those immediate neighbors cannot serve as same-player-loop marker witnesses. `Xerxes I` is the only owner-`0` record in the pinned save.
+
+The nearest structurally validated **owned** records on opposite sides are:
+
+- `Stavern I`, `Xerxes - 4 * 0x7b`, owner `0x01`;
+- `Hurble I`, `Xerxes + 8 * 0x7b`, owner `0x05`.
+
+They are useful cross-race loop-activity telemetry only. They are **not** promoted to a hard bracket for the player-race loop, and no `array_base` or `record_count` is inferred. Therefore the agreed Manual fallback requires four stardate increments if Xerxes remains unmarked; a two-sided marker observation on these other-race records cannot substitute for that target.
+
+### Follow-up artifact/observation contract
+
+Follow-up artifacts use `artifact_schema: 3` and separately record:
+
+- `runner_revision`: exact 40-hex git SHA as provenance only; mixed revisions are allowed when scenario contracts remain compatible;
+- `scenario_contract`: local to each scenario;
+- `observation_policy`: `stop_policy`, `max_window_seconds`, and optional `progress_target`.
+
+`managed-gate-probe` uses `fixed_window` for seven seconds and records the first marker while continuing to the deadline. `manual-gate-probe` uses `progress_target_or_timeout`, target `4`, hard ceiling `30 s`. Because no hard same-player bracket exists in this fixture, a Manual timeout below four increments is classified and preserved as **inconclusive**, not converted into a causal PASS. The already captured `managed-gate-probe/v2` artifact used a stricter supplemental-collateral start condition and is explicitly accepted by the current model; `runner_revision` alone is not a compatibility discriminator.
+
+### Fresh exact-target observations
+
+All rows below are fresh original JSON observations from the exact canonical target/fixture. Diagnostic code changes were process-memory-only, applied/restored while DOSBox was confirmed stopped, and restore verification succeeded for every patched scenario.
+
+During the follow-up, several intermediate captures were explicitly discarded after a provenance audit found that the local base follow-up source did not byte-match the published GitHub blob named by their `runner_revision`. Those files are quarantined as provenance-invalid and are **not** used below. Before the retained reruns, the local model/base/capture sources were verified byte-for-byte by Git blob SHA against the published repository state; the retained artifacts record either `aba61e0f0b08f981f65d9b63d08944817913a752` (the earlier valid Managed fixed-window probe) or `587d2ed9ce58221be69fcbe7d47c5aca28bc244e` (the provenance-synchronized reruns). No invalidated measurement was copied into the retained evidence.
+
+| Scenario | Status | Observation | Stardate | Key result |
+| --- | --- | ---: | ---: | --- |
+| `managed-gate-probe` | PASS | `7002.031 ms` fixed window | `0 -> 1` (`+1`) | Xerxes marker first seen at `25.946 ms`; both cross-race telemetry records were also marked |
+| `manual-gate-probe` | **INCONCLUSIVE** | `30017.889 ms`, `stop_reason=timeout` | `0 -> 1` (`+1`), target `4` not met | Xerxes marker never seen; `+0x52/+0x54` stayed empty; both cross-race telemetry records were marked, but they are not a hard player-loop bracket |
+| `managed-policy-suppressed` | PASS | `7009.080 ms` | `0 -> 233` (`+233`) | no selection/action mutation while the whole policy call is NOPed; restore verified |
+| `manual-control` | PASS | `7015.295 ms` | `0 -> 232` (`+232`) | no selection/action mutation, no diagnostic code patch |
+| `managed-control` | PASS | `3850.671 ms`, first-action stop | `0 -> 125` (`+125`) | `+0x52 -> 3400`, `+0x54 -> 00` at first mutation sample (`3850.656 ms`) |
+| `managed-action-write-suppressed` | PASS | `7020.877 ms` | `0 -> 208` (`+208`) | selection survived (`+0x52 -> 3b00` first seen at `4031.758 ms`) while `+0x54` stayed `ff`; restore verified |
+
+The selected-slot values vary between fresh runs (`0x0034`, `0x003b`); RE5 continues to treat them as opaque observed values, not reconstructed gameplay semantics.
+
+### What the progression gap establishes
+
+The strongest isolating comparison is **Managed versus Managed** with essentially the same seven-second wall-clock observation and the same `0x3c118` call removed:
+
+- `managed-policy-suppressed`: replacement is five NOPs, stardate `+233` in `7009.080 ms`;
+- `managed-gate-probe`: replacement writes `0x7e` to `[EDX+0x54]`, stardate `+1` in `7002.031 ms`.
+
+`manual-control` independently reaches `+232` in `7015.295 ms`, and `managed-action-write-suppressed` reaches `+208` in `7020.877 ms`. The very large `+233` versus `+1` gap therefore strongly supports the marker write/process-wide state mutation as the source of the progression suppression. It does **not** establish a target-game performance defect: performance interpretation of the marker scenarios is heavily contaminated by instrumentation.
+
+This also explains why simply extending the Manual marker window does not monotonically strengthen the gate claim. The new 30-second Manual probe still advances only one stardate unit. The marker is absent on `Xerxes I`, but with no hard same-player bracket and target `4` unmet, the precommitted outcome is **inconclusive**. Cross-race telemetry demonstrates that the shared call site is active elsewhere during the run, but it does not prove that the player-race loop traversed the Xerxes position under the same condition.
+
+### Aggregation result
+
+All six fresh focused JSON files were captured and evaluated in the follow-up working set, but one scenario is intentionally `inconclusive`. The raw focused JSON files were not committed or uploaded and are not reconstructed here. The schema-3 aggregator therefore fails closed on the non-passed Manual artifact and **does not produce a causal `run-aggregate.json`**. No historical JSON is reconstructed or retroactively stamped to manufacture a complete set.
+
+The aggregate refusal is the correct durable outcome: five current scenario oracles pass, while the one load-bearing Manual gate oracle does not meet the agreed evidence-strength contract.
+
 ## Interpretation
 
 ### Established, runtime, clean
 
-1. The anchor-relative stardate dword provides an independent positive control that turn/date progress occurred during each load-bearing negative scenario.
-2. With the same player-owned planet and empty-action preconditions, the `0x3c118` marker is not reached in Manual (`+0x5a == 0`) while at least one stardate unit advances, and is reached in Managed (`+0x5a == 0xffffffff`).
-3. Because RE3 statically shows that the only Manual bypass around zero `+0x5a` is the separate override branch, the paired probe establishes that override bypass inactive in the pinned Manual scenario.
-4. Legacy Manual remains idle while stardate advances; legacy Managed selects and commits an automatic action.
-5. The exact RE3 gate-to-policy call `0x3c118 -> 0x3d8f0` is necessary for that Managed automatic action: with the call suppressed, stardate advances by 231 while selection/action stay empty.
-6. Policy/selection output is observable as `+0x52` changing before/currently with action assignment.
-7. The exact `0x34df2` write to `[planet+0x54]` is a necessary current-action commit seam; suppressing it does not suppress the upstream `+0x52` selection.
-8. Diagnostic instruction writes/restores are performed only while DOSBox is confirmed stopped, preventing torn guest instruction fetches.
-9. The safest M1 integration model is therefore to preserve the game's existing legacy automation gate and downstream policy/mutation machinery rather than hook or reimplement the AI.
+The follow-up preserves several RE5 findings:
 
-### M1 handoff
+1. Managed `Xerxes I` reaches the `0x3c118` call site: marker first observed at `25.946 ms`.
+2. Suppressing the complete `0x3c118 -> 0x3d8f0` call prevents tested Managed selection/action while normal stardate progression continues (`+233` in `7009.080 ms` fresh run). The policy boundary remains runtime-necessary for the tested automatic action path.
+3. Managed control still selects and commits an action; suppressing only the downstream `0x34df2` action-byte write preserves upstream selection while keeping `+0x54 == ff`. The decision/commit layering remains established.
+4. The process-wide `0x7e` marker is strongly perturbing: it collapses stardate progression from approximately the fresh control range (`+208..+233` over seven seconds) to `+1` in the Managed probe. This is an instrumentation artifact/classification, not a game-performance result.
+5. Short local Managed reachability remains trustworthy because the marker is observed before the large accumulated perturbation; long negative Manual absence is weaker because non-interference is not established.
 
-The smallest established semantic seam is **before `0x3c118`**:
+### Reopened question
 
-```text
-Manual profile                -> legacy planet+0x5a == 0
-Agricultural / Industrial M1  -> legacy automated/nonzero +0x5a semantics
-                                      |
-                                      v
-                              existing 0x3c118 -> 0x3d8f0
-                                      |
-                                      v
-                              existing selection/mutation
-```
+The follow-up **does not establish** that the separate RE3 override bypass is inactive in the pinned Manual scenario to the newly agreed strength. `Xerxes I` remained unmarked for 30 seconds and one stardate increment, but:
 
-This is a semantic requirement for A1/A2, not a decision about where the new profile identity itself must live. RE5 does **not** require encoding three values directly in `+0x5a`; A1 still owns that architecture decision.
+- no second player-owned record exists in the pinned save to form a hard same-player-loop bracket;
+- the opposite-side owned records belong to other races and are supplemental telemetry only;
+- the precommitted fallback target was four stardate increments; the marker-perturbed run reached only one.
+
+Therefore the old statement “Manual does not reach `0x3c118`, so the override bypass is inactive” is no longer treated as completed runtime evidence. A next RE5 experiment must use a less perturbing reachability witness or directly establish the override condition without inventing an unverified DOS/4G data mapping.
+
+### M1 handoff status
+
+The candidate compatibility seam remains **before `0x3c118`** because the Managed policy/commit interventions still support preserving the existing downstream policy rather than reimplementing it. However it is now a **candidate pending RE5 completion**, not an unlocked architecture contract for A1/A2. Until the Manual/override reachability ambiguity is closed with adequate evidence, later roadmap items depending on RE5 remain blocked.
 
 ### Remaining unknowns
 
-- The separate global override in the RE3 gate is still semantically unknown, and RE5 intentionally does **not** publish a guessed runtime address/value for it. The paired `0x3c118` marker probe establishes the fact needed by M1 instead: the override bypass is inactive for the pinned Manual scenario, while Managed reaches the same call site.
-- RE5 does not identify which one of the multiple policy-internal `0x34b0c` call sites handles every action class.
-- The exact gameplay meanings of selected slot `0x0034` and action byte `0x00` are not reconstructed.
-- Non-player convergence remains high-confidence RE3 static evidence; it was not required to establish the player M1 preservation seam and was not broadened into this runtime experiment.
-- Save persistence, new profile representation, patch mechanism and UI design remain A/UI/P work.
+- The separate global override's gameplay semantics and trustworthy runtime value/address remain unknown.
+- A minimally perturbing player-loop reachability witness has not yet been established.
+- Non-player convergence remains high-confidence RE3 static evidence; the cross-race marker telemetry does not replace a same-player embedded control.
+- The exact gameplay meanings of selected slot/action codes remain intentionally unreconstructed.
 
 ## Reproduction
 
-Focused helper tests:
+Focused helper tests for the original runner and follow-up contract:
 
 ```sh
-python -m unittest tests.test_run_re5_runtime_turn_path -v
+python -m unittest tests.test_run_re5_runtime_turn_path tests.test_re5_followup_contract -v
 ```
 
-Complete target experiment on a host with the maintainer-supplied pinned retail tree:
+The current follow-up target runner is invoked with an explicit source revision. Gate probes use the policies embedded in their per-scenario contracts; do not override them with an ad-hoc common window:
 
 ```sh
-python scripts/run_re5_runtime_turn_path.py \
+python scripts/run_re5_runtime_turn_path_followup_capture.py \
   --game-dir /path/to/pinned/retail-tree \
   --dosbox /path/to/dosbox \
   --fixture-manifest tools/retail-runtime-manifest.json \
-  --artifacts artifacts/re5-runtime-turn-path \
-  --scenario all
+  --artifacts artifacts/re5-runtime-turn-path-followup \
+  --runner-revision <exact-40-hex-source-sha> \
+  --scenario managed-gate-probe
 ```
 
-Focused retry/diagnosis uses one of:
-
-```text
---scenario manual-control
---scenario manual-gate-probe
---scenario managed-gate-probe
---scenario managed-control
---scenario managed-policy-suppressed
---scenario managed-action-write-suppressed
-```
-
-Focused runs write `run-<scenario>.json`; `--scenario all` writes `run.json`. When the six focused files coexist, the runner verifies their target/fixture identity and writes tool-produced `run-aggregate.json` with the composed causal summary. All of these JSON artifacts are repo-safe by construction and contain no target binary, save payload, raw memory snapshot, host pointer, proprietary asset, secret, or user data.
+Use the same command for the other five scenario names. Do not reconstruct a missing focused JSON from the observations in this document. A causal aggregate is valid only when all six focused artifacts pass their declared current-compatible scenario contracts.
 
 ## Result
 
-**RE5 acceptance is met for the canonical M1 target.** The negative results now carry their own independent positive control: the anchor-relative stardate witness advances while Manual remains idle, while the Manual gate marker remains absent, and while the Managed policy call is suppressed. In particular, the Manual gate probe processed at least one stardate progress unit without marking `Xerxes I`, while the Managed probe reaches the same call site; together with RE3's static gate this establishes the override bypass inactive in the pinned Manual scenario. The policy-call intervention and action-write intervention preserve the decision/commit separation. M1 architecture can map both automated profile identities back to the existing legacy automated semantics before `0x3c118` while leaving `0x3d8f0` and downstream action mutation untouched.
+**RE5 acceptance is currently NOT met under the agreed follow-up evidence contract.**
+
+The Managed side of the path remains well established: Managed reaches `0x3c118`; the existing `0x3d8f0` policy boundary is necessary for the tested selection/action; and `0x34df2` remains a concrete downstream commit seam. The new fixed-window probe also establishes that the `0x7e` marker intervention itself severely suppresses progression (`+1` versus fresh Managed NOP-control `+233 / 7009.080 ms`).
+
+The Manual gate/override discriminator is the blocker. In the exact pinned scenario, a 30-second marker run produced no Xerxes marker but only one stardate increment, with no hard same-player bracket available. By the precommitted outcome table this is **inconclusive**, so the earlier runtime claim that the override bypass is inactive is reopened rather than defended with a longer contaminated run.
+
+The next RE5 step is an investigation for a less perturbing player-loop reachability/override witness. A1/A2 must not consume the former completed-RE5 gate conclusion until that evidence exists.

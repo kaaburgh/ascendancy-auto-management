@@ -1,12 +1,6 @@
 name: RE2 static seam
 
-permissions:
-  contents: write
-
 on:
-  push:
-    branches:
-      - agent/re2-ui-state-seam
   pull_request:
     paths:
       - scripts/generate_re2_ui_state_map.py
@@ -18,36 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  roadmap-sync:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: agent/re2-ui-state-seam
-      - name: Update only RE2 roadmap section
-        env:
-          RE2_SECTION_B64: IyMgUkUyIOKAlCBJZGVudGlmeSB0aGUgZXhpc3RpbmcgYXV0by1tYW5hZ2VtZW50IFVJL3N0YXRlIHNlYW0gc3RhdGljYWxseQoKLSAqKlN0YXR1czoqKiAqKkNvbXBsZXRlZCBhbmQgdmVyaWZpZWQqKiDigJQgY2xlYW4gc3RhdGljIGJsaW5kLVJFIHNlYW0gcmVjb3ZlcmVkOyBzZWUgW2Bkb2NzL3JlL2F1dG8tbWFuYWdlbWVudC11aS1zdGF0ZS5tZGBdKC4vZG9jcy9yZS9hdXRvLW1hbmFnZW1lbnQtdWktc3RhdGUubWQpIGFuZCBbYGRvY3MvZXhwZXJpbWVudHMvUkUyLWF1dG8tbWFuYWdlbWVudC11aS1zdGF0ZS1zdGF0aWMubWRgXSguL2RvY3MvZXhwZXJpbWVudHMvUkUyLWF1dG8tbWFuYWdlbWVudC11aS1zdGF0ZS1zdGF0aWMubWQpLgotICoqRXhlY3V0aW9uOioqICoqQ0xPVUQqKiDigJQgY29tcGxldGVkIHdpdGggdGhlIENGMi9UMiBzdGF0aWMgcGF0aCBhbmQgYSBkZWRpY2F0ZWQgY2xlYW4tY2hlY2tvdXQgcmVhbC10YXJnZXQgcmVncmVzc2lvbi4KLSAqKlByaW9yaXR5OioqIENyaXRpY2FsCi0gKipDYXRlZ29yeToqKiBSZXZlcnNlIGVuZ2luZWVyaW5nIC8gcGxhbmV0IHN0YXRlIC8gVUkKLSAqKk9yaWdpbjoqKiBIaWdoLWxldmVsIHN0ZXBzIDPigJM0Ci0gKipEZXBlbmRzIG9uOioqIFQyIChjb21wbGV0ZSksIFJFMSAoY29tcGxldGUpCi0gKipRdWVzdGlvbjoqKiBXaGF0IGNvZGUgcGF0aCBoYW5kbGVzIHRoZSBleGlzdGluZyBwZXItcGxhbmV0IHNlbGYtbWFuYWdlbWVudCBjb250cm9sLCBhbmQgd2hhdCBzdGF0ZSByZXByZXNlbnRhdGlvbiBpcyBtb3N0IGxpa2VseSBjaGFuZ2VkIG9yIGNvbnN1bHRlZD8KCiMjIyBPdXRjb21lCgpGb3IgY2Fub25pY2FsIGBBTlRBR19FTi5FWEVgIChgOGQ5MWU4OWU5NzhhNGUzOTk3MGYzMGI3OTBjOWM1NWFkZGU1OTA3OWM2MTA4YTM0Y2RkMjg2ODgyZTExN2IwMGApLCBzdGF0aWMgZXZpZGVuY2UgZXN0YWJsaXNoZXM6CgotIHBsYW5ldC13aW5kb3cgaGFuZGxlciBjYW5kaWRhdGUgYDB4Mzc1NjhgLCBhbmNob3JlZCBieSBgUExBTkxJU1RgIC8gYFBMU1FVQVJFYCwgZGlyZWN0bHkgY29uc3VtaW5nIGluY29taW5nIGBFQVhgLCBgRFhgLCBgRUJYYCwgYEVDWGA7Ci0gcGxhaW4gKipNKiogKHNldC0xIHNjYW4gY29kZSBgMHgzMmApIHJlYWNoZXMgdGhlIGRpcmVjdCBNYW5hZ2VkIHRvZ2dsZTsgYERTOjB4NDg2MDhgIGlzIGluZGVwZW5kZW50bHkgdGllZCB0byBCSU9TIGBJTlQgMTZoL0FIPTAyaGAgU2hpZnQgc3RhdGUgYW5kIFNoaWZ0K00gdGFrZXMgYSBzZXBhcmF0ZSB1bm5hbWVkIGJyYW5jaDsKLSBgRFM6MHg0MzY2NGAgaXMgdGhlIHNlbGVjdGVkLW9iamVjdCBwb2ludGVyIHVzZWQgYnkgdGhpcyBwbGFuZXQtd2luZG93IGlucHV0L3JlbmRlciBzZWFtOwotIHRoZSBkaXJlY3QgTSBwYXRoIHJlYWRzIGFuZCBiaXR3aXNlLU5PVHMgZHdvcmQgYFtzZWxlY3RlZCsweDVhXWAsIHdyaXRpbmcgaXQgYmFjayBhdCBgMHgzNzkxZmA7Ci0gdGhlIHBsYW5ldCByZW5kZXJlciBjaGVja3MgdGhlIHNhbWUgYFtzZWxlY3RlZCsweDVhXSA9PSAweGZmZmZmZmZmYCBhdCBgMHgzYWZjYWAgYmVmb3JlIHJlcXVlc3RpbmcgcmVzb3VyY2UgSUQgOTgsIGlkZW50aWZpZWQgYnkgdGhlIGV4YWN0IENGMy1waW5uZWQgcmV0YWlsIHVzZXItZmFjaW5nIGRhdGEgYXMgYFNlbGYgTWFuYWdlZGA7Ci0gdGhlcmVmb3JlIHNlbGVjdGVkIG9iamVjdCBgKzB4NWFgIGlzIHRoZSBleGlzdGluZyBVSSBNYW5hZ2VkL3NlbGYtbWFuYWdlbWVudCBzdGF0ZSBmaWVsZC4gUnVudGltZSBvd25lcnNoaXAvbGlmZXRpbWUgYWNyb3NzIHR3byBwbGFuZXRzIHJlbWFpbnMgUkU0J3MgY29uZmlybWF0aW9uIHF1ZXN0aW9uOwotIHN0YXRlLWNvbnN1bHRhdGlvbiBzaXRlcyBgMHgzNTQ3M2AgYW5kIGAweDM1NmNjYCBhcmUgcHJlc2VydmVkIG9ubHkgYXMgUkU0L1JFMyBpbnN0cnVtZW50YXRpb24gbGVhZHM7IHRoZWlyIGRvd25zdHJlYW0gcGVyLXR1cm4gc2VtYW50aWNzIGFyZSBub3QgdHJhY2VkIGhlcmUuCgpDYWxsaW5nIGNvbnZlbnRpb24gd2FzIGNoZWNrZWQgYmVmb3JlIGFyZ3VtZW50IGludGVycHJldGF0aW9uLiBBIHJlYWwga25vd24tYXJpdHkgdmFyaWFkaWMgY2FsbCBhdCBgMHgzNzM0NiAtPiAweDc2ZDA5YCBwcm92ZXMgYSBjZGVjbC1zdHlsZSBjYWxsZXItY2xlYW5lZCB0aHJlZS1zdGFjay1hcmd1bWVudCBib3VuZGFyeSAoYGFkZCBlc3AsMHgwY2ApLCB3aGlsZSB0aGUgaW50ZXJuYWwgcGxhbmV0LXdpbmRvdyBoYW5kbGVyIGRpcmVjdGx5IGNvbnN1bWVzIHJlZ2lzdGVyIGlucHV0cy4gVGhlIHN1cHBvcnRlZCBjb25jbHVzaW9uIGlzIGEgbWl4ZWQgc3RhY2svcmVnaXN0ZXIgQUJJIGJvdW5kYXJ5LCBub3QgYSBibGFua2V0IGBfX3dhdGNhbGxgIG9yIHN0YWNrLW9ubHkgYXNzdW1wdGlvbi4KClRoZSBzYW1lIG5hcnJvdyBzZWFtIGlzIGNvcnJvYm9yYXRlZCBpbiBib3RoIHByb2R1Y3QgZmFtaWxpZXMvbG9jYWxlcy4gYHNjcmlwdHMvZ2VuZXJhdGVfcmUyX3VpX3N0YXRlX21hcC5weWAgZmFpbC1jbG9zZXMgb24gYWxsIGZvdXIgZXhhY3QgdGFyZ2V0IGhhc2hlcywgcmVxdWlyZXMgdW5pcXVlIGluc3RydWN0aW9uLXBhdHRlcm4gbWF0Y2hlcyBwbHVzIGluZGVwZW5kZW50IHN0cmluZy9jb250cm9sL2RhdGEgaW52YXJpYW50cywgYW5kIHBpbnMgY3Jvc3MtYnVpbGQgc3RhdGUgb2Zmc2V0IGAweDVhYCwgTSBzY2FuIGNvZGUgYDB4MzJgLCBhbmQgcmVuZGVyIHJlc291cmNlIElEIDk4LgoKIyMjIERlbGl2ZXJhYmxlcwoKLSBbeF0gYGRvY3MvcmUvYXV0by1tYW5hZ2VtZW50LXVpLXN0YXRlLm1kYDsKLSBbeF0gY2FsbGluZy1jb252ZW50aW9uIG9ic2VydmF0aW9uIHRpZWQgdG8gZXhhY3QgdGFyZ2V0L2NhbGwgc2l0ZXM7Ci0gW3hdIGFubm90YXRlZCBjYW5kaWRhdGUgc2l0ZXMgdGllZCB0byBleGFjdCB0YXJnZXQgaGFzaDsKLSBbeF0gZmFpbC1jbG9zZWQgbWFjaGluZS1yZWFkYWJsZSByZWdlbmVyYXRpb24gc2NyaXB0IGFuZCBmb2N1c2VkIHRlc3RzOwotIFt4XSBtaW5pbWFsIHR3by1wbGFuZXQgcnVudGltZSBleHBlcmltZW50IHNwZWNpZmljYXRpb24gZm9yIFJFNC4KCiMjIyBBY2NlcHRhbmNlIGNyaXRlcmlhCgoqKk1ldC4qKiBSRTQgaGFzIGEgYm91bmRlZCBleHBlcmltZW50OiBvYnNlcnZlIHRoZSB3cml0ZSBhdCBgMHgzNzkxZmAgYW5kIHJlbmRlcmVyIGNoZWNrIGF0IGAweDNhZmNhYCBvbiB0d28gc2VsZWN0ZWQgcGxhbmV0cywgcmVjb3JkaW5nIG9ubHkgcnVudGltZSBtYXBwaW5nLCBzZWxlY3RlZC1vYmplY3QgcG9pbnRlcnMgYW5kIGJvdW5kZWQgYCsweDVhYCBiZWZvcmUvYWZ0ZXIgdmFsdWVzLiBTdGF0aWMgYXJndW1lbnQgaW50ZXJwcmV0YXRpb24gaXMgYmFzZWQgb24gb2JzZXJ2ZWQgcmVhbCBjYWxsL2RhdGEgZmxvdyByYXRoZXIgdGhhbiBhbiBhc3N1bWVkIGNvbXBpbGVyIGRlZmF1bHQuIFJFMyByZW1haW5zIGEgc2VwYXJhdGUgcGFyYWxsZWwgdGFzayBhbmQgaXMgbm90IGltcGxlbWVudGVkIGhlcmUuCg==
-        run: |
-          python - <<'PY'
-          import base64, os
-          from pathlib import Path
-          p = Path('ROADMAP.md')
-          s = p.read_text()
-          a = s.index('## RE2 — Identify the existing auto-management UI/state seam statically')
-          b = s.index('\n---\n\n## RE3 —', a)
-          new = base64.b64decode(os.environ['RE2_SECTION_B64']).decode()
-          p.write_text(s[:a] + new + s[b:])
-          PY
-          if git diff --quiet -- ROADMAP.md; then exit 0; fi
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add ROADMAP.md
-          git commit -m 'RE2: update roadmap outcome'
-          git push origin HEAD:agent/re2-ui-state-seam
-
   re2-real-target:
-    if: github.event_name != 'push'
     name: RE2 real-target UI/state seam
     runs-on: ubuntu-latest
     steps:

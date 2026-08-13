@@ -2,7 +2,7 @@
 
 This file is the live backlog, sequencing source, and execution-environment contract for the project.
 
-The roadmap is intentionally written so a capable coding/research agent can select one bounded item, complete it without chat history, and leave enough durable evidence for the next agent. See [`AGENTS.md`](./AGENTS.md) for repository-wide rules and [`docs/agent-playbook.md`](./docs/agent-playbook.md) for the detailed RE workflow.
+The roadmap is intentionally written so a capable coding/reverse-engineering agent can select one bounded item, complete it without chat history, and leave enough durable evidence for the next agent. See [`AGENTS.md`](./AGENTS.md) for repository-wide rules and [`docs/agent-playbook.md`](./docs/agent-playbook.md) for the detailed RE workflow.
 
 Canonical roadmap items and durable technical documentation are written in English so symbols, tool output, scripts, PRs, and handoffs use one language.
 
@@ -539,7 +539,7 @@ The retail unpatched `ASCEND.EXE` is not freely distributed and remains an optio
 - **Status:** **Completed and verified** — see [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md). Evidence is `static` with clean blind-RE provenance from all four exact CF1/T1 hash-pinned executables; the required independent Open Watcom `wdump` check passed with zero disagreements.
 - **Execution:** **CLOUD** — set by CF2's completed feasibility result; T2 itself is complete.
 - **Priority:** High
-- **Category:** Tooling / static RE
+- **Category:** Tooling / compatibility
 - **Origin:** High-level step 2
 - **Depends on:** T1 (complete), CF2 (complete)
 - **Goal:** Make target static analysis reproducible enough that later agents do not depend on one person's interactive RE database.

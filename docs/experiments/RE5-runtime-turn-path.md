@@ -341,3 +341,6 @@ The Managed side of the path remains well established: Managed reaches `0x3c118`
 The Manual gate/override discriminator is the blocker. In the exact pinned scenario, a 30-second marker run produced no Xerxes marker but only one stardate increment, with no hard same-player bracket available. By the precommitted outcome table this is **inconclusive**, so the earlier runtime claim that the override bypass is inactive is reopened rather than defended with a longer contaminated run.
 
 The next RE5 step is an investigation for a less perturbing player-loop reachability/override witness. A1/A2 must not consume the former completed-RE5 gate conclusion until that evidence exists.
+
+
+> **Status update — 2026-08-14:** this document preserves the earlier perturbation follow-up as historical evidence. The newer read-only acceptance experiment is recorded in [`RE5-read-only-override-closure.md`](RE5-read-only-override-closure.md) and supersedes only the former conclusion that RE5 remained blocked.

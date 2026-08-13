@@ -1,0 +1,28 @@
+name: RE5 roadmap sync
+
+on:
+  push:
+    branches:
+      - agent/re5-runtime-turn-path
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/re5-runtime-turn-path
+          fetch-depth: 0
+      - name: Update RE5 roadmap section only
+        run: python .github/re5_roadmap_sync_temp.py
+      - name: Commit roadmap and remove temporary bridge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/re5-roadmap-sync.yml .github/re5_roadmap_sync_temp.py
+          git add ROADMAP.md
+          git commit -m "RE5: mark runtime turn path complete"
+          git push origin HEAD:agent/re5-runtime-turn-path

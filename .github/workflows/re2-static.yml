@@ -5,6 +5,9 @@ on:
     paths:
       - scripts/generate_re2_ui_state_map.py
       - tests/test_generate_re2_ui_state_map.py
+      - tools/le_image.py
+      - tools/fetch_free_targets.py
+      - tools/free-target-sources.json
       - docs/re/auto-management-ui-state.md
       - docs/experiments/RE2-auto-management-ui-state-static.md
       - ROADMAP.md

@@ -156,9 +156,9 @@ Cloud-feasibility tasks are intentionally near the front so later work is not un
 
 The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone. X1 is `Open`/`CLOUD` but remains unselectable until its M1 dependency is completed.
 
-**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE4 are complete. **RE5 is now selectable as CLOUD**; A1/A2 remain dependency-blocked on RE5.
+**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE5 are complete. **A1 and A2 are now selectable as CLOUD**; they are the current architecture front and may proceed from the completed RE4/RE5 runtime contract.
 
-RE4 runtime-confirmed the existing per-planet Managed field and immediate UI transition on two distinct planet records. RE5 retains the separate runtime task of proving that confirmed field's per-turn causal path into existing automatic management.
+RE4 runtime-confirmed the existing per-planet Managed field and immediate UI transition on two distinct planet records. RE5 runtime-confirmed its per-turn causal path into existing automatic management. A1 now owns the three-profile session-state representation; A2 owns the patch/integration mechanism.
 
 ---
 
@@ -774,8 +774,8 @@ RE4 does **not** runtime-confirm the per-turn decision/policy/action path. RE3's
 `runtime`, clean blind-RE evidence on canonical `ANTAG.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`):
 
 - the same pinned `Xerxes I` resume begins with no selected/current action (`+0x52 == 0xffff`, `+0x54 == 0xff`); corrected coherent sampling shows Manual (`+0x5a == 0`) stays idle while the RE4-confirmed Managed state (`+0x5a == 0xffffffff`) selects `+0x52 = 0x0034` and commits `+0x54 = 0x00`;
-- a paired exact-byte gate probe replaces only the whole `0x3c118` call with `mov byte [edx+0x54],0x7e; nop`: Manual never reaches the marker during 7 seconds, while Managed reaches it; with RE3's static gate this establishes the separate override bypass inactive in the pinned Manual scenario without guessing a DOS/4G data address;
-- temporarily replacing the whole exact `0x3c118` `call 0x3d8f0` instruction (`e8 d3 17 00 00`) with five NOPs in the **live DOSBox process only** leaves the Managed state intact but prevents both selection and action mutation; original bytes are restored and re-verified before teardown;
+- a paired exact-byte gate probe replaces only the whole `0x3c118` call with `mov byte [edx+0x54],0x7e; nop`: in the corrected Manual rerun the independent anchor-relative stardate witness advanced by at least one unit while `Xerxes I` never received marker `0x7e`, whereas Managed reaches the marker; with RE3's static gate this establishes the separate override bypass inactive in the pinned Manual scenario without guessing a DOS/4G data address;
+- temporarily replacing the whole exact `0x3c118` `call 0x3d8f0` instruction (`e8 d3 17 00 00`) with five NOPs in the **live DOSBox process only** leaves the Managed state intact but prevents both selection and action mutation while the independent stardate witness advances (`delta = 231` in the corrected negative rerun); diagnostic instruction apply/restore is performed only while DOSBox is confirmed stopped, and original bytes are restored and re-verified before teardown;
 - temporarily replacing the whole `0x34df2` `mov [esi+0x54], al` instruction (`88 46 54`) with three NOPs still permits policy/selection output (`+0x52: ffff -> 3400`) while keeping `+0x54 == 0xff`; this separates upstream decision output from the current-action commit seam;
 - an exploratory suppression of RE3's highlighted internal `0x3df88 -> 0x34b0c` call did **not** prevent the tested action, so that individual call site is not promoted to the unique runtime mutation path; the downstream `0x34df2` write is the stronger established boundary;
 - the smallest M1 semantic preservation seam is therefore **before `0x3c118`**: `Manual` must map to the legacy zero/non-automated condition and both M1 automated profile identities must map back to the legacy nonzero/Managed semantics, while `0x3d8f0` and downstream selection/mutation stay untouched;
@@ -788,7 +788,7 @@ The separate RE3 override-global semantics remain unknown. RE5 deliberately does
 - [x] reproducible runtime experiment record at [`docs/experiments/RE5-runtime-turn-path.md`](./docs/experiments/RE5-runtime-turn-path.md);
 - [x] durable runtime findings merged into [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md);
 - [x] fail-closed runner `scripts/run_re5_runtime_turn_path.py` with exact fixture/resume identity, unique runtime anchor, whole-instruction expected-byte validation, process-memory-only diagnostic patches and verified rollback;
-- [x] focused synthetic tests for record uniqueness, runtime-site translation, patch-plan instruction sizes, stopped-state parsing and all six causal oracles.
+- [x] 14 focused synthetic tests for record uniqueness, runtime-site translation, patch-plan instruction sizes, stopped-state parsing, positive-control enforcement, focused-artifact aggregation and all six causal oracles.
 
 ### Acceptance criteria
 

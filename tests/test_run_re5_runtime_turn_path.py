@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import sys
+import tempfile
 import unittest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -47,18 +49,19 @@ class RE5RuntimeTests(unittest.TestCase):
         self.assertEqual(re5.ACTION_WRITE_SUPPRESSION.expected.hex(), "884654")
         self.assertEqual(len(re5.ACTION_WRITE_SUPPRESSION.replacement), 3)
 
+
     def test_proc_state_parser_uses_code_after_label_only(self):
-        # Regression guard: never infer stopped state from letters in the literal "State:" label/body.
         self.assertEqual(re5.parse_proc_state_code("State:\tT (stopped)"), "T")
         self.assertEqual(re5.parse_proc_state_code("State:\tt (tracing stop)"), "t")
         self.assertEqual(re5.parse_proc_state_code("State:\tR (running)"), "R")
         self.assertEqual(re5.parse_proc_state_code("State:\tS (sleeping)"), "S")
         self.assertEqual(re5.parse_proc_state_code("Name:\tdosbox"), "")
 
-    def _trace(self, slot=None, action=None, *, state="ffffffff", final_action="ff"):
+    def _trace(self, slot=None, action=None, *, state="ffffffff", final_action="ff", progress_delta=10):
         return {
             "first_slot_change_ms": slot,
             "first_action_change_ms": action,
+            "turn_progress": {"delta": progress_delta},
             "final": {
                 "owner_0x57": "00",
                 "slot_0x52": "ffff" if slot is None else "3400",
@@ -66,6 +69,19 @@ class RE5RuntimeTests(unittest.TestCase):
                 "managed_0x5a": state,
             },
         }
+
+
+
+    def test_negative_result_oracles_require_stardate_progress(self):
+        for name, state in (
+            ("manual-control", "00000000"),
+            ("manual-gate-probe", "00000000"),
+            ("managed-policy-suppressed", "ffffffff"),
+        ):
+            spec = next(s for s in re5.SCENARIOS if s.name == name)
+            with self.subTest(name=name):
+                with self.assertRaises(re5.RE5Error):
+                    re5.validate_scenario(spec, self._trace(None, None, state=state, progress_delta=0))
 
     def test_gate_probe_distinguishes_manual_and_managed_reachability(self):
         manual = next(s for s in re5.SCENARIOS if s.name == "manual-gate-probe")
@@ -118,6 +134,9 @@ class RE5RuntimeTests(unittest.TestCase):
                 trace = self._trace(4800.0, None)
             rows.append({"name": spec.name, "status": "passed", "turn_trace": trace})
         summary = re5.summarize_causality(rows)
+        self.assertTrue(summary["manual_turn_progress_witnessed"])
+        self.assertTrue(summary["manual_gate_probe_turn_progress_witnessed"])
+        self.assertTrue(summary["policy_suppressed_turn_progress_witnessed"])
         self.assertTrue(summary["manual_stays_idle"])
         self.assertTrue(summary["manual_does_not_reach_gate_policy_call"])
         self.assertTrue(summary["managed_reaches_gate_policy_call"])
@@ -128,6 +147,54 @@ class RE5RuntimeTests(unittest.TestCase):
         self.assertTrue(summary["action_write_is_commit_seam"])
         with self.assertRaises(re5.RE5Error):
             re5.summarize_causality(rows[:-1])
+
+
+    def test_focused_artifacts_aggregate_without_rerunning_target(self):
+        target = {"filename": "ANTAG.EXE", "size": 610863, "sha256": re5.re4.TARGET_SHA256}
+        fixture = {"id": "fixture", "resume": {"sha256": re5.RESUME_SHA256}}
+        with tempfile.TemporaryDirectory() as td:
+            artifacts = Path(td)
+            for spec in re5.SCENARIOS:
+                if spec.name in {"manual-control", "manual-gate-probe"}:
+                    trace = self._trace(None, None, state="00000000")
+                elif spec.name == "managed-gate-probe":
+                    trace = self._trace(None, 65.0, final_action="7e")
+                elif spec.name == "managed-control":
+                    trace = self._trace(4000.0, 4010.0, final_action="00")
+                elif spec.name == "managed-policy-suppressed":
+                    trace = self._trace(None, None)
+                else:
+                    trace = self._trace(4800.0, None)
+                record = {
+                    "status": "passed",
+                    "target": target,
+                    "fixture": fixture,
+                    "window_seconds": 7.0,
+                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": trace}],
+                }
+                re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
+            aggregate = re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
+            self.assertIsNotNone(aggregate)
+            self.assertTrue(aggregate["causality"]["override_path_inactive_for_manual_probe"])
+            self.assertTrue((artifacts / "run-aggregate.json").is_file())
+
+    def test_focused_aggregation_fails_closed_on_identity_mismatch(self):
+        target = {"filename": "ANTAG.EXE", "size": 610863, "sha256": re5.re4.TARGET_SHA256}
+        fixture = {"id": "fixture", "resume": {"sha256": re5.RESUME_SHA256}}
+        with tempfile.TemporaryDirectory() as td:
+            artifacts = Path(td)
+            for spec in re5.SCENARIOS:
+                record = {
+                    "status": "passed",
+                    "target": target,
+                    "fixture": fixture if spec.name != "managed-control" else {"id": "wrong"},
+                    "window_seconds": 7.0,
+                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": self._trace()}],
+                }
+                re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
+            with self.assertRaises(re5.RE5Error):
+                re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
+
 
 
 if __name__ == "__main__":

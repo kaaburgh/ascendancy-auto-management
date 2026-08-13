@@ -9,6 +9,7 @@ sized, restored, and re-verified before teardown.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from dataclasses import dataclass
 import json
 import os
@@ -42,6 +43,11 @@ GATE_MARKER_BYTES = bytes.fromhex("c642547e90")  # mov byte [edx+0x54],0x7e; nop
 GATE_MARKER_ACTION = 0x7E
 ACTION_WRITE_VA = 0x34DF2
 ACTION_WRITE_BYTES = bytes.fromhex("884654")  # mov [esi+0x54], al
+# Runtime-only exact-target relationship established by the RE5 review follow-up:
+# this dword matches the upper-right five-digit stardate while the process is
+# stopped. It is relative to the uniquely matched RE2 code anchor, not a guessed
+# DOS/4G selector/base address.
+STARDATE_ANCHOR_DELTA = 0x5E657
 DEFAULT_WINDOW_SECONDS = 7.0
 
 
@@ -131,12 +137,15 @@ def find_named_planet_record(snapshot: bytes, name: str = PLANET_NAME) -> int:
     return candidates[0]
 
 
-def static_va_host(anchor: dict[str, Any], static_va: int) -> int:
-    host_anchor = anchor["map_start"] + anchor["anchor_offset"]
-    host = host_anchor + (static_va - ANCHOR_VA)
-    if host < anchor["map_start"] or host >= anchor["map_end"]:
-        raise RE5Error(f"static VA 0x{static_va:x} resolves outside the runtime anchor mapping")
+def anchor_delta_host(anchor: dict[str, Any], delta: int, size: int = 1) -> int:
+    host = anchor["map_start"] + anchor["anchor_offset"] + delta
+    if size <= 0 or host < anchor["map_start"] or host + size > anchor["map_end"]:
+        raise RE5Error(f"anchor-relative delta {delta:+#x} resolves outside the runtime anchor mapping")
     return host
+
+
+def static_va_host(anchor: dict[str, Any], static_va: int) -> int:
+    return anchor_delta_host(anchor, static_va - ANCHOR_VA)
 
 
 def write_process(pid: int, address: int, data: bytes) -> None:
@@ -149,40 +158,6 @@ def write_process(pid: int, address: int, data: bytes) -> None:
         raise RE5Error(f"short process write at 0x{address:x}: expected {len(data)}, got {written}")
 
 
-def checked_apply_patch(pid: int, anchor: dict[str, Any], plan: PatchPlan) -> dict[str, Any]:
-    address = static_va_host(anchor, plan.static_va)
-    actual = re4.read_process(pid, address, len(plan.expected))
-    if actual != plan.expected:
-        raise RE5Error(
-            f"{plan.name} expected bytes mismatch at static 0x{plan.static_va:x}: "
-            f"expected {plan.expected.hex()}, got {actual.hex()}"
-        )
-    write_process(pid, address, plan.replacement)
-    if re4.read_process(pid, address, len(plan.replacement)) != plan.replacement:
-        raise RE5Error(f"{plan.name} live-process patch verification failed")
-    return {
-        "name": plan.name,
-        "static_va": f"0x{plan.static_va:x}",
-        "expected_bytes": plan.expected.hex(),
-        "diagnostic_bytes": plan.replacement.hex(),
-        "instruction_boundary_whole": True,
-    }
-
-
-def checked_restore_patch(pid: int, anchor: dict[str, Any], plan: PatchPlan) -> None:
-    address = static_va_host(anchor, plan.static_va)
-    actual = re4.read_process(pid, address, len(plan.replacement))
-    if actual != plan.replacement:
-        raise RE5Error(
-            f"{plan.name} diagnostic bytes changed before restore: "
-            f"expected {plan.replacement.hex()}, got {actual.hex()}"
-        )
-    write_process(pid, address, plan.expected)
-    restored = re4.read_process(pid, address, len(plan.expected))
-    if restored != plan.expected:
-        raise RE5Error(f"{plan.name} restore verification failed: got {restored.hex()}")
-
-
 def parse_proc_state_code(state_line: str) -> str:
     """Return the one-letter /proc State code, never text from the label/body."""
     if not state_line.startswith("State:"):
@@ -193,8 +168,9 @@ def parse_proc_state_code(state_line: str) -> str:
     return payload.split(None, 1)[0]
 
 
-def paused_read_process(pid: int, address: int, size: int) -> bytes:
-    """Take one coherent bounded sample while the DOSBox process is stopped."""
+@contextmanager
+def stopped_process(pid: int):
+    """Stop DOSBox, verify the actual /proc state code, then resume on exit."""
     os.kill(pid, signal.SIGSTOP)
     try:
         deadline = time.monotonic() + 0.25
@@ -202,18 +178,61 @@ def paused_read_process(pid: int, address: int, size: int) -> bytes:
             try:
                 status = Path(f"/proc/{pid}/status").read_text(encoding="utf-8")
             except FileNotFoundError as exc:
-                raise RE5Error("DOSBox exited before paused memory sample") from exc
+                raise RE5Error("DOSBox exited before stopped-process operation") from exc
             state_line = next((line for line in status.splitlines() if line.startswith("State:")), "")
-            state_code = parse_proc_state_code(state_line)
-            if state_code in {"T", "t"}:
-                return re4.read_process(pid, address, size)
+            if parse_proc_state_code(state_line) in {"T", "t"}:
+                yield
+                return
             time.sleep(0.001)
-        raise RE5Error("DOSBox did not enter stopped state for bounded memory sample")
+        raise RE5Error("DOSBox did not enter stopped state for bounded process operation")
     finally:
         try:
             os.kill(pid, signal.SIGCONT)
         except ProcessLookupError:
             pass
+
+
+def checked_apply_patch(pid: int, anchor: dict[str, Any], plan: PatchPlan) -> dict[str, Any]:
+    address = static_va_host(anchor, plan.static_va)
+    with stopped_process(pid):
+        actual = re4.read_process(pid, address, len(plan.expected))
+        if actual != plan.expected:
+            raise RE5Error(
+                f"{plan.name} expected bytes mismatch at static 0x{plan.static_va:x}: "
+                f"expected {plan.expected.hex()}, got {actual.hex()}"
+            )
+        write_process(pid, address, plan.replacement)
+        if re4.read_process(pid, address, len(plan.replacement)) != plan.replacement:
+            raise RE5Error(f"{plan.name} live-process patch verification failed")
+    return {
+        "name": plan.name,
+        "static_va": f"0x{plan.static_va:x}",
+        "expected_bytes": plan.expected.hex(),
+        "diagnostic_bytes": plan.replacement.hex(),
+        "instruction_boundary_whole": True,
+        "process_stopped_during_write": True,
+    }
+
+
+def checked_restore_patch(pid: int, anchor: dict[str, Any], plan: PatchPlan) -> None:
+    address = static_va_host(anchor, plan.static_va)
+    with stopped_process(pid):
+        actual = re4.read_process(pid, address, len(plan.replacement))
+        if actual != plan.replacement:
+            raise RE5Error(
+                f"{plan.name} diagnostic bytes changed before restore: "
+                f"expected {plan.replacement.hex()}, got {actual.hex()}"
+            )
+        write_process(pid, address, plan.expected)
+        restored = re4.read_process(pid, address, len(plan.expected))
+        if restored != plan.expected:
+            raise RE5Error(f"{plan.name} restore verification failed: got {restored.hex()}")
+
+
+def paused_read_process(pid: int, address: int, size: int) -> bytes:
+    """Take one coherent bounded sample while the DOSBox process is stopped."""
+    with stopped_process(pid):
+        return re4.read_process(pid, address, size)
 
 
 def sample_record(pid: int, record_host: int) -> dict[str, str]:
@@ -238,12 +257,20 @@ def arm_planet_mode(pid: int, record_host: int, inp: re4.XInput, managed: bool) 
     return re4.wait_field(pid, record_host + re4.STATE_OFFSET, expected, timeout=1.0)
 
 
-def monitor_turn(pid: int, record_host: int, timeout: float) -> dict[str, Any]:
+def monitor_turn(pid: int, record_host: int, anchor: dict[str, Any], timeout: float) -> dict[str, Any]:
     start = time.perf_counter()
     deadline = start + timeout
     window_offset = 0x50
     window_size = 0x12
-    initial = paused_read_process(pid, record_host + window_offset, window_size)
+    stardate_address = anchor_delta_host(anchor, STARDATE_ANCHOR_DELTA, 4)
+
+    def coherent_sample() -> tuple[bytes, int]:
+        with stopped_process(pid):
+            window = re4.read_process(pid, record_host + window_offset, window_size)
+            stardate = int.from_bytes(re4.read_process(pid, stardate_address, 4), "little")
+        return window, stardate
+
+    initial, initial_stardate = coherent_sample()
     slot_index = SLOT_OFFSET - window_offset
     action_index = ACTION_OFFSET - window_offset
     state_index = re4.STATE_OFFSET - window_offset
@@ -259,8 +286,9 @@ def monitor_turn(pid: int, record_host: int, timeout: float) -> dict[str, Any]:
     slot_values: list[str] = []
     previous_slot = initial_slot
     final_window = initial
+    final_stardate = initial_stardate
     while time.perf_counter() < deadline:
-        final_window = paused_read_process(pid, record_host + window_offset, window_size)
+        final_window, final_stardate = coherent_sample()
         slot = final_window[slot_index:slot_index + 2]
         action = final_window[action_index]
         now_ms = (time.perf_counter() - start) * 1000.0
@@ -282,6 +310,14 @@ def monitor_turn(pid: int, record_host: int, timeout: float) -> dict[str, Any]:
         "first_action_change_ms": None if first_action_change_ms is None else round(first_action_change_ms, 3),
         "observed_slot_values": slot_values[:16],
         "sampling": {"process_paused_per_sample": True, "interval_ms": 25},
+        "turn_progress": {
+            "witness": "upper-right stardate dword",
+            "anchor_delta": f"+0x{STARDATE_ANCHOR_DELTA:x}",
+            "width": 4,
+            "initial": initial_stardate,
+            "final": final_stardate,
+            "delta": final_stardate - initial_stardate,
+        },
         "final": {
             "owner_0x57": final_window[OWNER_OFFSET - window_offset:OWNER_OFFSET - window_offset + 1].hex(),
             "slot_0x52": final_window[slot_index:slot_index + 2].hex(),
@@ -298,6 +334,10 @@ def validate_scenario(spec: ScenarioSpec, trace: dict[str, Any]) -> None:
     expected_state = re4.MANAGED.hex() if spec.managed else re4.MANUAL.hex()
     if final["managed_0x5a"] != expected_state:
         raise RE5Error(f"{spec.name}: +0x5a drifted from armed state")
+    if spec.name in {"manual-control", "manual-gate-probe", "managed-policy-suppressed"}:
+        progress = trace.get("turn_progress", {})
+        if progress.get("delta", 0) <= 0:
+            raise RE5Error(f"{spec.name}: stardate did not advance during negative-result window")
     if spec.name == "manual-control":
         if first_slot is not None or first_action is not None:
             raise RE5Error("manual-control unexpectedly selected or committed an automatic action")
@@ -388,7 +428,7 @@ def run_scenario(root: Path, dosbox: str, timeout: float, spec: ScenarioSpec) ->
         time.sleep(0.8)
         inp.move_to(593, 68)
         inp.click()  # fast-forward
-        trace = monitor_turn(proc.pid, record_host, timeout)
+        trace = monitor_turn(proc.pid, record_host, anchor, timeout)
         inp.click()  # stop fast-forward before restore
         time.sleep(0.15)
         validate_scenario(spec, trace)
@@ -461,14 +501,19 @@ def summarize_causality(results: list[dict[str, Any]]) -> dict[str, Any]:
     if set(by_name) != {spec.name for spec in SCENARIOS} or any(item.get("status") != "passed" for item in results):
         raise RE5Error("cannot summarize incomplete RE5 scenario set")
     return {
+        "manual_turn_progress_witnessed": by_name["manual-control"]["turn_trace"]["turn_progress"]["delta"] > 0,
+        "manual_gate_probe_turn_progress_witnessed": by_name["manual-gate-probe"]["turn_trace"]["turn_progress"]["delta"] > 0,
+        "policy_suppressed_turn_progress_witnessed": by_name["managed-policy-suppressed"]["turn_trace"]["turn_progress"]["delta"] > 0,
         "manual_stays_idle": by_name["manual-control"]["turn_trace"]["first_action_change_ms"] is None,
         "manual_does_not_reach_gate_policy_call": by_name["manual-gate-probe"]["turn_trace"]["first_action_change_ms"] is None,
         "managed_reaches_gate_policy_call": (
-            by_name["managed-gate-probe"]["turn_trace"]["final"]["action_0x54"] == f"{GATE_MARKER_ACTION:02x}"
+            by_name["managed-gate-probe"]["turn_trace"]["final"]["action_0x54"]
+            == f"{GATE_MARKER_ACTION:02x}"
         ),
         "override_path_inactive_for_manual_probe": (
             by_name["manual-gate-probe"]["turn_trace"]["first_action_change_ms"] is None
-            and by_name["managed-gate-probe"]["turn_trace"]["final"]["action_0x54"] == f"{GATE_MARKER_ACTION:02x}"
+            and by_name["managed-gate-probe"]["turn_trace"]["final"]["action_0x54"]
+            == f"{GATE_MARKER_ACTION:02x}"
         ),
         "managed_commits_action": by_name["managed-control"]["turn_trace"]["first_action_change_ms"] is not None,
         "gate_policy_call_is_necessary": by_name["managed-policy-suppressed"]["turn_trace"]["first_action_change_ms"] is None,
@@ -479,6 +524,49 @@ def summarize_causality(results: list[dict[str, Any]]) -> dict[str, Any]:
             "leave downstream 0x3d8f0 policy and 0x34b0c mutation unchanged"
         ),
     }
+
+
+def focused_result_path(artifacts: Path, scenario_name: str) -> Path:
+    return artifacts / f"run-{scenario_name}.json"
+
+
+def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict[str, Any] | None:
+    paths = [focused_result_path(artifacts, spec.name) for spec in SCENARIOS]
+    if not all(path.is_file() for path in paths):
+        return None
+    scenarios: list[dict[str, Any]] = []
+    common_window: float | None = None
+    for spec, path in zip(SCENARIOS, paths):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if record.get("status") != "passed" or record.get("target") != expected["target"] or record.get("fixture") != expected["fixture"]:
+            raise RE5Error(f"focused artifact identity/status mismatch: {path.name}")
+        if len(record.get("scenarios", [])) != 1 or record["scenarios"][0].get("name") != spec.name:
+            raise RE5Error(f"focused artifact scenario mismatch: {path.name}")
+        window = record.get("window_seconds")
+        if common_window is None:
+            common_window = window
+        elif window != common_window:
+            raise RE5Error("focused artifact window_seconds mismatch")
+        scenarios.append(record["scenarios"][0])
+    assert common_window is not None
+    aggregate = {
+        "schema": 1,
+        "roadmap_item": "RE5",
+        "blind_re_provenance": "clean",
+        "evidence_class": "runtime",
+        "target": expected["target"],
+        "fixture": expected["fixture"],
+        "window_seconds": common_window,
+        "diagnostic_runtime_patches_are_process_memory_only": True,
+        "source_artifacts": [path.name for path in paths],
+        "scenarios": scenarios,
+        "causality": summarize_causality(scenarios),
+        "status": "passed",
+    }
+    (artifacts / "run-aggregate.json").write_text(
+        json.dumps(aggregate, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return aggregate
 
 
 def main() -> int:
@@ -529,12 +617,17 @@ def main() -> int:
     except Exception as exc:
         result["status"] = "failed"
         result["failure"] = f"{type(exc).__name__}: {exc}"
-    (args.artifacts / "run.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output_path = args.artifacts / "run.json" if args.scenario == "all" else focused_result_path(args.artifacts, args.scenario)
+    output_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if result["status"] != "passed":
         print(f"RE5: FAIL: {result['failure']}")
         return 1
     if args.scenario == "all":
         print("RE5 causal turn path: PASS")
+    else:
+        aggregate = aggregate_focused_results(args.artifacts, {"target": result["target"], "fixture": result["fixture"]})
+        if aggregate is not None:
+            print("RE5 focused artifacts aggregated: PASS")
     return 0
 
 

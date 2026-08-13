@@ -259,16 +259,23 @@ See [`../experiments/RE3-static-turn-path.md`](../experiments/RE3-static-turn-pa
 
 Evidence class: **runtime**. Blind-RE provenance: **clean**. Full procedure and bounded observations are in [`../experiments/RE5-runtime-turn-path.md`](../experiments/RE5-runtime-turn-path.md).
 
-On the exact canonical target and pinned `resume.gam`, the same player planet `Xerxes I` starts with `+0x52 == 0xffff`, `+0x54 == 0xff` and `+0x5a == 0`. Six fresh-process causal controls, all rerun after correcting the stopped-state parser, establish the runtime layering:
+On the exact canonical target and pinned `resume.gam`, the same player planet `Xerxes I` starts with `+0x52 == 0xffff`, `+0x54 == 0xff` and `+0x5a == 0`. The six-scenario causal model is preserved, with the three load-bearing negative scenarios rerun after adding an independent positive-control witness:
 
-1. **Manual control:** with `+0x5a == 0`, neither `+0x52` nor `+0x54` changes during the bounded fast-forward window.
-2. **Manual gate probe:** after exact-byte validation, the complete `0x3c118` call is replaced by `c6 42 54 7e 90` (`mov byte [edx+0x54],0x7e; nop`). With `+0x5a == 0`, marker `0x7e` never appears during the 7-second window.
+- a runtime-only dword at RE2-anchor-relative `+0x5e657` tracks the upper-right five-digit stardate on this exact target. Stopped-process spot checks matched memory `35` with UI `00035` and `148` with UI `00148`; one memory `80` sample observed UI `00079`, consistent with one rendered frame of lag. This relationship is deliberately **not** published as a guessed DOS/4G guest/static data address;
+- diagnostic code apply/verify and restore/re-verify now occur only while DOSBox is confirmed stopped, preventing a partial 3- or 5-byte instruction from being fetched by the guest interpreter.
+
+The scenarios establish the runtime layering:
+
+1. **Manual control:** with `+0x5a == 0`, neither `+0x52` nor `+0x54` changes while the independent stardate witness advances `0 -> 219`.
+2. **Manual gate probe:** after exact-byte validation, the complete `0x3c118` call is replaced by `c6 42 54 7e 90` (`mov byte [edx+0x54],0x7e; nop`). With `+0x5a == 0`, `Xerxes I` never receives marker `0x7e` while the stardate witness advances `0 -> 1`. This establishes at least one processed stardate progress unit with a negative gate oracle; it does not claim continuous seven-second turn throughput. The call-site marker is process-wide and may write `0x7e` into other planet records that reach the site while installed; the process is throwaway and code bytes are restored before teardown.
 3. **Managed gate probe:** the same marker replacement with `+0x5a == 0xffffffff` writes `0x7e` to `+0x54` while `+0x52` stays `ffff`, directly proving reachability of `0x3c118` without running the policy.
 4. **Managed control:** ordinary M produces the RE4-confirmed `+0x5a == 0xffffffff`; the existing turn path then selects `+0x52 = 0x0034` and commits `+0x54 = 0x00`.
-5. **Gate→policy intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x3c118` `call 0x3d8f0` (`e8 d3 17 00 00`). Managed remains set, but neither selection nor action mutation occurs. Original call bytes are restored and re-verified before teardown.
+5. **Gate→policy intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x3c118` `call 0x3d8f0` (`e8 d3 17 00 00`). Managed remains set and neither selection nor action mutation occurs while the stardate witness advances `0 -> 231`. Original call bytes are restored and re-verified while DOSBox is stopped.
 6. **Action-commit intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x34df2` `mov [esi+0x54], al` (`88 46 54`). `+0x52` still changes from `ffff` to `3400`, while `+0x54` remains `ff`. Original bytes are restored and re-verified.
 
-The paired gate probes close RE3 H4 for the pinned M1 scenario: static RE3 control flow allows a Manual `+0x5a == 0` planet to reach `0x3c118` only through the separate nonzero override path. Manual does not reach the marker while Managed does, so that override bypass is inactive in this tested Manual run. Its broader gameplay semantics remain unknown.
+The positive-control witness closes the “no turn/date progress happened” alternative for the negative scenarios. The paired gate probes close RE3 H4 for the pinned M1 scenario: static RE3 control flow allows a Manual `+0x5a == 0` planet to reach `0x3c118` only through the separate nonzero override path. The Manual probe processes at least one stardate progress unit without marking `Xerxes I`, while Managed reaches the marker, so that override bypass is inactive in this tested Manual run. Its broader gameplay semantics remain unknown.
+
+Focused runs now preserve `run-<scenario>.json` separately. When all six are present, the runner re-verifies common target/fixture identity and scenario membership, recomputes the causal summary, and writes `run-aggregate.json` without starting DOSBox. The review-time aggregate combined the three newly rerun negative artifacts with the three already-preserved corrected-head positive artifacts; no extra target launch was made for aggregation.
 
 This converts RE3's static layer model into a causal runtime relationship for the tested M1 path:
 

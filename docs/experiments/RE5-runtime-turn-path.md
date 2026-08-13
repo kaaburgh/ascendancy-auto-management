@@ -60,15 +60,23 @@ Before either live diagnostic patch, the runner requires the exact canonical ins
 
 A zero/ambiguous runtime anchor, unexpected bytes, short process read/write, missing structured `Xerxes I` record, non-empty initial `+0x52/+0x54`, unexpected state transition, or failed patch restore fails closed. Each patched scenario runs in a fresh process and temporary copy of the retail tree. Original bytes are restored and byte-verified before process teardown; the repository or supplied retail tree is never modified.
 
-Raw memory snapshots and host addresses are not written to artifacts. `run.json` retains only hashes, mapping size/relative anchor offset, object-relative state values, static patch sites/bytes, bounded timing observations and pass/fail oracles.
+Raw memory snapshots and host addresses are not written to artifacts. Scenario artifacts retain only hashes, mapping size/relative anchor offsets, object-relative state values, static patch sites/bytes, bounded timing observations, the bounded stardate progress witness, and pass/fail oracles. Focused runs write `run-<scenario>.json`; `--scenario all` writes `run.json`.
 
 ### Stable sampling under fast-forward
 
 An early clean-run attempt exposed an instrumentation problem: concurrent `/proc/<pid>/mem` polling can stall while DOSBox is executing the `normal` core at fast-forward. This was treated as a diagnostic-tool failure rather than target evidence.
 
-The final runner stops DOSBox with `SIGSTOP` for each small `0x12`-byte sample, waits until `/proc/<pid>/status` reports an actual stopped-state code (`T` or `t`) **after** the `State:` colon, performs one bounded read, resumes with `SIGCONT`, and samples at 25 ms intervals. A review found that the first implementation searched for the letters `T`/`t` anywhere in the whole `State:` line; lowercase `t` in the label itself made that check vacuous. The parser now extracts the state code explicitly, focused tests cover `R`, `S`, `T`, and `t`, and all six exact-target scenarios below were rerun after the correction.
+The final runner stops DOSBox with `SIGSTOP`, waits until `/proc/<pid>/status` reports an actual stopped-state code (`T` or `t`) **after** the `State:` colon, performs a bounded operation, and resumes with `SIGCONT`. Sampling reads the `Xerxes I` record window and the independent stardate witness in the same stopped interval. A review found that the first implementation searched for the letters `T`/`t` anywhere in the whole `State:` line; lowercase `t` in the label itself made that check vacuous. The parser now extracts the state code explicitly and focused tests cover `R`, `S`, `T`, and `t`.
 
-This produces coherent bounded observations and prevents an unbounded memory read. The observed millisecond values below therefore describe the diagnostic sampling window; they are **not** instruction-level or gameplay-performance measurements.
+The same stopped-process primitive now also wraps diagnostic code apply, exact-byte verification, restore, and restore verification. This prevents the guest interpreter from fetching a partially written 3- or 5-byte instruction. The required positive-control reruns below exercised that paused-write path for the gate marker and policy-suppression patches; no additional DOSBox run was made solely for this safety refactor.
+
+### Independent turn-progress witness
+
+The load-bearing negative oracles need to distinguish “this planet stayed idle” from “the game processed no turn/date progress during the observation window.” A bounded runtime search identified one exact-target, runtime-only witness at **RE2 anchor-relative `+0x5e657`**: a little-endian dword that tracks the upper-right five-digit stardate display. Stopped-process spot checks matched `35` with UI `00035` and `148` with UI `00148`; one sample read memory `80` while the rendered UI still showed `00079`, consistent with the display being one render behind at the stop boundary.
+
+RE5 does **not** publish this as a guessed DOS/4G guest/static data address. It is scoped only to the uniquely resolved canonical runtime mapping and recorded as an anchor-relative relationship. The three negative-result scenarios now require this dword to increase (`delta > 0`) during their bounded windows. That is the positive control: at least one stardate progress unit was processed while the negative planet/path oracle remained negative.
+
+These stopped samples produce coherent bounded observations. The observed millisecond values below are diagnostic sampling-window measurements, not instruction-level or gameplay-performance timings.
 
 ## Procedure
 
@@ -79,11 +87,13 @@ For every sub-scenario the runner starts from a fresh copy of the same pinned fi
 3. require a unique RE4 runtime anchor and unique player-owned `Xerxes I` record;
 4. require `+0x52 == 0xffff` and `+0x54 == 0xff`;
 5. leave the planet Manual or toggle ordinary **M** to the RE4-confirmed `+0x5a == 0xffffffff` Managed state;
-6. apply the scenario's optional live-process diagnostic patch after exact-byte validation;
-7. return to the main screen, enable fast-forward, and sample `+0x52/+0x54/+0x5a` for a bounded 7-second window;
-8. stop fast-forward, validate the scenario oracle, restore/verify any diagnostic instruction bytes, and terminate the temporary process.
+6. apply the scenario's optional live-process diagnostic patch while DOSBox is confirmed stopped, after exact-byte validation;
+7. return to the main screen, enable fast-forward, and coherently sample `+0x52/+0x54/+0x5a` plus the anchor-relative stardate witness for a bounded 7-second window;
+8. stop fast-forward, validate the scenario oracle (including positive turn progress for negative scenarios), restore/verify any diagnostic instruction bytes while stopped, and terminate the temporary process.
 
-The six final sub-scenarios were executed individually because the surrounding container tool imposes a shorter single-command wall-time than six fresh DOSBox startups combined. Each focused invocation is the same code path selected by `--scenario`; `--scenario all` remains the one-command operator path where the host permits the combined runtime.
+The original six-scenario confirmation was executed as focused invocations because the surrounding container tool imposes a shorter single-command wall-time than six fresh DOSBox startups combined. Focused runs now preserve separate `run-<scenario>.json` files. When all six are present, the runner re-verifies target/fixture identity and scenario membership, recomputes `summarize_causality`, and writes `run-aggregate.json` without starting DOSBox.
+
+For this review correction, only the three load-bearing negative scenarios were rerun because they require the new progress witness. The aggregate was then produced from those three new artifacts plus the three already-preserved positive corrected-head artifacts (`managed-gate-probe`, `managed-control`, `managed-action-write-suppressed`). No extra DOSBox launch was made for aggregation or paused-write safety.
 
 ## Final observations
 
@@ -97,12 +107,15 @@ Pinned start/armed state:
 +0x5a = 00000000
 ```
 
-Observed for `7014.826 ms` with corrected stopped-state sampling:
+Observed for `7015.588 ms` with coherent stopped-state sampling:
 
 - no `+0x52` change;
 - no `+0x54` change;
 - `+0x5a` remained zero;
+- independent stardate witness advanced `0 -> 219` (`delta = 219`);
 - DOSBox remained alive.
+
+The positive control therefore rules out “no turn/date progress occurred” for this negative result.
 
 Result: **PASS**.
 
@@ -110,14 +123,17 @@ Result: **PASS**.
 
 After exact-byte validation, the runner replaced the complete `0x3c118` call (`e8 d3 17 00 00`) with `c6 42 54 7e 90`, which writes marker byte `0x7e` to `[EDX+0x54]` and does not invoke the policy. RE3 independently established that `EDX` is the current planet pointer at this call site.
 
-With `+0x5a == 0`, observed for `7018.474 ms`:
+With `+0x5a == 0`, observed for `7005.156 ms`:
 
 - `+0x52` remained `ffff`;
-- `+0x54` remained `ff` — marker `7e` never appeared;
+- `+0x54` remained `ff` — marker `7e` never appeared on `Xerxes I`;
 - `+0x5a` remained `00000000`;
-- original call bytes were restored and byte-verified.
+- independent stardate witness advanced `0 -> 1` (`delta = 1`);
+- patch apply/verify and restore/re-verify occurred while DOSBox was confirmed stopped.
 
-Result: **PASS**.
+Result: **PASS**. The positive control establishes **at least one stardate progress unit** during which the pinned Manual planet did not reach the marker. It does not claim continuous seven-second turn throughput.
+
+The marker replacement is process-wide at the shared call site: while installed, any other planet record that reaches `0x3c118` may also receive marker `0x7e` at its own `+0x54`. That is intentional bounded diagnostic mutation in a throwaway process, not persistent game state; the scenario oracle observes only the pinned `Xerxes I` record and the process is discarded after verified code restore.
 
 ### 3. Managed gate-reachability probe: the same `0x3c118` site is reached
 
@@ -163,13 +179,16 @@ Result: **PASS**.
 
 The runner verified `e8 d3 17 00 00` at static `0x3c118`, replaced the complete five-byte call with NOPs in the live process, then armed the same Managed state.
 
-Observed for `7023.444 ms` with corrected stopped-state sampling:
+Observed for `7008.927 ms` with coherent stopped-state sampling:
 
 - `+0x52` remained `ffff`;
 - `+0x54` remained `ff`;
 - `+0x5a` remained `ffffffff`;
-- original call bytes were restored and byte-verified;
+- independent stardate witness advanced `0 -> 231` (`delta = 231`);
+- patch apply/verify and restore/re-verify occurred while DOSBox was confirmed stopped;
 - DOSBox remained alive.
+
+The positive control therefore rules out “no turn/date progress occurred” as the explanation for the suppressed-path negative result.
 
 Result: **PASS**.
 
@@ -203,13 +222,15 @@ Therefore `0x3df88` is **not** established as the unique runtime policy-to-mutat
 
 ### Established, runtime, clean
 
-1. With the same player-owned planet and empty-action preconditions, the `0x3c118` marker probe is not reached in Manual (`+0x5a == 0`) and is reached in Managed (`+0x5a == 0xffffffff`).
-2. Because RE3 statically shows that the only Manual bypass around zero `+0x5a` is the separate override branch, the paired probe establishes that override bypass inactive in the pinned Manual scenario.
-3. Legacy Manual remains idle in the bounded turn window while legacy Managed selects and commits an automatic action.
-4. The exact RE3 gate-to-policy call `0x3c118 -> 0x3d8f0` is necessary for that Managed automatic action in the tested scenario.
-5. Policy/selection output is observable as `+0x52` changing before/currently with action assignment.
-6. The exact `0x34df2` write to `[planet+0x54]` is a necessary current-action commit seam; suppressing it does not suppress the upstream `+0x52` selection.
-7. The safest M1 integration model is therefore to preserve the game's existing legacy automation gate and downstream policy/mutation machinery rather than hook or reimplement the AI.
+1. The anchor-relative stardate dword provides an independent positive control that turn/date progress occurred during each load-bearing negative scenario.
+2. With the same player-owned planet and empty-action preconditions, the `0x3c118` marker is not reached in Manual (`+0x5a == 0`) while at least one stardate unit advances, and is reached in Managed (`+0x5a == 0xffffffff`).
+3. Because RE3 statically shows that the only Manual bypass around zero `+0x5a` is the separate override branch, the paired probe establishes that override bypass inactive in the pinned Manual scenario.
+4. Legacy Manual remains idle while stardate advances; legacy Managed selects and commits an automatic action.
+5. The exact RE3 gate-to-policy call `0x3c118 -> 0x3d8f0` is necessary for that Managed automatic action: with the call suppressed, stardate advances by 231 while selection/action stay empty.
+6. Policy/selection output is observable as `+0x52` changing before/currently with action assignment.
+7. The exact `0x34df2` write to `[planet+0x54]` is a necessary current-action commit seam; suppressing it does not suppress the upstream `+0x52` selection.
+8. Diagnostic instruction writes/restores are performed only while DOSBox is confirmed stopped, preventing torn guest instruction fetches.
+9. The safest M1 integration model is therefore to preserve the game's existing legacy automation gate and downstream policy/mutation machinery rather than hook or reimplement the AI.
 
 ### M1 handoff
 
@@ -266,8 +287,8 @@ Focused retry/diagnosis uses one of:
 --scenario managed-action-write-suppressed
 ```
 
-`run.json` is repo-safe by construction and contains no target binary, save payload, raw memory snapshot, host pointer, proprietary asset, secret, or user data.
+Focused runs write `run-<scenario>.json`; `--scenario all` writes `run.json`. When the six focused files coexist, the runner verifies their target/fixture identity and writes tool-produced `run-aggregate.json` with the composed causal summary. All of these JSON artifacts are repo-safe by construction and contain no target binary, save payload, raw memory snapshot, host pointer, proprietary asset, secret, or user data.
 
 ## Result
 
-**RE5 acceptance is met for the canonical M1 target.** Corrected coherent-sampling runtime evidence now shows direct gate-site reachability discrimination: Manual `+0x5a == 0` does not reach `0x3c118`, Managed `+0x5a == 0xffffffff` does, and the RE3 override bypass is therefore inactive in the pinned Manual scenario. The same rerun confirms the policy-call necessity and separates automatic selection from action commit. M1 architecture can map both automated profile identities back to the existing legacy automated semantics before `0x3c118` while leaving `0x3d8f0` and downstream action mutation untouched.
+**RE5 acceptance is met for the canonical M1 target.** The negative results now carry their own independent positive control: the anchor-relative stardate witness advances while Manual remains idle, while the Manual gate marker remains absent, and while the Managed policy call is suppressed. In particular, the Manual gate probe processed at least one stardate progress unit without marking `Xerxes I`, while the Managed probe reaches the same call site; together with RE3's static gate this establishes the override bypass inactive in the pinned Manual scenario. The policy-call intervention and action-write intervention preserve the decision/commit separation. M1 architecture can map both automated profile identities back to the existing legacy automated semantics before `0x3c118` while leaving `0x3d8f0` and downstream action mutation untouched.

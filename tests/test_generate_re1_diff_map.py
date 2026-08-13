@@ -112,6 +112,19 @@ class RE1DiffMapTests(unittest.TestCase):
         self.assertFalse(changed["corroborated"])
         self.assertFalse(mismatched_pair["corroborated"])
 
+    def test_ambiguous_english_product_pair_cannot_corroborate(self):
+        status = module.cross_locale_status(
+            0x1000,
+            None,
+            "reference_only",
+            {0x1000: (0x1010, "exact")},
+            {0x2000: (0x2010, "exact")},
+            {0x1010: (0x2010, "reference_only")},
+            set(),
+        )
+        self.assertFalse(status["corroborated"])
+        self.assertIsNone(status["patch_intl_address"])
+
     def test_structural_corroboration_never_invents_patch_pair(self):
         status = module.cross_locale_status(
             0x1000,
@@ -126,7 +139,7 @@ class RE1DiffMapTests(unittest.TestCase):
         self.assertIsNone(status["patch_intl_address"])
         self.assertEqual(status["intl_product_class"], "structural")
 
-    def test_unique_locale_pair_is_mapped(self):
+    def test_unique_pair_is_mapped(self):
         left = function(0x1000, "same", "same", "same")
         right = function(0x2000, "same", "same", "same")
         mapping, ambiguous = module.unambiguous_pair_map(
@@ -140,8 +153,12 @@ class RE1DiffMapTests(unittest.TestCase):
         )
         self.assertEqual(mapping, {0x1000: (0x2000, "exact")})
         self.assertEqual(ambiguous["exact"], 0)
+        self.assertEqual(
+            module.resolve_product_pair(mapping, 0x1000, "exact"),
+            (0x2000, "unambiguous"),
+        )
 
-    def test_duplicate_locale_signatures_are_not_mapped_by_pair_order(self):
+    def test_duplicate_signatures_are_not_mapped_by_pair_order(self):
         left_a = function(0x1000, "dup", "left-a", "shape-a")
         left_b = function(0x1100, "dup", "left-b", "shape-b")
         right_a = function(0x2000, "dup", "right-a", "shape-c")
@@ -157,6 +174,32 @@ class RE1DiffMapTests(unittest.TestCase):
         )
         self.assertEqual(mapping, {})
         self.assertEqual(ambiguous["exact"], 2)
+        self.assertEqual(
+            module.resolve_product_pair(mapping, 0x1000, "exact"),
+            (None, "ambiguous"),
+        )
+
+    def test_duplicate_english_reference_pairs_publish_no_right_address(self):
+        left_a = function(0x1000, "left-a", "dup-ref", "shape-a")
+        left_b = function(0x1100, "left-b", "dup-ref", "shape-b")
+        right_a = function(0x2000, "right-a", "dup-ref", "shape-c")
+        right_b = function(0x2100, "right-b", "dup-ref", "shape-d")
+        diff = {
+            "exact": [],
+            "reference_only": [(left_a, right_a), (left_b, right_b)],
+            "constant_only": [],
+            "structural_left": [],
+            "structural_right": [],
+        }
+        mapping, ambiguous = module.unambiguous_pair_map(diff)
+        self.assertEqual(mapping, {})
+        self.assertEqual(ambiguous["reference_only"], 2)
+        for left, _right in diff["reference_only"]:
+            patch_address, status = module.resolve_product_pair(
+                mapping, int(left["address"]), "reference_only"
+            )
+            self.assertIsNone(patch_address)
+            self.assertEqual(status, "ambiguous")
 
     def test_stage_uniqueness_includes_later_leftovers(self):
         left_pair = function(0x1000, "left-a", "dup-ref", "shape-a")
@@ -175,11 +218,11 @@ class RE1DiffMapTests(unittest.TestCase):
         self.assertEqual(ambiguous["reference_only"], 1)
 
     def test_candidate_sort_is_deterministic_and_evidence_first(self):
-        def candidate(address, cls, corroborated, callers, byte_length):
+        def candidate(address, cls, corroborated, incoming_call_sites, byte_length):
             return {
                 "antag_en_address": address,
                 "class": cls,
-                "callers": callers,
+                "incoming_call_sites": incoming_call_sites,
                 "byte_length": byte_length,
                 "cross_locale": {"corroborated": corroborated},
             }

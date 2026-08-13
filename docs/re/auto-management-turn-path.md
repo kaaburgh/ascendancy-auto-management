@@ -14,7 +14,7 @@ Corroboration inputs:
 
 Blind-RE provenance: **clean**. All target-specific conclusions below come from the hash-pinned binaries, current supported repository evidence from T1/T2/RE1, and independently generated static analysis. No external target-specific recovered knowledge was used.
 
-Evidence class is **static** unless stated otherwise. Semantic names in this note describe candidate roles supported by data flow; they are not recovered source symbols. Runtime causality remains RE5 work.
+Evidence class is **static** for the RE3 sections unless stated otherwise; the RE5 confirmation section below is explicitly **runtime** evidence. Semantic names in this note describe candidate roles supported by data flow; they are not recovered source symbols.
 
 ## Result in one graph
 
@@ -172,7 +172,9 @@ The first 45 bytes of the Antagonizer policy entry are byte-identical across loc
 
 This corroboration increases confidence that `+0x5a` is a pre-existing per-planet gate into generic AI behavior, but it still does not establish the UI write path. That remains deliberately independent RE2/RE4 work.
 
-## Working hypotheses for RE5
+## RE3 pre-runtime hypotheses handed to RE5
+
+> Historical static handoff: these falsifiers are retained to show what RE5 tested. The current runtime result is recorded in the RE5 confirmation section below.
 
 ### H1 — player automation state consumption
 
@@ -198,7 +200,9 @@ Falsifier: breakpoints show `0x34b0c` calls on this path that do not produce the
 
 RE5 should capture its value and establish a run where it is zero before using `+0x5a` as a causal discriminator.
 
-## Minimal runtime confirmation plan for RE5
+## RE3 runtime plan executed by RE5
+
+> Historical plan: RE5 kept the experiment bounded but used causal whole-instruction interventions instead of relying only on breakpoint hits. See the runtime confirmation below.
 
 RE5 depends on RE4, so use RE4's runtime-confirmed manual/automated planet identities rather than guessing them from this static note.
 
@@ -249,3 +253,50 @@ This experiment rejects multiple competing models in one turn and does not requi
 ## How this was established
 
 See [`../experiments/RE3-static-turn-path.md`](../experiments/RE3-static-turn-path.md) for the exact static procedure, byte-level cross-checks, cross-product/cross-locale observations, and tool provenance.
+
+
+## RE5 runtime confirmation
+
+Evidence class: **runtime**. Blind-RE provenance: **clean**. Full procedure and bounded observations are in [`../experiments/RE5-runtime-turn-path.md`](../experiments/RE5-runtime-turn-path.md).
+
+On the exact canonical target and pinned `resume.gam`, the same player planet `Xerxes I` starts with `+0x52 == 0xffff`, `+0x54 == 0xff` and `+0x5a == 0`. Four fresh-process causal controls establish the runtime layering:
+
+1. **Manual control:** with `+0x5a == 0`, neither `+0x52` nor `+0x54` changes during the bounded fast-forward window.
+2. **Managed control:** ordinary M produces the RE4-confirmed `+0x5a == 0xffffffff`; the existing turn path then selects `+0x52 = 0x0034` and commits `+0x54 = 0x00`.
+3. **Gate→policy intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x3c118` `call 0x3d8f0` (`e8 d3 17 00 00`). Managed remains set, but neither selection nor action mutation occurs. Original call bytes are restored and re-verified before teardown.
+4. **Action-commit intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x34df2` `mov [esi+0x54], al` (`88 46 54`). `+0x52` still changes from `ffff` to `3400`, while `+0x54` remains `ff`. Original bytes are restored and re-verified.
+
+This converts RE3's static layer model into a causal runtime relationship for the tested M1 path:
+
+```text
+legacy Manual: planet+0x5a == 0
+         |
+         `-- no automatic selection in the tested turn window
+
+legacy Managed: planet+0x5a != 0
+         |
+         v
+0x3c118 -> 0x3d8f0          runtime-necessary for tested selection/action
+         |
+         v
+selection output             observed as planet+0x52 change
+         |
+         v
+0x34b0c mutation path
+         |
+         `-- 0x34df2 writes planet+0x54   runtime commit seam
+```
+
+An exploratory clean run also NOPed only RE3's highlighted `0x3df88 -> 0x34b0c` call. The action still completed, so that call site is **not** treated as the unique runtime policy-to-mutation edge for this scenario. The exact downstream `0x34df2` write is the stronger established commitment boundary.
+
+### M1 preservation seam
+
+For M1, the new profile representation should preserve the legacy automation semantics **before `0x3c118`**:
+
+- `Manual` → original zero/non-automated state;
+- `Agricultural` and `Industrial` → original nonzero/automated semantics;
+- leave `0x3d8f0` and downstream selection/action mutation intact.
+
+This does **not** decide that all three profile identities belong in `+0x5a`. A1 still owns the representation/lifecycle decision; RE5 establishes only the compatibility contract back into the original automation behavior.
+
+The separate global override in the RE3 gate remains semantically unknown. RE5 intentionally does not publish a guessed runtime address/value for it because a trustworthy DOS/4G guest-linear mapping was not independently established. No M1 conclusion above depends on inventing that mapping.

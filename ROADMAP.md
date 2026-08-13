@@ -666,13 +666,26 @@ RE4 can be executed as a bounded experiment rather than an open-ended debugger s
 
 ## RE3 — Identify the per-turn self-management decision path statically
 
-- **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2 and T2; still dependency-blocked on RE1
+- **Status:** **Completed and verified** — clean blind-RE static turn path established; see [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) and [`docs/experiments/RE3-static-turn-path.md`](./docs/experiments/RE3-static-turn-path.md).
+- **Execution:** **CLOUD** — completed from the hash-pinned T2/RE1 static handoff and supplied exact target bytes; no RE2 output was required.
 - **Priority:** Critical
 - **Category:** Reverse engineering / turn processing
 - **Origin:** High-level step 3
-- **Depends on:** T2 (complete), RE1
+- **Depends on:** T2 (complete), RE1 (complete)
 - **Question:** Which call path reads planet self-management state and decides/builds the next automatic planet action during turn processing?
+
+### Outcome
+
+Static analysis separates the required layers on canonical `ANTAG_EN.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`):
+
+- `0x352e0`, one of RE1's strongest planet-cluster leads, is called for every planet from the turn orchestrator and is a general per-planet progression/update path rather than the best automation-policy seam;
+- race processing converges for non-player races and the current player through `0x3b220 -> 0x3b5b8`;
+- the final owned-planet loop in `0x3b5b8` applies a current-player-only `dword [planet+0x5a] != 0` predicate (with a separate unknown global override), then requires `byte [planet+0x54] == 0xff` before calling policy candidate `0x3d8f0`;
+- non-player owned planets bypass the player-only `+0x5a` predicate and reach the same policy candidate, supporting a shared generic-AI path;
+- `0x3d8f0` feeds selected values to `0x34b0c`, whose downstream path writes `[planet+0x52]` and `[planet+0x54]`, separating policy from action/queue mutation;
+- relevant internal calls were observed to pass live inputs through `EAX`, `EDX`, `EBX`, `ECX`, consistent with Watcom `__watcall`; this is backed by real call/callee data flow rather than compiler-default assumptions.
+
+The player gate and the same `+0x57/+0x5a/+0x54` object-relative relationships reproduce in the canonical patch baseline and both International corroboration builds. This strongly supports `+0x5a` as the existing player-automation gate consumed each turn, while deliberately leaving the UI write/state-transition identity for RE2/RE4 runtime confirmation.
 
 ### Work
 
@@ -689,14 +702,14 @@ Do not require full reconstruction of the AI algorithm. M1 only needs a safe sea
 
 ### Deliverables
 
-- `docs/re/auto-management-turn-path.md`;
-- calling-convention evidence or an explicit cross-reference to the RE2 evidence used;
-- candidate call graph/data-flow description tied to target hash;
-- a minimal runtime confirmation plan for RE5.
+- [x] `docs/re/auto-management-turn-path.md`;
+- [x] calling-convention evidence independently established at `0x3c118 -> 0x3d8f0` and four-register `0x3df88 -> 0x34b0c` call sites;
+- [x] candidate call graph/data-flow description tied to the exact canonical target hash, with baseline/International corroboration;
+- [x] a minimal runtime confirmation plan for RE5 in [`docs/experiments/RE3-static-turn-path.md`](./docs/experiments/RE3-static-turn-path.md).
 
 ### Acceptance criteria
 
-There is a falsifiable hypothesis for where mode state is consumed each turn and how existing self-management is reached, with ABI interpretation backed by evidence.
+**Met.** There is a falsifiable static hypothesis for where player automation state is consumed each turn and how the shared existing management policy reaches action/queue mutation, with ABI interpretation backed by direct call-site/callee evidence. RE5 is reduced to a bounded causal runtime experiment rather than a whole-turn trace.
 
 ---
 

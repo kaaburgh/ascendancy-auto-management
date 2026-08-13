@@ -156,9 +156,9 @@ Cloud-feasibility tasks are intentionally near the front so later work is not un
 
 The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone. X1 is `Open`/`CLOUD` but remains unselectable until its M1 dependency is completed.
 
-**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE5 are complete. **A1 and A2 are now selectable as CLOUD**; they are the current architecture front and may proceed from the completed RE4/RE5 runtime contract.
+**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE4 are complete. **RE5 is reopened as Investigation first / CLOUD** because the strengthened Manual gate discriminator is inconclusive. A1 and A2 remain dependency-blocked on RE5.
 
-RE4 runtime-confirmed the existing per-planet Managed field and immediate UI transition on two distinct planet records. RE5 runtime-confirmed its per-turn causal path into existing automatic management. A1 now owns the three-profile session-state representation; A2 owns the patch/integration mechanism.
+RE4 runtime-confirmed the existing per-planet Managed field and immediate UI transition on two distinct planet records. RE5 still establishes the Managed policy/commit layering, but the process-wide gate marker is strongly perturbing and the strengthened Manual run did not meet its precommitted evidence-strength target. RE5 now owns a less-perturbing Manual gate/override witness before A1/A2 may consume the automation-gate contract.
 
 ---
 
@@ -761,39 +761,46 @@ RE4 does **not** runtime-confirm the per-turn decision/policy/action path. RE3's
 
 ## RE5 — Runtime-confirm the per-turn self-management call path
 
-- **Status:** **Completed and verified** — clean exact-target runtime causality established; see [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) and [`docs/experiments/RE5-runtime-turn-path.md`](./docs/experiments/RE5-runtime-turn-path.md).
-- **Execution:** **CLOUD** — completed on the exact canonical Antagonizer with the pinned maintainer-supplied retail fixture, RE4 runtime harness, and `scripts/run_re5_runtime_turn_path.py`.
+- **Status:** **Investigation first** — reopened by the 2026-08-13 perturbation follow-up; the strengthened Manual gate/override discriminator is inconclusive. See [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) and [`docs/experiments/RE5-runtime-turn-path.md`](./docs/experiments/RE5-runtime-turn-path.md).
+- **Execution:** **CLOUD** — the exact canonical Antagonizer and pinned retail fixture remain runnable with the RE4/RE5 harness.
 - **Priority:** Critical
 - **Category:** Reverse engineering / runtime turn processing
 - **Origin:** High-level step 3
 - **Depends on:** RE3 (complete), RE4 (complete), CF3 (complete)
-- **Question:** Which runtime path consumes the confirmed auto-management state during a turn and reaches the existing planetary management decision/action code?
+- **Gates:** A1, A2 and all downstream implementation work that assumes the completed player automation-gate contract
+- **Question:** Which runtime path consumes the confirmed auto-management state during a turn, and can the Manual/override discriminator be established without materially perturbing the tested path?
 
-### Outcome
+### Current outcome
 
 `runtime`, clean blind-RE evidence on canonical `ANTAG.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`):
 
-- the same pinned `Xerxes I` resume begins with no selected/current action (`+0x52 == 0xffff`, `+0x54 == 0xff`); corrected coherent sampling shows Manual (`+0x5a == 0`) stays idle while the RE4-confirmed Managed state (`+0x5a == 0xffffffff`) selects `+0x52 = 0x0034` and commits `+0x54 = 0x00`;
-- a paired exact-byte gate probe replaces only the whole `0x3c118` call with `mov byte [edx+0x54],0x7e; nop`: in the corrected Manual rerun the independent anchor-relative stardate witness advanced by at least one unit while `Xerxes I` never received marker `0x7e`, whereas Managed reaches the marker; with RE3's static gate this establishes the separate override bypass inactive in the pinned Manual scenario without guessing a DOS/4G data address;
-- temporarily replacing the whole exact `0x3c118` `call 0x3d8f0` instruction (`e8 d3 17 00 00`) with five NOPs in the **live DOSBox process only** leaves the Managed state intact but prevents both selection and action mutation while the independent stardate witness advances (`delta = 231` in the corrected negative rerun); diagnostic instruction apply/restore is performed only while DOSBox is confirmed stopped, and original bytes are restored and re-verified before teardown;
-- temporarily replacing the whole `0x34df2` `mov [esi+0x54], al` instruction (`88 46 54`) with three NOPs still permits policy/selection output (`+0x52: ffff -> 3400`) while keeping `+0x54 == 0xff`; this separates upstream decision output from the current-action commit seam;
-- an exploratory suppression of RE3's highlighted internal `0x3df88 -> 0x34b0c` call did **not** prevent the tested action, so that individual call site is not promoted to the unique runtime mutation path; the downstream `0x34df2` write is the stronger established boundary;
-- the smallest M1 semantic preservation seam is therefore **before `0x3c118`**: `Manual` must map to the legacy zero/non-automated condition and both M1 automated profile identities must map back to the legacy nonzero/Managed semantics, while `0x3d8f0` and downstream selection/mutation stay untouched;
-- RE5 does not decide where the three-value profile identity lives. A1 still owns that representation decision, and it need not encode three values directly in `+0x5a`.
+- the **Managed** side remains established: the fixed-window gate probe first observes the `0x3c118` marker on `Xerxes I` at `25.946 ms`;
+- suppressing the complete `0x3c118 -> 0x3d8f0` call with five NOPs leaves Managed set while selection/action remain empty and the independent stardate witness advances `0 -> 233` over `7009.080 ms`; this preserves the runtime-necessary policy boundary;
+- Managed control still selects/commits, while suppressing only the exact `0x34df2` action-byte write preserves upstream selection and keeps `+0x54 == ff`; the decision/commit layering therefore remains established;
+- the process-wide `0x7e` marker is **strongly perturbing**: the fresh Managed marker probe advances only `+1` stardate unit in `7002.031 ms`, versus `+233` for the Managed NOP-control over essentially the same window; fresh Manual control advances `+232` in `7015.295 ms` and action-write suppression advances `+208` in `7020.877 ms`;
+- the strengthened `manual-gate-probe` runs to its `30 s` hard ceiling (`30017.889 ms`), never marks `Xerxes I`, but advances only `+1` stardate unit and therefore does **not** meet the precommitted target `4`;
+- the pinned save has no second player-owned planet that can form a hard same-player two-sided marker bracket. Opposite-side owned records (`Stavern I`, owner `1`; `Hurble I`, owner `5`) are marked and retained only as cross-race supplemental telemetry, not as a player-loop proof;
+- by the precommitted outcome table, `no Xerxes marker + no hard same-player bracket + positive progress below target at timeout` is **INCONCLUSIVE**. The former claim that the separate override bypass is runtime-confirmed inactive in this Manual scenario is withdrawn;
+- six fresh focused artifacts were captured and evaluated during the follow-up; five current scenario oracles pass and `manual-gate-probe` is inconclusive. The current-contract aggregator correctly fails closed and does not emit a causal `run-aggregate.json`. Missing raw JSON is not reconstructed from documentation.
 
-The separate RE3 override-global semantics remain unknown. RE5 deliberately does not publish a guessed runtime address/value for it because a trustworthy DOS/4G guest-linear mapping was not independently established; the paired call-site marker probe instead establishes that the override bypass is inactive in the pinned Manual scenario.
+The strongest current M1 seam remains **before `0x3c118` as a candidate**, because the Managed policy and downstream mutation boundaries are causally supported. It is not an unlocked architecture contract until RE5 closes the Manual/override ambiguity with less-perturbing evidence.
+
+### Next investigation
+
+Obtain a minimally perturbing player-loop reachability/override witness. Prefer either a trustworthy runtime relationship for the separate override condition or instrumentation that observes player-loop passage while preserving normal `+0x54` semantics. Do **not** strengthen the claim by merely extending the current process-wide marker window; its progression/performance interpretation is already heavily contaminated.
 
 ### Deliverables
 
-- [x] reproducible runtime experiment record at [`docs/experiments/RE5-runtime-turn-path.md`](./docs/experiments/RE5-runtime-turn-path.md);
-- [x] durable runtime findings merged into [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md);
-- [x] fail-closed runner `scripts/run_re5_runtime_turn_path.py` with exact fixture/resume identity, unique runtime anchor, whole-instruction expected-byte validation, process-memory-only diagnostic patches and verified rollback;
-- [x] 14 focused synthetic tests for record uniqueness, runtime-site translation, patch-plan instruction sizes, stopped-state parsing, positive-control enforcement, focused-artifact aggregation and all six causal oracles.
+- [x] reproducible original RE5 experiment and durable historical findings;
+- [x] follow-up artifact/observation model with separate artifact schema, runner revision provenance and per-scenario contracts;
+- [x] explicit fixed-window Managed probe and target-or-timeout Manual probe with `marker_seen`/`first_marker_ms` semantics and fail-closed inconclusive classification;
+- [x] fresh exact-target six-scenario follow-up observations, including the marker-perturbation comparison and the inconclusive Manual trace;
+- [ ] minimally perturbing Manual gate/override witness meeting a predeclared causal oracle;
+- [ ] successful current-contract six-scenario causal aggregate after the Manual ambiguity is closed.
 
 ### Acceptance criteria
 
-**Met.** The project now knows the M1 preservation boundary: legacy automated/nonzero planet state must still pass the existing gate into `0x3c118 -> 0x3d8f0`; the original policy then produces selection state and the existing `0x34b0c` path commits the current action. New Agricultural/Industrial identity can therefore remain an A1 concern while both automated identities map back to the game's established automation semantics without reconstructing or replacing the AI.
-
+**Not met.** Managed policy/commit layering is runtime-confirmed, but the strengthened Manual gate/override discriminator is inconclusive. RE5 returns to `Investigation first`; A1/A2 remain blocked until a less-perturbing experiment closes the Manual ambiguity and a current-contract complete causal set passes fail-closed aggregation.
 ---
 
 # Track A — Architecture decisions

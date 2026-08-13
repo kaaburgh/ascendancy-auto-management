@@ -72,16 +72,14 @@ RE2 statically established a 32-bit field at selected object `+0x5a`:
 3. the renderer checks `[selected+0x5a] == 0xffffffff` at `0x3afca` before requesting resource ID 98, which the exact CF3-pinned retail data identify as `Self Managed`;
 4. state-consultation sites `0x35473` and `0x356cc` also test object-relative `+0x5a`; their downstream runtime meaning is not assigned by RE2/RE4.
 
-RE4 now establishes the missing runtime ownership and transition facts on the exact canonical target.
-
-Two independent ordinary-game runs observed two distinct player-owned planet records:
+RE4 establishes the missing runtime ownership and transition facts on the exact canonical target. The final hardened repetitions used the exact committed retail fixture contract and a reversible renderer oracle:
 
 | Scenario | Runtime planet | Record size | Name location | Managed field | Observed transition |
 | --- | --- | ---: | ---: | ---: | --- |
 | pinned resumed game | `Xerxes I` | `0x7b` | `record+0x24` | `record+0x5a` | `0x00000000 -> 0xffffffff -> 0x00000000` |
-| new Snovemdomas game | `Flammifer I` in the recorded final run | `0x7b` | `record+0x24` | `record+0x5a` | `0x00000000 -> 0xffffffff -> 0x00000000` |
+| new Snovemdomas game | `Paragon III` in the hardened repetition | `0x7b` | `record+0x24` | `record+0x5a` | `0x00000000 -> 0xffffffff -> 0x00000000` |
 
-The second scenario's generated homeworld name is not assumed stable; the runner discovers it from the runtime record and requires exactly one planet-like record with the reversible transition.
+The second scenario's generated homeworld name is not assumed stable. An earlier ordinary-game repetition yielded `Flammifer I`; the hardened repetition yielded `Paragon III`. The runner discovers the selected name from the runtime record and requires exactly one planet-like record with the reversible transition.
 
 The record relationship is decisive for ownership: in each run the changing dword is exactly `+0x5a` inside a `0x7b` record whose `+0x24` NUL-terminated printable name is the selected player-visible planet. The `0x7b` size independently agrees with RE3's planet traversal stride. A side-table-only model no longer fits the evidence.
 
@@ -89,42 +87,46 @@ The record relationship is decisive for ownership: in each run the changing dwor
 
 `runtime`, clean.
 
-After identifying the exact field, RE4 polls only its four-byte location while injecting plain M. Final recorded runs observed:
+After identifying the exact field, RE4 polls only its four-byte location while injecting plain M. The hardened recorded repetitions observed:
 
-- `Xerxes I`: Manual -> Managed in `19.959 ms`; reverse observation in `30.943 ms`;
-- `Flammifer I`: Manual -> Managed in `23.078 ms`; reverse observation in `28.682 ms`.
+- `Xerxes I`: Manual -> Managed in `19.219 ms`; reverse observation in `31.509 ms`;
+- `Paragon III`: Manual -> Managed in `37.829 ms`; reverse observation in `31.582 ms`.
 
 No turn was advanced and no other game command was issued between M and the state observation. This rejects a model where the UI merely queues a state change for later turn processing. The measurement is an event-loop bound, not a claim that RE4 timestamped the exact CPU instruction at `0x3791f`.
 
-### Existing renderer observes Managed state
+### Existing renderer observes the same reversible state
 
 `runtime + static`, clean.
 
-For each runtime planet, RE4 left `record+0x5a == 0xffffffff`, returned to the ordinary Planets list, and captured the existing `Self-Managed` presentation. An independently inspected 100x8 decoded-RGB region at `(280,73)` had the same SHA-256 in both unrelated runs:
+The renderer check is now validated differentially, not by a Managed-only static-pixel oracle. For both hardened runtime planets, RE4 captured the same Planets-list RGB region `(280,73,100,8)` in three states:
 
-`66df0c5f9a6774156363abc9cd878ec683b64aabd54c4d781387236cd1fff160`.
+- Manual: `6ca137daa8b4d9eb974728aac338c817859d0eb0a1c3ba43cde244cfd7a248ec`;
+- Managed while the same `record+0x5a == 0xffffffff`: `66df0c5f9a6774156363abc9cd878ec683b64aabd54c4d781387236cd1fff160`;
+- restored Manual after returning that field to zero: `6ca137daa8b4d9eb974728aac338c817859d0eb0a1c3ba43cde244cfd7a248ec`.
 
-This runtime result agrees with RE2's static `0x3afca` check and rejects a separate UI-display-only state for the existing Managed control.
+PASS requires Manual != Managed and restored Manual == original Manual, while Managed must also equal the independently inspected pinned `Self-Managed` region. This closes the vacuous-oracle failure mode and agrees with RE2's static `0x3afca` check.
 
 RE4 deliberately does **not** claim runtime per-turn consumption from this observation. RE3 statically converges on the same `+0x5a` object-relative state, and RE5 owns the runtime proof that it gates the automatic-management decision path.
 
-## Runtime signature and artifact boundary
+## Runtime fixture, signature, and artifact boundary
 
 `runtime`, clean.
 
-The RE4 runner searches DOSBox's readable/writable mappings for exactly one relocation-tolerant copy of the canonical M-toggle read/NOT/write sequence beginning at RE2 site `0x37915`:
+RE4 no longer accepts caller-defined fixture semantics. `scripts/run_re4_runtime_state.py` pins the exact bytes of committed `tools/retail-runtime-manifest.json` by SHA-256 `814c37ea8683e9c32ce494bcb9568d08a33d3ef8e6d91b99ac07f37958269852`, requires its expected id/schema/17-file count, verifies every listed immutable file by size/SHA-256, and rejects case-insensitive filename collisions before copying the tree. The resumed scenario pins `resume.gam` separately because it is intentionally mutable/operator supplied.
+
+The runner searches DOSBox's readable/writable mappings for exactly one relocation-tolerant copy of the canonical M-toggle read/NOT/write sequence beginning at RE2 site `0x37915`:
 
 ```text
 8b 52 5a a1 ?? ?? ?? ?? f7 d2 89 50 5a e9 32 01 00 00 83 3d
 ```
 
-Zero or multiple matches fail closed. The final two runs both observed the same concrete relocated prefix:
+Zero or multiple matches fail closed. The hardened runs both observed the same concrete relocated prefix:
 
 ```text
 8b525aa164a62400f7d289505ae932010000833dfc7c2100000f8425010000a1
 ```
 
-Host mapping bases/offsets are explicitly run-local DOSBox implementation details and are not patch addresses. Raw process-memory snapshots are held only in memory and are not written to the artifact directory. The emitted artifact contains target/fixture identities, the bounded structural/state result, timings, and screenshots/hashes only.
+Host mapping bases/offsets are explicitly run-local DOSBox implementation details and are not patch addresses. Raw process-memory snapshots are held only in memory and are not written to the artifact directory. The emitted artifact contains target/fixture identities, the bounded structural/state result, timings, and screenshot/region hashes only.
 
 ## Negative runtime result: tutorial interception
 
@@ -165,11 +167,12 @@ Later patch/hook work must confirm the ABI at each relevant seam rather than app
 - plain **M** reaches the existing Managed toggle in ordinary game state;
 - `DS:0x48608` is the Shift discriminator used by that path;
 - `DS:0x43664` is the selected-object relationship used by the UI seam;
-- the selected planet is represented by a `0x7b` runtime record containing its name at `+0x24` in the two tested states;
+- the selected planet is represented by a `0x7b` runtime record containing its name at `+0x24` in the tested states;
 - record `+0x5a` is the 32-bit Managed/self-management state;
 - `0x00000000` is Manual and `0xffffffff` is Managed on the tested UI path;
 - M changes the field reversibly within normal input/event servicing, before any turn advancement;
-- the ordinary Planets renderer displays `Self-Managed` when that field is set;
+- the ordinary Planets renderer changes to the pinned `Self-Managed` presentation when that same field is set and returns to the exact Manual presentation region after it is cleared;
+- the exact 17-file immutable runtime fixture definition is pinned and case-insensitive path ambiguity fails closed;
 - a side-table-only or deferred-until-turn UI model is rejected for the existing Managed state.
 
 **Still unknown / intentionally deferred:**

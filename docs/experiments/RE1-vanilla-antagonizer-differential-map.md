@@ -18,7 +18,7 @@ The experiment used only project/operator-supplied, hash-pinned executables and 
 - `ANTAG_INTL.EXE` — 610863 bytes — SHA-256 `9d44b1cafe9181b3bb526afb6daa2cc0cbb7c5c30fce5172f9a8a9e0b54dce0c`.
 - `PATCH_INTL.EXE` — 587451 bytes — SHA-256 `16fa81fc68414dfbe92434e2ad92ca41ec1e02346cbe874b7e53aa8fb6b4455b`.
 
-GNU `objdump` 2.44 was used for flat i386 disassembly. The supplied Open Watcom toolkit had already passed its own `verify.sh`; RE1 does not depend on `wdump` beyond T2's completed load-map cross-check.
+The exploratory run used GNU `objdump` 2.44 for flat i386 disassembly. Clean-checkout validation below used GNU `objdump` 2.42 from the hosted Ubuntu runner. The supplied Open Watcom toolkit had already passed its own `verify.sh`; RE1 does not depend on `wdump` beyond T2's completed load-map cross-check.
 
 ## Procedure
 
@@ -27,8 +27,9 @@ GNU `objdump` 2.44 was used for flat i386 disassembly. The supplied Open Watcom 
 3. Compare EN Antagonizer↔patch, INTL Antagonizer↔patch, and both EN↔INTL locale pairs with the same conservative order as `tools/le_diff.py`: exact → reference-only → constant-only → structural.
 4. The generator imports `tools/le_diff.py` and reuses its current `validate_inventory()` plus `match_pass()` sequence directly. This keeps the machine map on the same conservative model rather than creating an independent, looser similarity matcher.
 5. Separately, reconstruct code/data objects with `tools/le_image.py`. Scan the data object for embedded `..\planet.cpp`, `..\planwin.cpp`, and `..\psqwin.cpp` substrings, then count only code references having the observed source-diagnostic shape `mov edx,<data-object-relative source offset>` followed within four decoded instructions by a call. This avoids treating an unrelated immediate equal to a string offset as an xref.
-6. For every English unresolved Antagonizer candidate, the generator records class, size, incoming caller count, and cross-locale same-class corroboration when a conservative locale mapping exists. Source-diagnostic proximity and direct graph adjacency are the separate static observations documented below; they are not synthesized into the machine map as facts.
-7. Inspect the highest-information structural and literal-retune leads manually. Structural baseline counterparts below are **heuristic alignments**, not identities: they were selected by high instruction-shape similarity plus matching local context, and remain hypotheses because `le_diff` intentionally does not invent fuzzy matches.
+6. For every English unresolved Antagonizer candidate, record class, size, incoming caller count, and cross-locale same-class corroboration only when the candidate-level address correspondence is unambiguous. Aggregate `le_diff` matching remains a multiset operation; for address identity, RE1 additionally requires the signature used at that exact/reference-only/constant-only stage to occur exactly once on both sides among candidates still eligible at that stage. Duplicate signatures remain unmapped instead of inheriting list-order `zip` pairings.
+7. Source-diagnostic proximity and direct graph adjacency are separate static observations documented below; they are not synthesized into the machine map as facts.
+8. Inspect the highest-information structural and literal-retune leads manually. Structural baseline counterparts below are **heuristic alignments**, not identities: they were selected by high instruction-shape similarity plus matching local context, and remain hypotheses because `le_diff` intentionally does not invent fuzzy matches.
 
 Repository command after this PR:
 
@@ -50,6 +51,18 @@ The regenerated inventory/differential counts exactly reproduce CF2/T2:
 - Patch EN↔INTL: `114 / 1076 / 56 / 51 / 50`.
 
 The four regenerated headline inventories also reproduce T2: EN Antagonizer `144696` decoded instructions / `1326` candidate starts / `7472` direct in-object call sites / `4259` call edges, and EN patch `139093 / 1297 / 7251 / 4162`.
+
+## Clean-checkout validation
+
+GitHub Actions run `31662170747` validated PR head `4c1e09d7c9ed37306c59e67af09f907ef9edb607` through merge ref `4be68271663e73e5c01b94351bd308ec793a870c` before this documentation-only correction was committed:
+
+- the network-free unit job ran **233 tests** and finished `OK`;
+- the dedicated `RE1 real-target differential map` job fetched and verified all four pinned executable hashes, regenerated the four inventories, enforced the four expected conservative diff-count tuples, and completed `RE1 differential map: PASS (1254 EN unresolved candidates)`;
+- the real-target job reported `564/613` reference-only, `450/525` constant-only, and `66/116` structural EN candidates as cross-locale corroborated under the unambiguous address-mapping rule;
+- the existing CF2 real-target, CF3 demo-acquisition, and CF3 debugger jobs also remained green;
+- Documentation run `31662170856` succeeded on the same implementation head.
+
+This is target-byte **static** validation only. RE1 does not claim that the game executed or that any candidate's runtime semantics were confirmed.
 
 ## Established observations
 
@@ -104,13 +117,19 @@ The data object contains shared `..\planwin.cpp` / `PLANETALLOC` / `PLANLIST` / 
 
 ## Cross-locale narrowing
 
-The generated triage pass traverses all English unresolved Antagonizer candidates before ranking. With the current conservative locale mapping:
+The generated triage pass traverses all English unresolved Antagonizer candidates before ranking. Candidate-level address correspondence is deliberately stricter than `le_diff`'s aggregate multiset matching: a locale/product address pair is accepted only when its current-stage signature is unique on both sides. Duplicate-signature pairs remain unmapped.
 
-- 609/613 reference-only English pairs reproduce as reference-only in the International product pair;
-- 517/525 constant-only English pairs reproduce as constant-only;
-- 66/116 Antagonizer-side English structural candidates have a recoverable EN→INTL Antagonizer mapping whose International candidate is also structural.
+Under that rule:
 
-The lower structural corroboration count is partly a mapping limitation: a region that is structural in both locale comparisons may have no exact/reference/constant locale pair from which to derive an address correspondence. It must not be read as “50 English structural changes are locale-specific.”
+- 564/613 reference-only English pairs reproduce as the same reference-only product pair in the International build;
+- 450/525 constant-only English pairs reproduce as the same constant-only product pair;
+- 66/116 Antagonizer-side English structural candidates have a recoverable unambiguous EN→INTL Antagonizer mapping whose International candidate is also structural.
+
+The machine report records why mappings were withheld: Antagonizer EN↔INTL has 45 ambiguous reference-only pair instances; patch EN↔INTL has 45; INTL Antagonizer↔patch has 45 ambiguous reference-only and 67 ambiguous constant-only pair instances at the address-mapping layer.
+
+**Correction of an earlier RE1 draft result:** the first pass reported `609/613` reference-only and `517/525` constant-only because it consumed the deterministic `zip` pairing produced by multiset matching as if list order established address identity. That pairing is valid for aggregate bucket counts but is not evidence for a particular candidate correspondence. Those two candidate-level counts are superseded by `564/613` and `450/525`. The four aggregate differential tuples, the `planet.cpp` cluster, and all ranked Tier-1 leads are unchanged; the Tier-1 leads remain corroborated under the stricter mapping.
+
+The lower structural corroboration count is partly a mapping limitation: a region that is structural in both locale comparisons may have no exact/reference/constant locale pair from which to derive an address correspondence. More generally, an omitted ambiguous mapping means **not corroborated by this method**, not “locale-specific.”
 
 ## Negative results
 
@@ -119,8 +138,9 @@ The lower structural corroboration count is partly a mapping limitation: a regio
 - Most inspected constant-only `planet.cpp` candidates differ primarily in source-diagnostic line/file operands, data offsets, code targets, or relocated globals. The `64.0→1280.0` case is notable precisely because it survives those explanations.
 - Large structural candidates are not function counts. `0x373e0` and other multi-kilobyte spans demonstrate direct-call-boundary folding.
 - Source-path diagnostics establish compilation-unit proximity only. They do not reveal C++ symbol names, object types, calling convention, or self-management semantics.
+- Duplicate normalized signatures are not sufficient evidence for cross-locale address identity; RE1 now preserves them as unmapped rather than selecting an arbitrary counterpart.
 
-These negative results are preserved so RE2/RE3 do not restart from broad string search or treat every middle-bucket change as AI behavior.
+These negative results are preserved so RE2/RE3 do not restart from broad string search, treat every middle-bucket change as AI behavior, or reuse ambiguous signature pair order as an address map.
 
 ## Interpretation and handoff
 

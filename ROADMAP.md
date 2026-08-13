@@ -470,7 +470,7 @@ Canonical M1 production target:
 
 Canonical comparison baseline:
 
-- `bugpatch-en` / `PATCH_EN.EXE` (publisher `PATCH.EXE`, documented version 1.6.5);
+- `bugpatch-en` / `PATCH_EN.EXE` (publisher `PATCH.EXE`, documented version 1.6.5 English);
 - SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`;
 - 587451 bytes.
 
@@ -586,7 +586,7 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
-- **Status:** Investigation first — T2 dependency is complete; this item is selectable.
+- **Status:** **Completed and verified** — static blind-RE differential map completed; see [`docs/re/vanilla-antagonizer-diff.md`](./docs/re/vanilla-antagonizer-diff.md) and [`docs/experiments/RE1-vanilla-antagonizer-differential-map.md`](./docs/experiments/RE1-vanilla-antagonizer-differential-map.md).
 - **Execution:** **CLOUD** — set by completed CF2. Both sides are cloud-fetchable, T1 fixed their exact hashes, `tools/le_diff.py` performs the comparison, and T2 now provides the reproducible static handoff.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
@@ -617,14 +617,14 @@ Use normalized/static analysis rather than raw byte diff alone. Rank candidate r
 
 ### Deliverables
 
-- `docs/re/vanilla-antagonizer-diff.md` with a ranked candidate map across reference-only, constant-only and structural evidence;
-- machine-readable diff output or scripts where useful;
-- explicit hypotheses and confidence level;
-- negative findings that materially narrow the search.
+- [x] `docs/re/vanilla-antagonizer-diff.md` with a ranked candidate map across reference-only, constant-only and structural evidence;
+- [x] machine-readable diff script (`scripts/generate_re1_diff_map.py`) with fail-closed target pins and focused tests;
+- [x] explicit hypotheses and confidence level;
+- [x] negative findings that materially narrow the search.
 
 ### Acceptance criteria
 
-The next RE tasks have a bounded set of candidate regions and a reproducible explanation of why they are candidates. No candidate is presented as a confirmed function/behavior without supporting evidence.
+**Met.** RE2/RE3 have a bounded, cross-locale-ranked set of candidate regions and a reproducible explanation of why they are candidates. No candidate is presented as a confirmed function/behavior without supporting evidence.
 
 ---
 

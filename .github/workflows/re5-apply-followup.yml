@@ -1,0 +1,134 @@
+name: RE5 apply follow-up docs
+
+on:
+  push:
+    branches:
+      - agent/re5-runtime-turn-path
+    paths:
+      - .github/workflows/re5-apply-followup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply durable follow-up evidence
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          STAGED = "668307dc48248972f9a001ecedead63b7268bd8a"
+
+          def old_file(path: str) -> str:
+              return subprocess.check_output(
+                  ["git", "show", f"{STAGED}:{path}"], text=True
+              )
+
+          exp_tail = old_file(".re5-docstage/experiment-tail.md")
+          re_tail = old_file(".re5-docstage/re-tail.md")
+
+          # The focused JSONs were real working artifacts, but they were not
+          # committed or uploaded and are not reconstructed now. Keep the
+          # durable docs precise about that current provenance state.
+          exp_tail = exp_tail.replace(
+              "All six fresh focused JSON files exist, but one scenario is intentionally `inconclusive`.",
+              "All six fresh focused JSON files were captured and evaluated in the follow-up working set, but one scenario is intentionally `inconclusive`. The raw focused JSON files were not committed or uploaded and are not reconstructed here."
+          )
+          re_tail = re_tail.replace(
+              "All six fresh focused JSON files exist, but the Manual gate artifact is `inconclusive`.",
+              "All six fresh focused JSON files were captured and evaluated in the follow-up working set, but the Manual gate artifact is `inconclusive`. The raw focused JSON files were not committed or uploaded and are not reconstructed here."
+          )
+
+          p = Path("docs/experiments/RE5-runtime-turn-path.md")
+          text = p.read_text(encoding="utf-8")
+          marker = "## Interpretation\n"
+          if marker not in text:
+              raise SystemExit("experiment Interpretation marker missing")
+          p.write_text(text.split(marker, 1)[0].rstrip() + "\n\n" + exp_tail.rstrip() + "\n", encoding="utf-8")
+
+          p = Path("docs/re/auto-management-turn-path.md")
+          text = p.read_text(encoding="utf-8")
+          marker = "## RE5 runtime confirmation\n"
+          if marker not in text:
+              raise SystemExit("RE5 runtime confirmation marker missing")
+          p.write_text(text.split(marker, 1)[0].rstrip() + "\n\n" + re_tail.rstrip() + "\n", encoding="utf-8")
+
+          p = Path("ROADMAP.md")
+          text = p.read_text(encoding="utf-8")
+          old_front = """**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE5 are complete. **A1 and A2 are now selectable as CLOUD**; they are the current architecture front and may proceed from the completed RE4/RE5 runtime contract.\n\nRE4 runtime-confirmed the existing per-planet Managed field and immediate UI transition on two distinct planet records. RE5 runtime-confirmed its per-turn causal path into existing automatic management. A1 now owns the three-profile session-state representation; A2 owns the patch/integration mechanism."""
+          new_front = """**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE4 are complete. **RE5 is reopened as Investigation first / CLOUD** because the strengthened Manual gate discriminator is inconclusive. A1 and A2 remain dependency-blocked on RE5.\n\nRE4 runtime-confirmed the existing per-planet Managed field and immediate UI transition on two distinct planet records. RE5 still establishes the Managed policy/commit layering, but the process-wide gate marker is strongly perturbing and the strengthened Manual run did not meet its precommitted evidence-strength target. RE5 now owns a less-perturbing Manual gate/override witness before A1/A2 may consume the automation-gate contract."""
+          if old_front not in text:
+              raise SystemExit("ROADMAP current-front text mismatch")
+          text = text.replace(old_front, new_front, 1)
+
+          start = text.index("## RE5 — Runtime-confirm the per-turn self-management call path\n")
+          end = text.index("\n---\n\n# Track A — Architecture decisions", start)
+          new_re5 = r'''## RE5 — Runtime-confirm the per-turn self-management call path
+
+- **Status:** **Investigation first** — reopened by the 2026-08-13 perturbation follow-up; the strengthened Manual gate/override discriminator is inconclusive. See [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) and [`docs/experiments/RE5-runtime-turn-path.md`](./docs/experiments/RE5-runtime-turn-path.md).
+- **Execution:** **CLOUD** — the exact canonical Antagonizer and pinned retail fixture remain runnable with the RE4/RE5 harness.
+- **Priority:** Critical
+- **Category:** Reverse engineering / runtime turn processing
+- **Origin:** High-level step 3
+- **Depends on:** RE3 (complete), RE4 (complete), CF3 (complete)
+- **Gates:** A1, A2 and all downstream implementation work that assumes the completed player automation-gate contract
+- **Question:** Which runtime path consumes the confirmed auto-management state during a turn, and can the Manual/override discriminator be established without materially perturbing the tested path?
+
+### Current outcome
+
+`runtime`, clean blind-RE evidence on canonical `ANTAG.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`):
+
+- the **Managed** side remains established: the fixed-window gate probe first observes the `0x3c118` marker on `Xerxes I` at `25.946 ms`;
+- suppressing the complete `0x3c118 -> 0x3d8f0` call with five NOPs leaves Managed set while selection/action remain empty and the independent stardate witness advances `0 -> 233` over `7009.080 ms`; this preserves the runtime-necessary policy boundary;
+- Managed control still selects/commits, while suppressing only the exact `0x34df2` action-byte write preserves upstream selection and keeps `+0x54 == ff`; the decision/commit layering therefore remains established;
+- the process-wide `0x7e` marker is **strongly perturbing**: the fresh Managed marker probe advances only `+1` stardate unit in `7002.031 ms`, versus `+233` for the Managed NOP-control over essentially the same window; fresh Manual control advances `+232` in `7015.295 ms` and action-write suppression advances `+208` in `7020.877 ms`;
+- the strengthened `manual-gate-probe` runs to its `30 s` hard ceiling (`30017.889 ms`), never marks `Xerxes I`, but advances only `+1` stardate unit and therefore does **not** meet the precommitted target `4`;
+- the pinned save has no second player-owned planet that can form a hard same-player two-sided marker bracket. Opposite-side owned records (`Stavern I`, owner `1`; `Hurble I`, owner `5`) are marked and retained only as cross-race supplemental telemetry, not as a player-loop proof;
+- by the precommitted outcome table, `no Xerxes marker + no hard same-player bracket + positive progress below target at timeout` is **INCONCLUSIVE**. The former claim that the separate override bypass is runtime-confirmed inactive in this Manual scenario is withdrawn;
+- six fresh focused artifacts were captured and evaluated during the follow-up; five current scenario oracles pass and `manual-gate-probe` is inconclusive. The current-contract aggregator correctly fails closed and does not emit a causal `run-aggregate.json`. Missing raw JSON is not reconstructed from documentation.
+
+The strongest current M1 seam remains **before `0x3c118` as a candidate**, because the Managed policy and downstream mutation boundaries are causally supported. It is not an unlocked architecture contract until RE5 closes the Manual/override ambiguity with less-perturbing evidence.
+
+### Next investigation
+
+Obtain a minimally perturbing player-loop reachability/override witness. Prefer either a trustworthy runtime relationship for the separate override condition or instrumentation that observes player-loop passage while preserving normal `+0x54` semantics. Do **not** strengthen the claim by merely extending the current process-wide marker window; its progression/performance interpretation is already heavily contaminated.
+
+### Deliverables
+
+- [x] reproducible original RE5 experiment and durable historical findings;
+- [x] follow-up artifact/observation model with separate artifact schema, runner revision provenance and per-scenario contracts;
+- [x] explicit fixed-window Managed probe and target-or-timeout Manual probe with `marker_seen`/`first_marker_ms` semantics and fail-closed inconclusive classification;
+- [x] fresh exact-target six-scenario follow-up observations, including the marker-perturbation comparison and the inconclusive Manual trace;
+- [ ] minimally perturbing Manual gate/override witness meeting a predeclared causal oracle;
+- [ ] successful current-contract six-scenario causal aggregate after the Manual ambiguity is closed.
+
+### Acceptance criteria
+
+**Not met.** Managed policy/commit layering is runtime-confirmed, but the strengthened Manual gate/override discriminator is inconclusive. RE5 returns to `Investigation first`; A1/A2 remain blocked until a less-perturbing experiment closes the Manual ambiguity and a current-contract complete causal set passes fail-closed aggregation.
+'''
+          text = text[:start] + new_re5.rstrip() + text[end:]
+          p.write_text(text, encoding="utf-8")
+          PY
+      - name: Validate follow-up documentation tree
+        shell: bash
+        run: |
+          python -m py_compile scripts/re5_followup_model.py scripts/run_re5_runtime_turn_path_followup.py scripts/run_re5_runtime_turn_path_followup_capture.py tests/test_re5_followup_contract.py
+          python -m unittest tests.test_run_re5_runtime_turn_path tests.test_re5_followup_contract -v
+          python scripts/check-docs.py
+          git diff --check
+      - name: Commit durable follow-up state and remove bridge
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ROADMAP.md docs/experiments/RE5-runtime-turn-path.md docs/re/auto-management-turn-path.md
+          git rm .github/workflows/re5-apply-followup.yml
+          git commit -m "RE5: reopen inconclusive Manual gate evidence"
+          git push

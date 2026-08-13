@@ -22,6 +22,8 @@ Use [`targets.md`](./targets.md) as the canonical supported-binary inventory.
 
 Use [`static-analysis/t2/`](./static-analysis/t2/) for the T2 repo-safe canonical load/candidate handoff and [`../experiments/T2-static-analysis-bundle.md`](../experiments/T2-static-analysis-bundle.md) for its regeneration procedure and independent `wdump` evidence.
 
+Use [`vanilla-antagonizer-diff.md`](./vanilla-antagonizer-diff.md) for the RE1 ranked differential handoff and [`../experiments/RE1-vanilla-antagonizer-differential-map.md`](../experiments/RE1-vanilla-antagonizer-differential-map.md) for the reproducible procedure, evidence boundaries, and negative results.
+
 ## Suggested note format
 
 ```markdown

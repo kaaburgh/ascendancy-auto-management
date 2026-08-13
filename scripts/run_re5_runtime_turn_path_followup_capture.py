@@ -18,9 +18,12 @@ import re5_followup_model as model
 import run_re5_runtime_turn_path_followup as base
 
 
+_ORIGINAL_VALIDATE = model.validate_scenario
+
+
 def classify_observation(spec: model.ScenarioSpec, trace: dict[str, Any]) -> tuple[str, str | None]:
     try:
-        model.validate_scenario(spec, trace)
+        _ORIGINAL_VALIDATE(spec, trace)
     except model.RE5FollowupError as exc:
         if (
             spec.name == "manual-gate-probe"
@@ -36,7 +39,7 @@ def classify_observation(spec: model.ScenarioSpec, trace: dict[str, Any]) -> tup
 
 def run_scenario(root: Path, dosbox: str, spec: model.ScenarioSpec) -> dict[str, Any]:
     captured: dict[str, str | None] = {}
-    original_validate = model.validate_scenario
+    original_validate = _ORIGINAL_VALIDATE
 
     def validate_and_capture(inner_spec: model.ScenarioSpec, trace: dict[str, Any]) -> None:
         status, failure = classify_observation(inner_spec, trace)

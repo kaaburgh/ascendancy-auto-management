@@ -121,6 +121,12 @@ The exploratory exact-target run reproduced:
 
 This remains static target-byte evidence; no runtime semantics are claimed from that pass.
 
+## Blind-RE audit note
+
+After the RE2 findings, durable documents, scanner, and successful PR CI had already been independently produced from the supported RE2 evidence, a final GitHub scope check surfaced the body of a separate parallel RE3 pull request. That body contained target-specific RE3 findings. Investigation of that source stopped immediately and none of its technical content was used to form, rank, alter, or validate any RE2 conclusion or artifact.
+
+The RE2 evidence above had already been preserved before this accidental exposure, so no RE2 conclusion was suggested by the parallel PR and no conclusion is marked `contaminated`. This note records the exposure for auditability; the RE2 provenance remains **clean**.
+
 ## Negative findings / limits
 
 - The exact numeric event-enum name for `DX == 7` is not established.

@@ -313,3 +313,6 @@ All six fresh focused JSON files were captured and evaluated in the follow-up wo
 The runtime-established Managed decision/commit layering still makes **before `0x3c118`** the strongest candidate M1 compatibility seam: leave `0x3d8f0` and downstream selection/action mutation intact rather than reimplementing the existing AI. However this is no longer an unlocked architecture contract. The Manual/override reachability discriminator is still open, so RE5 requires another, less perturbing witness before dependent A1/A2 work may rely on the completed-gate claim.
 
 A useful next experiment should maximize information gain without process-wide action-state stamping: either directly establish the override condition with a trustworthy runtime relationship or observe player-loop reachability using instrumentation that preserves normal `+0x54` semantics. Do not strengthen the current claim by merely extending the mutating marker window.
+
+
+> **Status update — 2026-08-14:** the reopened Manual-gate discussion above is retained as historical evidence. RE5 is now closed for M1 by the read-only acceptance experiment documented in [`../experiments/RE5-read-only-override-closure.md`](../experiments/RE5-read-only-override-closure.md); broader override semantics remain unknown.

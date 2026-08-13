@@ -1,14 +1,15 @@
 {
-  "schema": 1,
+  "schema": 2,
   "name": "tutorial-5-ui-navigation-smoke",
+  "max_runtime_seconds": 90,
   "startup_wait_seconds": 15,
   "steps": [
-    {"action": "capture", "name": "01-main-menu"},
+    {"action": "capture", "name": "01-main-menu", "oracles": [{"type": "rgb_region_sha256", "x": 245, "y": 200, "width": 150, "height": 30, "sha256": "851077be66b419b4f54a3ce9c2f3fec9504be22a863b302f6ad844d38feb365b"}]},
     {"action": "mouse_capture", "settle_seconds": 0.3},
     {"action": "click", "button": 1, "settle_seconds": 2.0},
-    {"action": "capture", "name": "02-tutorial-list"},
+    {"action": "capture", "name": "02-tutorial-list", "min_change_ratio_from_previous": 0.01, "oracles": [{"type": "rgb_region_sha256", "x": 250, "y": 5, "width": 140, "height": 28, "sha256": "5abaa062cbd779683c368b24fa8d796a6c6b8913855f4362b4c20c19e2206f09"}]},
     {"action": "mouse_move", "dx": 0, "dy": 95, "settle_seconds": 0.3},
     {"action": "click", "button": 1, "settle_seconds": 3.0},
-    {"action": "capture", "name": "03-tutorial-5-planets"}
+    {"action": "capture", "name": "03-tutorial-5-planets", "min_change_ratio_from_previous": 0.01, "oracles": [{"type": "rgb_region_sha256", "x": 95, "y": 130, "width": 330, "height": 30, "sha256": "30cf4e341d2dcf0ca56fa881ee6211fd38bcd3cbfadb36b862494b07b421ee22"}]}
   ]
 }

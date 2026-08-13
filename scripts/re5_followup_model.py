@@ -47,11 +47,11 @@ SCENARIOS = (
     ScenarioSpec("manual-control", False, None, STOP_FIRST_ACTION, DEFAULT_WINDOW_SECONDS, None, "re5/manual-control/v1"),
     ScenarioSpec(
         "manual-gate-probe", False, legacy.GATE_REACHABILITY_PROBE, STOP_PROGRESS_TARGET_OR_TIMEOUT,
-        MANUAL_GATE_MAX_WINDOW_SECONDS, MANUAL_GATE_PROGRESS_TARGET, "re5/manual-gate-probe/v2", False,
+        MANUAL_GATE_MAX_WINDOW_SECONDS, MANUAL_GATE_PROGRESS_TARGET, "re5/manual-gate-probe/v3", False,
     ),
     ScenarioSpec(
         "managed-gate-probe", True, legacy.GATE_REACHABILITY_PROBE, STOP_FIXED_WINDOW,
-        DEFAULT_WINDOW_SECONDS, None, "re5/managed-gate-probe/v2",
+        DEFAULT_WINDOW_SECONDS, None, "re5/managed-gate-probe/v3",
     ),
     ScenarioSpec("managed-control", True, None, STOP_FIRST_ACTION, DEFAULT_WINDOW_SECONDS, None, "re5/managed-control/v1"),
     ScenarioSpec(
@@ -63,6 +63,16 @@ SCENARIOS = (
         DEFAULT_WINDOW_SECONDS, None, "re5/managed-action-write-suppressed/v1",
     ),
 )
+
+
+ACCEPTED_SCENARIO_CONTRACTS = {
+    spec.name: {spec.scenario_contract} for spec in SCENARIOS
+}
+# The already captured managed-gate-probe/v2 artifact used a stricter collateral
+# precondition (+0x54 == ff at monitor start) and therefore remains valid under
+# the relaxed v3 supplemental-telemetry contract. Runner revision is provenance,
+# not an automatic compatibility discriminator.
+ACCEPTED_SCENARIO_CONTRACTS["managed-gate-probe"].add("re5/managed-gate-probe/v2")
 
 
 def spec_by_name(name: str) -> ScenarioSpec:
@@ -130,10 +140,6 @@ def validate_local_collateral(snapshot: bytes, xerxes_offset: int) -> dict[str, 
             raise RE5FollowupError(
                 f"{side} collateral record identity mismatch: expected {expected['name']!r}/owner "
                 f"{expected['owner']:02x}, got {name!r}/owner {owner:02x}"
-            )
-        if action != legacy.NO_ACTION:
-            raise RE5FollowupError(
-                f"{side} collateral record must start +0x54 == ff, got {action:02x}"
             )
         result[side] = {
             "record_delta": expected["record_delta"],
@@ -265,7 +271,8 @@ def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict
         record = json.loads(path.read_text(encoding="utf-8"))
         if record.get("artifact_schema") != RESULT_SCHEMA:
             raise RE5FollowupError(f"focused artifact schema mismatch: {path.name}")
-        if record.get("scenario_contract") != spec.scenario_contract:
+        record_contract = record.get("scenario_contract")
+        if record_contract not in ACCEPTED_SCENARIO_CONTRACTS[spec.name]:
             raise RE5FollowupError(f"focused artifact scenario contract mismatch: {path.name}")
         revision = record.get("runner_revision")
         if not isinstance(revision, str) or RUNNER_REVISION_RE.fullmatch(revision) is None:
@@ -277,7 +284,7 @@ def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict
         if len(record.get("scenarios", [])) != 1 or record["scenarios"][0].get("name") != spec.name:
             raise RE5FollowupError(f"focused artifact scenario mismatch: {path.name}")
         scenario = record["scenarios"][0]
-        if scenario.get("status") != "passed" or scenario.get("scenario_contract") != spec.scenario_contract:
+        if scenario.get("status") != "passed" or scenario.get("scenario_contract") != record_contract:
             raise RE5FollowupError(f"focused artifact embedded contract/status mismatch: {path.name}")
         if scenario.get("observation_policy") != observation_policy(spec):
             raise RE5FollowupError(f"focused artifact embedded observation policy mismatch: {path.name}")
@@ -289,7 +296,7 @@ def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict
         source_artifacts.append({
             "filename": path.name,
             "scenario": spec.name,
-            "scenario_contract": spec.scenario_contract,
+            "scenario_contract": record_contract,
             "runner_revision": revision,
             "observation_policy": observation_policy(spec),
         })

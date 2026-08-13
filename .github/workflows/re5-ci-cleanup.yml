@@ -1,0 +1,29 @@
+name: RE5 CI cleanup
+
+on:
+  push:
+    branches:
+      - agent/re5-runtime-turn-path
+    paths:
+      - .github/workflows/re5-ci-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/re5-runtime-turn-path
+      - name: Remove temporary validation files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f tests/.re5-ci-trigger .github/workflows/re5-ci-cleanup.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'chore: remove temporary RE5 validation files'
+          git push origin HEAD:agent/re5-runtime-turn-path

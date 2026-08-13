@@ -85,3 +85,43 @@ jobs:
           dosbox-debug -version
       - name: Prove breakpoint and guest-state observation
         run: python scripts/validate_cf3_debugger.py
+
+  cf4-ui-smoke:
+    name: CF4 UI automation capability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # This public smoke deliberately uses the redistributable demo, not the
+      # private retail fixture. It proves the hosted runner can start a real
+      # Ascendancy guest, inject XTEST mouse/keyboard input, and capture real
+      # 640x480 UI transitions. Exact-target V1 uses the same harness with the
+      # maintainer-supplied retail tree verified by its committed manifest.
+      - name: Install UI runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y dosbox xvfb ffmpeg x11-utils libxtst6
+          dosbox -version
+      - name: Fetch and verify pinned playable demo
+        run: |
+          python tools/fetch_demo.py --dest game/demo
+          python tools/fetch_demo.py --verify --dest game/demo
+      - name: Drive real demo UI and capture transitions
+        run: |
+          python scripts/run_cf4_ui_validation.py \
+            --game-dir game/demo \
+            --dosbox dosbox \
+            --exe ASCEND.EXE \
+            --expected-exe-sha256 0183b75cb44ce52b52ba57baf2b9521e21a7611e487a1ebb5b768067441960a9 \
+            --fixture-manifest tools/demo-runtime-manifest.json \
+            --actions tools/cf4-ui-demo-smoke.json \
+            --artifacts artifacts/cf4-ui-demo
+      - name: Upload bounded UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cf4-ui-demo
+          path: artifacts/cf4-ui-demo/
+          if-no-files-found: error

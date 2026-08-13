@@ -32,11 +32,13 @@ A bounded X11 harness is enough; no interactive desktop or remote-control sessio
 3. starts its own Xvfb display and DOSBox;
 4. waits for the actual 640x480 game window rather than treating DOSBox's initial 640x400 text window as game readiness;
 5. drives keyboard chords plus relative mouse motion/buttons through X11 XTEST;
-6. captures the exact 640x480 DOSBox window through `ffmpeg`/`x11grab` at named checkpoints;
-7. requires at least two captures and rejects a scenario when adjacent captures differ by less than 1% of decoded RGB bytes, which prevents a moved cursor alone from being accepted as a UI transition;
-8. writes a bounded `run.json`, sanitized DOSBox logs, and PNG evidence under ignored `artifacts/`.
+6. captures the exact 640x480 DOSBox window through `ffmpeg`/`x11grab` at unique named checkpoints;
+7. requires at least one **screen-specific oracle** before a run can pass. Schema-v2 capture steps can pin one or more stable decoded-RGB regions by coordinates and SHA-256; a mismatched region fails the run. The checked-in demo and retail smokes identify every checkpoint this way;
+8. computes full-frame change ratios as diagnostic metadata, but gates them only where a capture explicitly declares `min_change_ratio_from_previous`. The large 1% gate is used for the known menu/navigation transitions, not for future small selector-state changes;
+9. bounds pre-video chords, total steps, captures, per-capture oracles, every configurable wait/settle, and the declared `max_runtime_seconds`; the runner also enforces that deadline across UI waits, captures, oracle decoding, and frame comparisons;
+10. writes schema-v2 `run.json`, sanitized DOSBox logs, and PNG evidence under ignored `artifacts/`. `run.json` records action-file hash/schema, fixture-manifest hash, harness hash, Python version, and DOSBox version/binary hash so detached evidence identifies the exact sequence and runtime that produced it.
 
-The action file is deliberately a tiny allow-listed DSL (`wait`, `capture`, `mouse_capture`, relative `mouse_move`, `click`, and `key_chord`). It cannot run arbitrary shell commands. This is enough for V1 while avoiding a general game-automation framework.
+The action file is deliberately a tiny allow-listed DSL (`wait`, `capture`, `mouse_capture`, relative `mouse_move`, `click`, and `key_chord`). It cannot run arbitrary shell commands. Schema v2 adds bounded screen oracles, checkpoint-specific transition gates, unique capture names, and an overall runtime budget; it is still intentionally not a general game-automation framework.
 
 ## Runtime observations
 
@@ -65,7 +67,7 @@ Repo-safe frame metadata from the successful run:
 - `02-tutorial-list.png`: SHA-256 `4828ae028506d5675740f80ba33a20ec15618d5b88bf7548abb072571f97643c`, decoded-byte change ratio from previous frame `0.797807`;
 - `03-tutorial-5-planets.png`: SHA-256 `d5afbb9cacbf31492a53d1761efb5fcc3d5e82c4a5ed49ab3e6f6c79def1e2de`, decoded-byte change ratio `0.785118`.
 
-The final frame visibly contains the Tutorial #5 planets/research scene and its instructional overlay. The screenshots themselves remain local artifacts and are not committed.
+The final frame visibly contains the Tutorial #5 planets/research scene and its instructional overlay. The screenshots themselves remain local artifacts and are not committed. The schema-v2 retail smoke pins stable decoded-RGB regions from those inspected captures: the main-menu control region, the `Play Tutorial` header, and a Tutorial #5 title/overlay region. This turns the prior visual inspection into a machine-checked expected-screen oracle without committing the screenshots.
 
 ### Official demo control
 
@@ -75,7 +77,9 @@ The demo has one extra pre-video text prompt (`Press a key to continue...`) and 
 
 Observed result with the supplied pinned demo bytes: **PASS**. The three checkpoints were the main menu, the one-entry tutorial list, and Tutorial #1. Decoded-byte transition ratios were `0.795605` and `0.815082`.
 
-This redistributable path is suitable for a GitHub Actions capability smoke. It proves the cloud image can install/start DOSBox + Xvfb, inject XTEST input, and capture real guest UI transitions without requiring the private retail fixture.
+The checked-in schema-v2 demo smoke additionally pins a stable decoded-RGB region for each of those three inspected screens. A lost click or incorrect relative-mouse delta that lands on another animated/changing screen therefore cannot pass merely because pixels moved.
+
+This redistributable path is suitable for a GitHub Actions capability smoke. It proves the cloud image can install/start DOSBox + Xvfb, inject XTEST input, identify the expected guest screens, and capture real guest UI transitions without requiring the private retail fixture.
 
 ## Negative results and failure modes preserved
 
@@ -85,7 +89,10 @@ This redistributable path is suitable for a GitHub Actions capability smoke. It 
 - The official demo waits at a text-mode `Press a key to continue...` prompt before its 640x480 UI. A cloud smoke that never injects the pre-video key will time out correctly rather than falsely reporting that UI automation is unavailable.
 - XTEST absolute pointer motion is not the correct primitive for this DOSBox/game path once the guest owns relative mouse motion. Relative XTEST motion changes the in-game cursor predictably.
 - The first mouse button event after focusing the DOSBox window can establish pointer capture rather than activate the intended control. The action model therefore makes `mouse_capture` explicit and separates it from later clicks.
-- A frame hash changing is not, by itself, enough evidence of a UI transition because the game cursor is rendered into the guest frame. CF4 therefore requires a minimum decoded-pixel change ratio between adjacent checkpoints.
+- A frame hash or large full-frame delta is not, by itself, proof that the intended screen was reached: the game cursor and animated/changing screens can move pixels. Schema v2 therefore requires screen-specific RGB-region evidence before `passed` is possible.
+- Conversely, a correct M1 mode change may alter only a small selector/label region. A global 1% full-frame threshold would reject a valid Manual → Agricultural/Industrial transition. The 1% gate is therefore checkpoint-specific and retained only on navigation transitions where CF4 measured large changes; state checkpoints use selector-region oracles instead.
+- Capture names are artifact identities, not labels only. Duplicate names are rejected before launch so one screenshot cannot overwrite another while stale metadata survives in `run.json`.
+- The action DSL is bounded before launch and at runtime. Excessive step/capture counts, malformed or oversized settle delays, or a declared sleep schedule that consumes the runtime budget fail closed instead of producing an unbounded hosted job.
 
 These details are encoded in the reusable harness/configuration so later agents do not have to rediscover them.
 
@@ -106,9 +113,11 @@ The V1 scenario is fixed as follows:
 9. Continue/end at least one turn using the normal game path required by the eventual implementation and revisit both planets. Capture `P1 = Manual` and `P2 = Industrial`; if the implementation's mode lifetime intentionally excludes the turn boundary, V1 must fail rather than silently weakening the M1 contract.
 10. Remove/disable the mod by its documented rollback path and verify the original canonical target identity is restored when the patch mechanism changes bytes on disk.
 
-The executable input script for these exact UI coordinates/chords cannot be finalized before UI2 determines the actual new controls. UI2 must therefore add a V1 action file using the already-fixed CF4 action schema; it must not invent a different automation mechanism unless CF4's harness proves inadequate. V1 then runs that checked-in action file unchanged and publishes the resulting `run.json` plus named screenshots/log/state traces as its evidence artifact.
+The executable input script for these exact UI coordinates/chords cannot be finalized before UI2 determines the actual new controls. UI2 must therefore add a **schema-v2** V1 action file using the already-fixed CF4 action model. Every V1 capture that claims `Manual`, `Agricultural`, or `Industrial` must include a stable screen-specific oracle covering the selector/label region established from the final UI2 implementation. Navigation checkpoints may additionally declare `min_change_ratio_from_previous` when a large transition is an intentional invariant; mode-state checkpoints must not inherit the 1% full-frame threshold merely because they are adjacent captures.
 
-For acceptance, screenshots must visibly identify the selected mode at every checkpoint above. If the implementation exposes a cheap structured diagnostic/state trace, V1 should include it and correlate each `P1`/`P2` action with the visual checkpoint; this is additive evidence, not a substitute for the required visible UI state.
+V1 then runs that checked-in action file unchanged and publishes the resulting `run.json` plus named screenshots/log/state traces as its evidence artifact. The action-file SHA-256, harness SHA-256, fixture-manifest SHA-256 and DOSBox identity in `run.json` make the detached artifact auditable even if a similarly named scenario is edited later.
+
+For acceptance, screenshots must visibly identify the selected mode at every checkpoint above **and the corresponding selector-region oracle must match**. If the implementation exposes a cheap structured diagnostic/state trace, V1 should include it and correlate each `P1`/`P2` action with the visual checkpoint; this is additive evidence, not a substitute for the required visible UI state.
 
 ## Cloud execution contract for V1
 
@@ -127,13 +136,13 @@ The checked-in demo smoke provides the public CI capability probe. Exact-target 
 
 ## Validation performed for CF4
 
-- `runtime`: canonical `ANTAG.EXE` + pinned retail fixture + supplied DOSBox 0.74-3 bundle — CF4 tutorial-5 UI smoke **PASS** with three 640x480 captures and two large verified frame transitions.
-- `runtime`: pinned official demo `ASCEND.EXE` — demo tutorial-1 UI smoke **PASS** after the required pre-video key, with three 640x480 captures and two large verified frame transitions.
-- `synthetic`: focused unit tests cover action-schema allow-listing/bounds, unsafe capture names, minimum capture count, case-insensitive DOS fixture matching, hash mismatch rejection, casefold ambiguity rejection, and PNG dimension parsing.
+- `runtime`: canonical `ANTAG.EXE` + pinned retail fixture + supplied DOSBox 0.74-3 bundle — CF4 tutorial-5 UI smoke **PASS** with three 640x480 inspected captures and two large navigation transitions. The schema-v2 expected-screen regions are derived from those exact inspected captures.
+- `runtime`: pinned official demo `ASCEND.EXE` — demo tutorial-1 UI smoke **PASS** after the required pre-video key, with three 640x480 inspected captures and two large navigation transitions. The public CI smoke now checks the corresponding expected-screen regions rather than accepting motion alone.
+- `synthetic`: focused unit tests cover action-schema allow-listing and schema version, step/capture limits, unique capture names, wait/settle bounds, overall runtime-budget validation, screen-oracle region/hash validation, minimum capture count, case-insensitive DOS fixture matching, hash mismatch rejection, casefold ambiguity rejection, RGB-region hashing, and PNG dimension parsing.
 - `static`: no target-specific addresses, state fields, functions, offsets, calling convention, or patch locations were inferred by CF4.
 
 ## Decision
 
 CF4 is **Completed and verified** and V1 changes from `GATED` to **`CLOUD`**.
 
-This decision is limited to UI interaction/evidence capture feasibility. It does not claim that the M1 controls already exist, that profile state is implemented, or that the final V1 action coordinates are known before UI2.
+This decision is limited to UI interaction/evidence capture feasibility. It does not claim that the M1 controls already exist, that profile state is implemented, or that the final V1 action coordinates/oracle regions are known before UI2.

@@ -48,6 +48,24 @@ jobs:
       - name: Validate corrected CF2 pipeline on pinned targets
         run: python scripts/validate_cf2_real_targets.py --fetch
 
+  re1-real-target:
+    name: RE1 real-target differential map
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check binutils is available
+        run: objdump --version
+      # RE1 is an analysis-tool change and exact target bytes are lawfully
+      # fetchable in cloud. Exercise the repository command on a clean checkout
+      # rather than accepting only synthetic pairing tests.
+      - name: Fetch and verify pinned comparison targets
+        run: python tools/fetch_free_targets.py
+      - name: Generate RE1 differential map on pinned targets
+        run: python scripts/generate_re1_diff_map.py --binaries binaries
+
   cf3-demo-acquisition:
     name: CF3 demo acquisition
     runs-on: ubuntu-latest

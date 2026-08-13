@@ -177,7 +177,7 @@ RE4 runtime-confirmed the existing per-planet Managed field and immediate UI tra
 
 ### Outcome
 
-**Yes, for the executables.** The decisive finding is what the Antagonizer *is*: not an in-place patcher but a **complete standalone game executable** (`ANTAG.EXE`) that is copied next to the retail `ASCEND.EXE` and reads the retail data files. The publisher's official bug patch is the same shape (`PATCH.EXE`, version 1.6.5 English / `F_PATCH.EXE`, 1.8.5 non-English). Both were released free of charge by The Logic Factory in 1995 and survive on the Internet Archive.
+**Yes, for the executables.** The decisive finding is what the Antagonizer *is*: not an in-place patcher but a **complete standalone game executable** (`ANTAG.EXE`) that is copied beside the retail `ASCEND.EXE` and reads the retail data files. The publisher's official bug patch is the same shape (`PATCH.EXE`, version 1.6.5 English / `F_PATCH.EXE`, 1.8.5 non-English). Both were released free of charge by The Logic Factory in 1995 and survive on the Internet Archive.
 
 Established:
 
@@ -271,7 +271,7 @@ Limits that downstream work must retain:
 - candidate starts are direct-call-derived regions, not verified functions; indirect-only callees are folded into preceding spans;
 - 11 EN / 12 INTL structural Antagonizer-only spans exceed 2000 bytes, so the structural count is not a changed-function count;
 - reference-only differences mix benign relocation with possible callee/global/table retargets;
-- constant-only differences mix DS-relative layout movement with genuine thresholds/flags and are the largest unresolved English bucket;
+- constant-only differences mix DS-relative layout movement with genuine thresholds/biases/flags and are the largest unresolved English bucket;
 - structural matched-byte fraction ignores both unresolved middle buckets;
 - despite T1's strong direct-lineage evidence, whole-image differences may still contain unrelated bug-fix/configuration drift and need cross-locale or semantic corroboration.
 
@@ -539,7 +539,7 @@ The retail unpatched `ASCEND.EXE` is not freely distributed and remains an optio
 - **Status:** **Completed and verified** — see [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md). Evidence is `static` with clean blind-RE provenance from all four exact CF1/T1 hash-pinned executables; the required independent Open Watcom `wdump` check passed with zero disagreements.
 - **Execution:** **CLOUD** — set by CF2's completed feasibility result; T2 itself is complete.
 - **Priority:** High
-- **Category:** Tooling / compatibility
+- **Category:** Tooling / static RE
 - **Origin:** High-level step 2
 - **Depends on:** T1 (complete), CF2 (complete)
 - **Goal:** Make target static analysis reproducible enough that later agents do not depend on one person's interactive RE database.

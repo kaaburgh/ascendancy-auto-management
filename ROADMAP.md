@@ -2,7 +2,7 @@
 
 This file is the live backlog, sequencing source, and execution-environment contract for the project.
 
-The roadmap is intentionally written so a capable coding/reverse-engineering agent can select one bounded item, complete it without chat history, and leave enough durable evidence for the next agent. See [`AGENTS.md`](./AGENTS.md) for repository-wide rules and [`docs/agent-playbook.md`](./docs/agent-playbook.md) for the detailed RE workflow.
+The roadmap is intentionally written so a capable coding/research agent can select one bounded item, complete it without chat history, and leave enough durable evidence for the next agent. See [`AGENTS.md`](./AGENTS.md) for repository-wide rules and [`docs/agent-playbook.md`](./docs/agent-playbook.md) for the detailed RE workflow.
 
 Canonical roadmap items and durable technical documentation are written in English so symbols, tool output, scripts, PRs, and handoffs use one language.
 
@@ -122,6 +122,12 @@ Full detail in [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experime
 - Open Watcom `wdump` 2.0 beta independently agrees with `le_image.py info --json` on all four pinned targets: 24 shared LE header fields, both object records and every emitted page-map row, with **zero disagreements** (126 + 126 + 121 + 121 = 494 page rows). In particular it independently confirms `page_off = 0x18000` for both Antagonizer builds and `0x17600` for both patch builds.
 - T2 does not establish semantic function identity. Candidate starts remain linear-sweep/direct-call analysis regions and the full target strings/disassembly stay out of git.
 
+### Established by RE4 (runtime; clean)
+
+- On the exact canonical Antagonizer, plain M in ordinary non-tutorial game state reversibly changes dword `planet_record+0x5a` between `0x00000000` (Manual) and `0xffffffff` (Managed) before any turn advancement.
+- The changing dword was observed in two distinct `0x7b` runtime planet records, each carrying the selected player-visible planet name at `record+0x24`; the existing Planets renderer displayed `Self-Managed` when the field was set.
+- The bounded fail-closed procedure and exact target evidence are recorded in [`docs/experiments/RE4-runtime-ui-state.md`](./docs/experiments/RE4-runtime-ui-state.md) and [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md).
+
 ### Still assumptions
 
 These are project directions, not yet binary facts. Do not assume:
@@ -132,8 +138,6 @@ These are project directions, not yet binary facts. Do not assume:
 - **the calling convention.** Watcom's default 32-bit convention is register-based (`__watcall`: EAX/EDX/EBX/ECX), but this build could have been configured for stack calling. RE2/RE3 must confirm it at known-arity real call sites before argument interpretation or hook design depends on it;
 - that a candidate boundary from `tools/le_disasm.py` is a real function boundary — starts are derived from direct calls by linear sweep and indirect-only callees can be folded into preceding spans;
 - that a particular address or function is stable between the baseline and Antagonizer;
-- that the auto-management state is a field in the planet object;
-- that the existing UI toggle directly writes the persistent state;
 - that the safest implementation is an on-disk patch, runtime hook, loader, TSR, or any other specific mechanism.
 
 All binary-specific findings must name the exact target hash.
@@ -152,9 +156,9 @@ Cloud-feasibility tasks are intentionally near the front so later work is not un
 
 The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone. X1 is `Open`/`CLOUD` but remains unselectable until its M1 dependency is completed.
 
-**Current front of the path:** CF1, CF2, T0, T1 and T2 are complete. **RE1 is now selectable as CLOUD** under its own item contract. CF3 is independent of T2 and is unchanged by T2 completion; CF4 remains gated on CF3.
+**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE4 are complete. **RE5 is now selectable as CLOUD**; A1/A2 remain dependency-blocked on RE5.
 
-T1 fixed the canonical hashes and handed RE1 an explicit lineage constraint. T2 now provides the reproducible canonical static-analysis handoff and independent `wdump` load-map cross-check. RE2/RE3 remain downstream of RE1.
+RE4 runtime-confirmed the existing per-planet Managed field and immediate UI transition on two distinct planet records. RE5 retains the separate runtime task of proving that confirmed field's per-turn causal path into existing automatic management.
 
 ---
 
@@ -647,8 +651,8 @@ For canonical `ANTAG_EN.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34c
 - `DS:0x43664` is the selected-object pointer used by this planet-window input/render seam;
 - the direct M path reads and bitwise-NOTs dword `[selected+0x5a]`, writing it back at `0x3791f`;
 - the planet renderer checks the same `[selected+0x5a] == 0xffffffff` at `0x3afca` before requesting resource ID 98, identified by the exact CF3-pinned retail user-facing data as `Self Managed`;
-- therefore selected object `+0x5a` is the existing UI Managed/self-management state field. Runtime ownership/lifetime across two planets remains RE4's confirmation question;
-- state-consultation sites `0x35473` and `0x356cc` are preserved only as RE4/RE3 instrumentation leads; their downstream per-turn semantics are not traced here.
+- therefore selected object `+0x5a` is the existing UI Managed/self-management state field. RE4 subsequently runtime-confirmed direct ownership and reversible transition on two distinct planet records;
+- state-consultation sites `0x35473` and `0x356cc` are preserved only as later instrumentation leads; their downstream per-turn semantics are not traced here.
 
 Calling convention was checked before argument interpretation. A real known-arity variadic call at `0x37346 -> 0x76d09` proves a cdecl-style caller-cleaned three-stack-argument boundary (`add esp,0x0c`), while the internal planet-window handler directly consumes register inputs. The supported conclusion is a mixed stack/register ABI boundary, not a blanket `__watcall` or stack-only assumption.
 
@@ -664,7 +668,7 @@ The same narrow seam is corroborated in both product families/locales. `scripts/
 
 ### Acceptance criteria
 
-**Met.** RE4 has a bounded experiment: observe the write at `0x3791f` and renderer check at `0x3afca` on two selected planets, recording only runtime mapping, selected-object pointers and bounded `+0x5a` before/after values. Static argument interpretation is based on observed real call/data flow rather than an assumed compiler default. RE3 remains a separate parallel task and is not implemented here.
+**Met.** RE2 reduced RE4 to a bounded exact-target experiment. RE4 subsequently executed that experiment and confirmed the same `+0x5a` state on two runtime planet records without changing RE2's static ABI conclusions. RE3 remains a separate task.
 
 ---
 
@@ -689,7 +693,7 @@ Static analysis separates the required layers on canonical `ANTAG_EN.EXE` (`8d91
 - `0x3d8f0` feeds selected values to `0x34b0c`, whose downstream path writes `[planet+0x52]` and `[planet+0x54]`, separating policy from action/queue mutation;
 - relevant internal calls were observed to pass live inputs through `EAX`, `EDX`, `EBX`, `ECX`, consistent with Watcom `__watcall`; this is backed by real call/callee data flow rather than compiler-default assumptions.
 
-The player gate and the same `+0x57/+0x5a/+0x54` object-relative relationships reproduce in the canonical patch baseline and both International corroboration builds. This strongly supports `+0x5a` as the existing player-automation gate consumed each turn, while deliberately leaving the UI write/state-transition identity for RE2/RE4 runtime confirmation.
+The player gate and the same `+0x57/+0x5a/+0x54` object-relative relationships reproduce in the canonical patch baseline and both International corroboration builds. This strongly supports `+0x5a` as the existing player-automation gate consumed each turn, while deliberately leaving runtime per-turn causality for RE5.
 
 ### Work
 
@@ -719,37 +723,39 @@ Do not require full reconstruction of the AI algorithm. M1 only needs a safe sea
 
 ## RE4 — Runtime-confirm the per-planet mode state and UI transition
 
-- **Status:** Investigation first
-- **Execution:** **CLOUD** — set by CF3: the exact canonical Antagonizer reaches the game runtime in cloud on the pinned maintainer-supplied retail fixture. Require `tools/retail-runtime-manifest.json` verification and use `scripts/run_cf3_runtime_smoke.py --verify-retail` for bounded artifact capture; see [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
+- **Status:** **Completed and verified** — exact-target runtime ownership and reversible Managed transition are confirmed; see [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md) and [`docs/experiments/RE4-runtime-ui-state.md`](./docs/experiments/RE4-runtime-ui-state.md).
+- **Execution:** **CLOUD** — completed on the exact canonical target with the pinned maintainer-supplied retail fixture using `scripts/run_re4_runtime_state.py`; immutable retail inputs are verified by `tools/retail-runtime-manifest.json` and the resumed scenario separately pins its mutable save input.
 - **Priority:** Critical
 - **Category:** Reverse engineering / runtime state
 - **Origin:** High-level steps 3–4
-- **Depends on:** RE2, CF3
+- **Depends on:** RE2 (complete), CF3 (complete)
 - **Question:** What exact runtime state transition occurs when the existing self-management control is toggled for a selected planet?
 
-### Experiment requirements
+### Outcome
 
-The experiment should distinguish at least these hypotheses where relevant:
+`runtime`, clean blind-RE evidence on canonical `ANTAG.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`):
 
-- state stored directly in a planet object;
-- state stored in a side structure/indexed table;
-- UI queues a command and state changes later;
-- UI state and simulation state are distinct.
+- plain **M** in ordinary non-tutorial game state reversibly changes dword `planet_record+0x5a` as `0x00000000 -> 0xffffffff -> 0x00000000` before any turn advancement;
+- the transition was independently observed on two distinct `0x7b` runtime planet records: pinned resumed-game planet `Xerxes I` and a separately created new-game Snovemdomas homeworld (`Flammifer I` in the recorded final run); each record carries its selected planet name at `record+0x24`;
+- the input-to-Managed observations were bounded to about 20–23 ms in the final runs, rejecting a model where the UI merely queues the change until turn processing while deliberately not claiming an instruction-level timestamp;
+- after the same `+0x5a` field reached `0xffffffff`, the ordinary Planets renderer displayed the existing `Self-Managed` line; the same independently inspected RGB-region oracle matched in both unrelated planet runs;
+- a side-table-only ownership model and a separate UI-display-only state model do not fit the observed runtime data;
+- Tutorial #5 was preserved as a negative fixture result because its controller intercepts/re-displays the Planetary Display tutorial on M rather than exercising an uncontaminated normal-game toggle;
+- `scripts/run_re4_runtime_state.py` fail-closes on target/fixture identity, unique relocation-tolerant runtime toggle signature, structured `0x7b` record ownership, reversible `+0x5a` transition and the Managed renderer oracle. Raw process-memory snapshots are never written to the artifact directory.
 
-Capture enough context to establish ownership of the field/state, not merely “byte X changed once.” Repeat on at least two different planets if feasible to establish per-planet behavior.
+RE4 does **not** runtime-confirm the per-turn decision/policy/action path. RE3's static convergence on the same `+0x5a` field is handed to RE5, which remains a separate roadmap item.
 
 ### Deliverables
 
-- reproducible experiment record under `docs/experiments/`;
-- durable findings in `docs/re/auto-management-ui-state.md`;
-- exact target hash and addresses/offsets/signatures with evidence category;
-- update RE2 hypotheses/status.
-
-If `LOCAL ONLY`, the local run must emit a compact artifact that a cloud agent can analyze without another interactive session.
+- [x] reproducible experiment record at [`docs/experiments/RE4-runtime-ui-state.md`](./docs/experiments/RE4-runtime-ui-state.md);
+- [x] durable runtime findings merged into [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md);
+- [x] exact canonical target hash plus static code sites, object-relative offsets and relocation-tolerant runtime signature recorded with evidence categories;
+- [x] fail-closed runtime runner `scripts/run_re4_runtime_state.py` and focused synthetic tests;
+- [x] RE2's runtime ownership/transition hypotheses updated without changing its completed static ABI result.
 
 ### Acceptance criteria
 
-The project can identify and observe the per-planet auto-management state transition with runtime evidence and can tell manual from automated state for at least two planets.
+**Met.** The project can identify and observe Manual (`0x00000000`) versus Managed (`0xffffffff`) state as dword `+0x5a` inside two distinct runtime planet records, prove that ordinary M changes it before turn processing, and correlate the Managed value with the existing `Self-Managed` presentation. Runtime per-turn consumption remains explicitly delegated to RE5.
 
 ---
 

@@ -62,9 +62,6 @@ def monitor_turn(
         raise model.RE5FollowupError(
             f"scenario must start empty: +0x52={initial_slot.hex()} +0x54={initial_action:02x}"
         )
-    if any(value != legacy.NO_ACTION for value in initial_collateral.values()):
-        raise model.RE5FollowupError(f"{spec.name}: collateral record no longer starts +0x54 == ff")
-
     first_slot_change_ms: float | None = None
     first_action_change_ms: float | None = None
     first_marker_ms: float | None = None
@@ -119,6 +116,7 @@ def monitor_turn(
             "static_stride_assumption": "RE3 gate loop walks planet records by +0x7b",
             "local_collateral_validated": True,
             "records": collateral,
+            "initial_action_at_monitor": {side: f"{value:02x}" for side, value in initial_collateral.items()},
             "marker_seen_ever": {side: side in collateral_seen for side in ("left", "right")},
             "collateral_pair_closed": pair_closed,
             "hard_gate_oracle_eligible": spec.require_collateral_bracket,

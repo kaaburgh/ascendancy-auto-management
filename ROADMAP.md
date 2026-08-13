@@ -117,7 +117,7 @@ Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/
 
 Full detail in [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md) and the repo-safe handoff under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/).
 
-- `scripts/generate_t2_static_bundle.py` fail-closes on the exact four CF1/T1 filenames, sizes and SHA-256 values, regenerates canonical layouts/strings/`le_disasm` v2 inventories into ignored `artifacts/`, and writes compact reviewable summaries with stable digests under `docs/re/static-analysis/t2/`.
+- `scripts/generate_t2_static_bundle.py` fail-closes on the exact four CF1/T1 filenames, sizes and SHA-256 values, regenerates canonical layouts/strings/`le_disasm` v2 inventories into ignored `artifacts/`, and writes compact reviewable summaries with stable digests under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/).
 - The canonical English summaries reproduce CF2's corrected headline metrics: `ANTAG_EN` 144696 instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162.
 - Open Watcom `wdump` 2.0 beta independently agrees with `le_image.py info --json` on all four pinned targets: 24 shared LE header fields, both object records and every emitted page-map row, with **zero disagreements** (126 + 126 + 121 + 121 = 494 page rows). In particular it independently confirms `page_off = 0x18000` for both Antagonizer builds and `0x17600` for both patch builds.
 - T2 does not establish semantic function identity. Candidate starts remain linear-sweep/direct-call analysis regions and the full target strings/disassembly stay out of git.
@@ -736,8 +736,8 @@ Do not require full reconstruction of the AI algorithm. M1 only needs a safe sea
 `runtime`, clean blind-RE evidence on canonical `ANTAG.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`):
 
 - plain **M** in ordinary non-tutorial game state reversibly changes dword `planet_record+0x5a` as `0x00000000 -> 0xffffffff -> 0x00000000` before any turn advancement;
-- the transition was independently observed on two distinct `0x7b` runtime planet records: pinned resumed-game planet `Xerxes I` and a separately created new-game Snovemdomas homeworld (`Flammifer I` in the recorded final run); each record carries its selected planet name at `record+0x24`;
-- the input-to-Managed observations were bounded to about 20–23 ms in the final runs, rejecting a model where the UI merely queues the change until turn processing while deliberately not claiming an instruction-level timestamp;
+- the transition was independently observed on two distinct `0x7b` runtime planet records in the hardened post-review rerun: pinned resumed-game planet `Xerxes I` and a separately created new-game Snovemdomas homeworld `Paragon III`; each record carries its selected planet name at `record+0x24`;
+- the hardened input-to-Managed observations were `19.219 ms` (`Xerxes I`) and `37.829 ms` (`Paragon III`), rejecting a model where the UI merely queues the change until turn processing while deliberately not claiming an instruction-level timestamp;
 - after the same `+0x5a` field reached `0xffffffff`, the ordinary Planets renderer displayed the existing `Self-Managed` line; the same independently inspected RGB-region oracle matched in both unrelated planet runs;
 - a side-table-only ownership model and a separate UI-display-only state model do not fit the observed runtime data;
 - Tutorial #5 was preserved as a negative fixture result because its controller intercepts/re-displays the Planetary Display tutorial on M rather than exercising an uncontaminated normal-game toggle;

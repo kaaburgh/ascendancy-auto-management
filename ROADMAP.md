@@ -630,37 +630,41 @@ Use normalized/static analysis rather than raw byte diff alone. Rank candidate r
 
 ## RE2 — Identify the existing auto-management UI/state seam statically
 
-- **Status:** Investigation first
-- **Execution:** **CLOUD** — the analysis path is resolved by completed CF2 and T2; still dependency-blocked on RE1
+- **Status:** **Completed and verified** — clean static blind-RE seam recovered; see [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md) and [`docs/experiments/RE2-auto-management-ui-state-static.md`](./docs/experiments/RE2-auto-management-ui-state-static.md).
+- **Execution:** **CLOUD** — completed with the CF2/T2 static path and a dedicated clean-checkout real-target regression.
 - **Priority:** Critical
 - **Category:** Reverse engineering / planet state / UI
 - **Origin:** High-level steps 3–4
-- **Depends on:** T2 (complete), RE1
+- **Depends on:** T2 (complete), RE1 (complete)
 - **Question:** What code path handles the existing per-planet self-management control, and what state representation is most likely changed or consulted?
 
-### Work
+### Outcome
 
-**First calling-convention check:** before interpreting argument/register roles from candidate call sites, select at least one real call with independently inferable arity/semantics and establish whether the surrounding code follows Watcom register calling (`__watcall`) or stack-based calling. Record the evidence; do not inherit the compiler default as a game fact.
+For canonical `ANTAG_EN.EXE` (`8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`), static evidence establishes:
 
-Then trace the control from static anchors: rendering/input handlers, strings/resources, candidate call sites, selected-planet references, and state reads/writes. Keep competing hypotheses alive if static evidence cannot distinguish them.
+- planet-window handler candidate `0x37568`, anchored by `PLANLIST` / `PLSQUARE`, directly consuming incoming `EAX`, `DX`, `EBX`, `ECX`;
+- plain **M** (set-1 scan code `0x32`) reaches the direct Managed toggle; `DS:0x48608` is independently tied to BIOS `INT 16h/AH=02h` Shift state and Shift+M takes a separate unnamed branch;
+- `DS:0x43664` is the selected-object pointer used by this planet-window input/render seam;
+- the direct M path reads and bitwise-NOTs dword `[selected+0x5a]`, writing it back at `0x3791f`;
+- the planet renderer checks the same `[selected+0x5a] == 0xffffffff` at `0x3afca` before requesting resource ID 98, identified by the exact CF3-pinned retail user-facing data as `Self Managed`;
+- therefore selected object `+0x5a` is the existing UI Managed/self-management state field. Runtime ownership/lifetime across two planets remains RE4's confirmation question;
+- state-consultation sites `0x35473` and `0x356cc` are preserved only as RE4/RE3 instrumentation leads; their downstream per-turn semantics are not traced here.
 
-At minimum attempt to identify:
+Calling convention was checked before argument interpretation. A real known-arity variadic call at `0x37346 -> 0x76d09` proves a cdecl-style caller-cleaned three-stack-argument boundary (`add esp,0x0c`), while the internal planet-window handler directly consumes register inputs. The supported conclusion is a mixed stack/register ABI boundary, not a blanket `__watcall` or stack-only assumption.
 
-- candidate UI input handler(s);
-- candidate selected-planet/object relationship;
-- candidate auto-management read/write location(s);
-- candidate code sites suitable for runtime instrumentation in RE4.
+The same narrow seam is corroborated in both product families/locales. `scripts/generate_re2_ui_state_map.py` fail-closes on all four exact target hashes, requires unique instruction-pattern matches plus independent string/control/data invariants, and pins cross-build state offset `0x5a`, M scan code `0x32`, and render resource ID 98.
 
 ### Deliverables
 
-- `docs/re/auto-management-ui-state.md`;
-- calling-convention observation tied to exact target/call sites;
-- annotated candidate sites tied to exact target hash;
-- a minimal runtime experiment specification for RE4 that maximizes information gain.
+- [x] `docs/re/auto-management-ui-state.md`;
+- [x] calling-convention observation tied to exact target/call sites;
+- [x] annotated candidate sites tied to exact target hash;
+- [x] fail-closed machine-readable regeneration script and focused tests;
+- [x] minimal two-planet runtime experiment specification for RE4.
 
 ### Acceptance criteria
 
-RE4 can be executed as a bounded experiment rather than an open-ended debugger session, and static argument interpretation is not resting on an unverified ABI assumption.
+**Met.** RE4 has a bounded experiment: observe the write at `0x3791f` and renderer check at `0x3afca` on two selected planets, recording only runtime mapping, selected-object pointers and bounded `+0x5a` before/after values. Static argument interpretation is based on observed real call/data flow rather than an assumed compiler default. RE3 remains a separate parallel task and is not implemented here.
 
 ---
 

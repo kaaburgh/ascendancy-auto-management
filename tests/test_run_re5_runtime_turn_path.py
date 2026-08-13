@@ -42,8 +42,17 @@ class RE5RuntimeTests(unittest.TestCase):
     def test_patch_plans_cover_whole_known_instruction_bytes(self):
         self.assertEqual(re5.POLICY_SUPPRESSION.expected.hex(), "e8d3170000")
         self.assertEqual(len(re5.POLICY_SUPPRESSION.replacement), 5)
+        self.assertEqual(re5.GATE_REACHABILITY_PROBE.expected.hex(), "e8d3170000")
+        self.assertEqual(re5.GATE_REACHABILITY_PROBE.replacement.hex(), "c642547e90")
         self.assertEqual(re5.ACTION_WRITE_SUPPRESSION.expected.hex(), "884654")
         self.assertEqual(len(re5.ACTION_WRITE_SUPPRESSION.replacement), 3)
+
+    def test_proc_state_parser_uses_code_after_label_only(self):
+        self.assertEqual(re5.parse_proc_state_code("State:\tT (stopped)"), "T")
+        self.assertEqual(re5.parse_proc_state_code("State:\tt (tracing stop)"), "t")
+        self.assertEqual(re5.parse_proc_state_code("State:\tR (running)"), "R")
+        self.assertEqual(re5.parse_proc_state_code("State:\tS (sleeping)"), "S")
+        self.assertEqual(re5.parse_proc_state_code("Name:\tdosbox"), "")
 
     def _trace(self, slot=None, action=None, *, state="ffffffff", final_action="ff"):
         return {
@@ -56,6 +65,16 @@ class RE5RuntimeTests(unittest.TestCase):
                 "managed_0x5a": state,
             },
         }
+
+    def test_gate_probe_distinguishes_manual_and_managed_reachability(self):
+        manual = next(s for s in re5.SCENARIOS if s.name == "manual-gate-probe")
+        managed = next(s for s in re5.SCENARIOS if s.name == "managed-gate-probe")
+        re5.validate_scenario(manual, self._trace(None, None, state="00000000"))
+        re5.validate_scenario(managed, self._trace(None, 65.0, final_action="7e"))
+        with self.assertRaises(re5.RE5Error):
+            re5.validate_scenario(manual, self._trace(None, 65.0, state="00000000", final_action="7e"))
+        with self.assertRaises(re5.RE5Error):
+            re5.validate_scenario(managed, self._trace(None, None))
 
     def test_managed_control_requires_selection_and_action_commit(self):
         spec = next(s for s in re5.SCENARIOS if s.name == "managed-control")
@@ -86,8 +105,10 @@ class RE5RuntimeTests(unittest.TestCase):
     def test_summary_requires_complete_scenario_set(self):
         rows = []
         for spec in re5.SCENARIOS:
-            if spec.name == "manual-control":
+            if spec.name in {"manual-control", "manual-gate-probe"}:
                 trace = self._trace(None, None, state="00000000")
+            elif spec.name == "managed-gate-probe":
+                trace = self._trace(None, 65.0, final_action="7e")
             elif spec.name == "managed-control":
                 trace = self._trace(4000.0, 4010.0, final_action="00")
             elif spec.name == "managed-policy-suppressed":
@@ -97,6 +118,9 @@ class RE5RuntimeTests(unittest.TestCase):
             rows.append({"name": spec.name, "status": "passed", "turn_trace": trace})
         summary = re5.summarize_causality(rows)
         self.assertTrue(summary["manual_stays_idle"])
+        self.assertTrue(summary["manual_does_not_reach_gate_policy_call"])
+        self.assertTrue(summary["managed_reaches_gate_policy_call"])
+        self.assertTrue(summary["override_path_inactive_for_manual_probe"])
         self.assertTrue(summary["managed_commits_action"])
         self.assertTrue(summary["gate_policy_call_is_necessary"])
         self.assertTrue(summary["selection_survives_action_write_suppression"])

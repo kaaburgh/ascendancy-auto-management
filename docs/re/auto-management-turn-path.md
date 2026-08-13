@@ -259,12 +259,16 @@ See [`../experiments/RE3-static-turn-path.md`](../experiments/RE3-static-turn-pa
 
 Evidence class: **runtime**. Blind-RE provenance: **clean**. Full procedure and bounded observations are in [`../experiments/RE5-runtime-turn-path.md`](../experiments/RE5-runtime-turn-path.md).
 
-On the exact canonical target and pinned `resume.gam`, the same player planet `Xerxes I` starts with `+0x52 == 0xffff`, `+0x54 == 0xff` and `+0x5a == 0`. Four fresh-process causal controls establish the runtime layering:
+On the exact canonical target and pinned `resume.gam`, the same player planet `Xerxes I` starts with `+0x52 == 0xffff`, `+0x54 == 0xff` and `+0x5a == 0`. Six fresh-process causal controls, all rerun after correcting the stopped-state parser, establish the runtime layering:
 
 1. **Manual control:** with `+0x5a == 0`, neither `+0x52` nor `+0x54` changes during the bounded fast-forward window.
-2. **Managed control:** ordinary M produces the RE4-confirmed `+0x5a == 0xffffffff`; the existing turn path then selects `+0x52 = 0x0034` and commits `+0x54 = 0x00`.
-3. **Gate→policy intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x3c118` `call 0x3d8f0` (`e8 d3 17 00 00`). Managed remains set, but neither selection nor action mutation occurs. Original call bytes are restored and re-verified before teardown.
-4. **Action-commit intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x34df2` `mov [esi+0x54], al` (`88 46 54`). `+0x52` still changes from `ffff` to `3400`, while `+0x54` remains `ff`. Original bytes are restored and re-verified.
+2. **Manual gate probe:** after exact-byte validation, the complete `0x3c118` call is replaced by `c6 42 54 7e 90` (`mov byte [edx+0x54],0x7e; nop`). With `+0x5a == 0`, marker `0x7e` never appears during the 7-second window.
+3. **Managed gate probe:** the same marker replacement with `+0x5a == 0xffffffff` writes `0x7e` to `+0x54` while `+0x52` stays `ffff`, directly proving reachability of `0x3c118` without running the policy.
+4. **Managed control:** ordinary M produces the RE4-confirmed `+0x5a == 0xffffffff`; the existing turn path then selects `+0x52 = 0x0034` and commits `+0x54 = 0x00`.
+5. **Gate→policy intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x3c118` `call 0x3d8f0` (`e8 d3 17 00 00`). Managed remains set, but neither selection nor action mutation occurs. Original call bytes are restored and re-verified before teardown.
+6. **Action-commit intervention:** after exact-byte validation, live-process-only NOPs replace the complete `0x34df2` `mov [esi+0x54], al` (`88 46 54`). `+0x52` still changes from `ffff` to `3400`, while `+0x54` remains `ff`. Original bytes are restored and re-verified.
+
+The paired gate probes close RE3 H4 for the pinned M1 scenario: static RE3 control flow allows a Manual `+0x5a == 0` planet to reach `0x3c118` only through the separate nonzero override path. Manual does not reach the marker while Managed does, so that override bypass is inactive in this tested Manual run. Its broader gameplay semantics remain unknown.
 
 This converts RE3's static layer model into a causal runtime relationship for the tested M1 path:
 
@@ -299,4 +303,4 @@ For M1, the new profile representation should preserve the legacy automation sem
 
 This does **not** decide that all three profile identities belong in `+0x5a`. A1 still owns the representation/lifecycle decision; RE5 establishes only the compatibility contract back into the original automation behavior.
 
-The separate global override in the RE3 gate remains semantically unknown. RE5 intentionally does not publish a guessed runtime address/value for it because a trustworthy DOS/4G guest-linear mapping was not independently established. No M1 conclusion above depends on inventing that mapping.
+The separate global override in the RE3 gate remains semantically unknown, and RE5 intentionally does not publish a guessed runtime address/value for it. The paired call-site marker probe establishes the M1-relevant fact without inventing that mapping: the override bypass is inactive in the pinned Manual scenario.

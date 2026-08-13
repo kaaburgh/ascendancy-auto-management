@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
+import tempfile
 import unittest
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "run_re4_runtime_state.py"
@@ -62,6 +64,45 @@ class RE4RuntimeStateTests(unittest.TestCase):
         restored[field:field + 4] = module.MANAGED
         with self.assertRaises(module.RE4Error):
             module.find_transition_record(bytes(before), bytes(managed), bytes(restored), "Shlupp IV")
+
+    def test_fixture_manifest_is_pinned_to_committed_contract(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            custom = root / "custom.json"
+            custom.write_text(json.dumps({"schema": 1, "files": []}) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(module.RE4Error, "must exactly match"):
+                module.verify_fixture(root, custom)
+
+    def test_fixture_rejects_case_insensitive_filename_collisions(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / "ANTAG.EXE").write_bytes(b"a")
+            (root / "antag.exe").write_bytes(b"b")
+            with self.assertRaisesRegex(module.RE4Error, "ambiguous case-insensitive"):
+                module.verify_fixture(root, module.RETAIL_MANIFEST)
+
+    def test_committed_manifest_hash_is_pinned(self):
+        self.assertEqual(module.sha256_file(module.RETAIL_MANIFEST), module.RETAIL_MANIFEST_SHA256)
+
+    def test_renderer_transition_requires_manual_managed_manual_differential(self):
+        manual = "1" * 64
+        result = module.validate_renderer_transition(manual, module.SELF_MANAGED_RGB_SHA256, manual)
+        self.assertTrue(result["managed_matches_pinned_oracle"])
+        self.assertTrue(result["manual_differs_from_managed"])
+        self.assertTrue(result["restored_matches_manual"])
+
+    def test_renderer_transition_rejects_same_manual_and_managed_region(self):
+        managed = module.SELF_MANAGED_RGB_SHA256
+        with self.assertRaisesRegex(module.RE4Error, "not differential"):
+            module.validate_renderer_transition(managed, managed, managed)
+
+    def test_renderer_transition_rejects_nonrestoring_manual_region(self):
+        with self.assertRaisesRegex(module.RE4Error, "did not return"):
+            module.validate_renderer_transition("1" * 64, module.SELF_MANAGED_RGB_SHA256, "2" * 64)
+
+    def test_renderer_transition_rejects_wrong_managed_oracle(self):
+        with self.assertRaisesRegex(module.RE4Error, "oracle mismatch"):
+            module.validate_renderer_transition("1" * 64, "2" * 64, "1" * 64)
 
 
 if __name__ == "__main__":

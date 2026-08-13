@@ -15,6 +15,11 @@ import tempfile
 import time
 from typing import Any
 
+ROOT = Path(__file__).resolve().parents[1]
+RETAIL_MANIFEST = ROOT / "tools" / "retail-runtime-manifest.json"
+RETAIL_MANIFEST_SHA256 = "814c37ea8683e9c32ce494bcb9568d08a33d3ef8e6d91b99ac07f37958269852"
+RETAIL_FIXTURE_ID = "ascendancy-retail-en-canonical-antagonizer-runtime-fixture"
+RETAIL_FIXTURE_FILE_COUNT = 17
 TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
 TARGET_SIZE = 610863
 STATE_OFFSET = 0x5A
@@ -109,23 +114,84 @@ def find_transition_record(
     }
 
 
+def _casefold_file_map(root: Path) -> dict[str, Path]:
+    by_name: dict[str, Path] = {}
+    collisions: list[str] = []
+    for candidate in root.iterdir():
+        if not candidate.is_file():
+            continue
+        key = candidate.name.casefold()
+        previous = by_name.get(key)
+        if previous is not None:
+            collisions.append(f"{previous.name}/{candidate.name}")
+        else:
+            by_name[key] = candidate
+    if collisions:
+        raise RE4Error(
+            "retail tree has ambiguous case-insensitive filenames: " + ", ".join(sorted(collisions))
+        )
+    return by_name
+
+
 def verify_fixture(root: Path, manifest_path: Path) -> dict[str, Any]:
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("schema") != 1 or not isinstance(manifest.get("files"), list):
-        raise RE4Error("unsupported retail manifest")
-    files = {p.name.casefold(): p for p in root.iterdir() if p.is_file()}
+    if not RETAIL_MANIFEST.is_file() or sha256_file(RETAIL_MANIFEST) != RETAIL_MANIFEST_SHA256:
+        raise RE4Error("committed retail manifest identity mismatch")
+    if not manifest_path.is_file() or sha256_file(manifest_path) != RETAIL_MANIFEST_SHA256:
+        raise RE4Error("fixture manifest must exactly match the committed retail runtime manifest")
+
+    manifest = json.loads(RETAIL_MANIFEST.read_text(encoding="utf-8"))
+    if (
+        manifest.get("schema") != 1
+        or manifest.get("id") != RETAIL_FIXTURE_ID
+        or not isinstance(manifest.get("files"), list)
+        or len(manifest["files"]) != RETAIL_FIXTURE_FILE_COUNT
+    ):
+        raise RE4Error("committed retail manifest contract is malformed")
+
+    files = _casefold_file_map(root)
     verified = []
+    expected_keys: set[str] = set()
     for entry in manifest["files"]:
-        p = files.get(entry["name"].casefold())
+        if not isinstance(entry, dict) or not all(k in entry for k in ("name", "size", "sha256")):
+            raise RE4Error("committed retail manifest contains malformed file entry")
+        key = str(entry["name"]).casefold()
+        if key in expected_keys:
+            raise RE4Error(f"committed retail manifest has duplicate filename: {entry['name']}")
+        expected_keys.add(key)
+        p = files.get(key)
         if p is None:
             raise RE4Error(f"fixture file missing: {entry['name']}")
         if p.stat().st_size != entry["size"] or sha256_file(p) != entry["sha256"]:
             raise RE4Error(f"fixture identity mismatch: {entry['name']}")
         verified.append(entry["name"])
+
     exe = files.get("antag.exe")
     if exe is None or exe.stat().st_size != TARGET_SIZE or sha256_file(exe) != TARGET_SHA256:
         raise RE4Error("canonical ANTAG.EXE identity mismatch")
-    return {"id": manifest.get("id"), "verified_files": len(verified)}
+    return {
+        "id": manifest["id"],
+        "verified_files": len(verified),
+        "manifest_sha256": RETAIL_MANIFEST_SHA256,
+    }
+
+
+def validate_renderer_transition(manual_hash: str, managed_hash: str, restored_hash: str) -> dict[str, Any]:
+    if managed_hash != SELF_MANAGED_RGB_SHA256:
+        raise RE4Error(f"Self-Managed renderer oracle mismatch: {managed_hash}")
+    if manual_hash == managed_hash:
+        raise RE4Error("renderer oracle is not differential: Manual and Managed regions are identical")
+    if restored_hash != manual_hash:
+        raise RE4Error(
+            "renderer oracle did not return to the Manual region after restoring planet+0x5a to zero"
+        )
+    return {
+        "manual_region_rgb_sha256": manual_hash,
+        "managed_region_rgb_sha256": managed_hash,
+        "restored_region_rgb_sha256": restored_hash,
+        "managed_matches_pinned_oracle": True,
+        "manual_differs_from_managed": True,
+        "restored_matches_manual": True,
+    }
 
 
 def proc_rw_mappings(pid: int) -> list[tuple[int, int]]:
@@ -208,7 +274,6 @@ class XInput:
         self.x11.XFlush(self.display)
 
     def move_to(self, x: int, y: int) -> None:
-        # DOSBox/game owns relative motion. Clamp at the guest's top-left, then move to a known coordinate.
         self.move(-2000, -2000)
         self.move(x, y)
 
@@ -319,28 +384,27 @@ def wait_field(pid: int, address: int, expected: bytes, timeout: float = 0.25) -
 
 
 def scenario_steps(inp: XInput, kind: str) -> None:
-    # Game intro -> 640x480 main menu is handled by caller.
-    inp.click()  # first click captures DOSBox mouse; it must not activate a menu item.
+    inp.click()
     time.sleep(0.25)
     if kind == "resume":
-        inp.move_to(320, 333)  # Return to Current Game
+        inp.move_to(320, 333)
         inp.click()
         time.sleep(1.5)
     elif kind == "new-snovemdomas":
-        inp.move_to(320, 293)  # New Game
+        inp.move_to(320, 293)
         inp.click()
         time.sleep(1.5)
-        inp.move_to(560, 210)  # Snovemdomas (second visible species)
+        inp.move_to(560, 210)
         inp.click()
         time.sleep(0.5)
-        inp.move_to(570, 460)  # Begin New Game
+        inp.move_to(570, 460)
         inp.click()
         time.sleep(3.0)
         inp.key("Escape")
-        time.sleep(1.5)  # leave species intro
+        time.sleep(1.5)
     else:
         raise RE4Error(f"unknown scenario {kind}")
-    inp.move_to(520, 140)  # Planets
+    inp.move_to(520, 140)
     inp.click()
     time.sleep(1.0)
 
@@ -368,7 +432,8 @@ def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_n
 
         manual_list = artifacts / f"{kind}-manual-list.png"
         manual_list_sha = capture(manual_list, display, geom, env)
-        inp.move_to(205, 125)  # selected planet image
+        manual_region_hash = rgb_region_sha256(manual_list, *SELF_MANAGED_REGION)
+        inp.move_to(205, 125)
         inp.click()
         time.sleep(1.0)
 
@@ -392,23 +457,27 @@ def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_n
         inp.key("m")
         restored_ms = wait_field(proc.pid, field_host, MANUAL)
 
-        # Leave the planet managed and prove the existing renderer exposes the same semantic state.
         inp.key("m")
         wait_field(proc.pid, field_host, MANAGED)
         inp.key("Escape")
         time.sleep(0.8)
         managed_list = artifacts / f"{kind}-managed-list.png"
         managed_list_sha = capture(managed_list, display, geom, env)
-        region_hash = rgb_region_sha256(managed_list, *SELF_MANAGED_REGION)
-        if region_hash != SELF_MANAGED_RGB_SHA256:
-            raise RE4Error(f"Self-Managed renderer oracle mismatch: {region_hash}")
+        managed_region_hash = rgb_region_sha256(managed_list, *SELF_MANAGED_REGION)
 
-        # Restore Manual before teardown; do not leave the temporary runtime copy modified in state.
         inp.move_to(205, 125)
         inp.click()
         time.sleep(0.5)
         inp.key("m")
         wait_field(proc.pid, field_host, MANUAL)
+        inp.key("Escape")
+        time.sleep(0.8)
+        restored_list = artifacts / f"{kind}-restored-manual-list.png"
+        restored_list_sha = capture(restored_list, display, geom, env)
+        restored_region_hash = rgb_region_sha256(restored_list, *SELF_MANAGED_REGION)
+        visual_transition = validate_renderer_transition(
+            manual_region_hash, managed_region_hash, restored_region_hash
+        )
 
         return {
             "scenario": kind,
@@ -429,8 +498,9 @@ def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_n
             "visual": {
                 "manual_planet_list_sha256": manual_list_sha,
                 "managed_planet_list_sha256": managed_list_sha,
+                "restored_manual_planet_list_sha256": restored_list_sha,
                 "self_managed_region": list(SELF_MANAGED_REGION),
-                "self_managed_region_rgb_sha256": region_hash,
+                **visual_transition,
             },
         }
     finally:
@@ -463,8 +533,13 @@ def main() -> int:
     root = ns.game_dir.resolve()
     if not root.is_dir():
         ap.error("game-dir must exist")
-    fixture = verify_fixture(root, ns.fixture_manifest)
-    resume = next((p for p in root.iterdir() if p.is_file() and p.name.casefold() == "resume.gam"), None)
+    fixture = verify_fixture(root, ns.fixture_manifest.resolve())
+    resume_candidates = [
+        p for p in root.iterdir() if p.is_file() and p.name.casefold() == "resume.gam"
+    ]
+    if len(resume_candidates) > 1:
+        ap.error("ambiguous case-insensitive resume.gam filenames")
+    resume = resume_candidates[0] if resume_candidates else None
     resume_info = None
     if ns.scenario == "resume":
         if not ns.resume_sha256:

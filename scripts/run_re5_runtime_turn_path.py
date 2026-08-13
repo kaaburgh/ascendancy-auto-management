@@ -38,6 +38,8 @@ NO_ACTION = 0xFF
 ANCHOR_VA = 0x37915
 POLICY_CALL_VA = 0x3C118
 POLICY_CALL_BYTES = bytes.fromhex("e8d3170000")  # call 0x3d8f0
+GATE_MARKER_BYTES = bytes.fromhex("c642547e90")  # mov byte [edx+0x54],0x7e; nop
+GATE_MARKER_ACTION = 0x7E
 ACTION_WRITE_VA = 0x34DF2
 ACTION_WRITE_BYTES = bytes.fromhex("884654")  # mov [esi+0x54], al
 DEFAULT_WINDOW_SECONDS = 7.0
@@ -61,6 +63,12 @@ POLICY_SUPPRESSION = PatchPlan(
     POLICY_CALL_BYTES,
     b"\x90" * len(POLICY_CALL_BYTES),
 )
+GATE_REACHABILITY_PROBE = PatchPlan(
+    "probe-gate-policy-reachability",
+    POLICY_CALL_VA,
+    POLICY_CALL_BYTES,
+    GATE_MARKER_BYTES,
+)
 ACTION_WRITE_SUPPRESSION = PatchPlan(
     "suppress-action-commit-write",
     ACTION_WRITE_VA,
@@ -78,6 +86,8 @@ class ScenarioSpec:
 
 SCENARIOS = (
     ScenarioSpec("manual-control", False, None),
+    ScenarioSpec("manual-gate-probe", False, GATE_REACHABILITY_PROBE),
+    ScenarioSpec("managed-gate-probe", True, GATE_REACHABILITY_PROBE),
     ScenarioSpec("managed-control", True, None),
     ScenarioSpec("managed-policy-suppressed", True, POLICY_SUPPRESSION),
     ScenarioSpec("managed-action-write-suppressed", True, ACTION_WRITE_SUPPRESSION),
@@ -173,6 +183,16 @@ def checked_restore_patch(pid: int, anchor: dict[str, Any], plan: PatchPlan) -> 
         raise RE5Error(f"{plan.name} restore verification failed: got {restored.hex()}")
 
 
+def parse_proc_state_code(state_line: str) -> str:
+    """Return the one-letter /proc State code, never text from the label/body."""
+    if not state_line.startswith("State:"):
+        return ""
+    payload = state_line.split(":", 1)[1].strip()
+    if not payload:
+        return ""
+    return payload.split(None, 1)[0]
+
+
 def paused_read_process(pid: int, address: int, size: int) -> bytes:
     """Take one coherent bounded sample while the DOSBox process is stopped."""
     os.kill(pid, signal.SIGSTOP)
@@ -184,7 +204,8 @@ def paused_read_process(pid: int, address: int, size: int) -> bytes:
             except FileNotFoundError as exc:
                 raise RE5Error("DOSBox exited before paused memory sample") from exc
             state_line = next((line for line in status.splitlines() if line.startswith("State:")), "")
-            if "T" in state_line or "t" in state_line:
+            state_code = parse_proc_state_code(state_line)
+            if state_code in {"T", "t"}:
                 return re4.read_process(pid, address, size)
             time.sleep(0.001)
         raise RE5Error("DOSBox did not enter stopped state for bounded memory sample")
@@ -196,11 +217,13 @@ def paused_read_process(pid: int, address: int, size: int) -> bytes:
 
 
 def sample_record(pid: int, record_host: int) -> dict[str, str]:
+    window_offset = 0x50
+    window = paused_read_process(pid, record_host + window_offset, 0x0E)
     return {
-        "owner_0x57": re4.read_process(pid, record_host + OWNER_OFFSET, 1).hex(),
-        "slot_0x52": re4.read_process(pid, record_host + SLOT_OFFSET, 2).hex(),
-        "action_0x54": re4.read_process(pid, record_host + ACTION_OFFSET, 1).hex(),
-        "managed_0x5a": re4.read_process(pid, record_host + re4.STATE_OFFSET, 4).hex(),
+        "owner_0x57": window[OWNER_OFFSET - window_offset:OWNER_OFFSET - window_offset + 1].hex(),
+        "slot_0x52": window[SLOT_OFFSET - window_offset:SLOT_OFFSET - window_offset + 2].hex(),
+        "action_0x54": window[ACTION_OFFSET - window_offset:ACTION_OFFSET - window_offset + 1].hex(),
+        "managed_0x5a": window[re4.STATE_OFFSET - window_offset:re4.STATE_OFFSET - window_offset + 4].hex(),
     }
 
 
@@ -260,7 +283,7 @@ def monitor_turn(pid: int, record_host: int, timeout: float) -> dict[str, Any]:
         "observed_slot_values": slot_values[:16],
         "sampling": {"process_paused_per_sample": True, "interval_ms": 25},
         "final": {
-            "owner_0x57": re4.read_process(pid, record_host + OWNER_OFFSET, 1).hex(),
+            "owner_0x57": final_window[OWNER_OFFSET - window_offset:OWNER_OFFSET - window_offset + 1].hex(),
             "slot_0x52": final_window[slot_index:slot_index + 2].hex(),
             "action_0x54": f"{final_window[action_index]:02x}",
             "managed_0x5a": final_window[state_index:state_index + 4].hex(),
@@ -278,6 +301,14 @@ def validate_scenario(spec: ScenarioSpec, trace: dict[str, Any]) -> None:
     if spec.name == "manual-control":
         if first_slot is not None or first_action is not None:
             raise RE5Error("manual-control unexpectedly selected or committed an automatic action")
+    elif spec.name == "manual-gate-probe":
+        if first_slot is not None or first_action is not None or final["action_0x54"] != "ff":
+            raise RE5Error("manual gate probe reached 0x3c118 despite +0x5a == 0")
+    elif spec.name == "managed-gate-probe":
+        if first_slot is not None:
+            raise RE5Error("managed gate probe unexpectedly changed +0x52")
+        if first_action is None or final["action_0x54"] != f"{GATE_MARKER_ACTION:02x}":
+            raise RE5Error("managed gate probe did not reach 0x3c118 marker write")
     elif spec.name == "managed-control":
         if first_slot is None or first_action is None or final["action_0x54"] == "ff":
             raise RE5Error("managed-control did not select and commit an automatic action")
@@ -431,6 +462,14 @@ def summarize_causality(results: list[dict[str, Any]]) -> dict[str, Any]:
         raise RE5Error("cannot summarize incomplete RE5 scenario set")
     return {
         "manual_stays_idle": by_name["manual-control"]["turn_trace"]["first_action_change_ms"] is None,
+        "manual_does_not_reach_gate_policy_call": by_name["manual-gate-probe"]["turn_trace"]["first_action_change_ms"] is None,
+        "managed_reaches_gate_policy_call": (
+            by_name["managed-gate-probe"]["turn_trace"]["final"]["action_0x54"] == f"{GATE_MARKER_ACTION:02x}"
+        ),
+        "override_path_inactive_for_manual_probe": (
+            by_name["manual-gate-probe"]["turn_trace"]["first_action_change_ms"] is None
+            and by_name["managed-gate-probe"]["turn_trace"]["final"]["action_0x54"] == f"{GATE_MARKER_ACTION:02x}"
+        ),
         "managed_commits_action": by_name["managed-control"]["turn_trace"]["first_action_change_ms"] is not None,
         "gate_policy_call_is_necessary": by_name["managed-policy-suppressed"]["turn_trace"]["first_action_change_ms"] is None,
         "selection_survives_action_write_suppression": by_name["managed-action-write-suppressed"]["turn_trace"]["first_slot_change_ms"] is not None,
@@ -453,7 +492,7 @@ def main() -> int:
         "--scenario",
         choices=("all",) + tuple(spec.name for spec in SCENARIOS),
         default="all",
-        help="Complete four-scenario set by default; focused modes are for diagnosis/retry.",
+        help="Complete six-scenario set by default; focused modes are for diagnosis/retry.",
     )
     args = parser.parse_args()
     root = args.game_dir.resolve()

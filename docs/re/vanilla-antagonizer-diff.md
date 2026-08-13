@@ -78,13 +78,17 @@ These relationships justify investigating a bounded cluster instead of 1254 unre
 
 ## Cross-locale support
 
-Using only conservative exact/reference/constant locale mappings:
+Aggregate `le_diff` counts are multiset counts: duplicate signatures may be paired in arbitrary list order without changing the count. That is sufficient for bucket totals, but not for claiming that one exact EN candidate address corresponds to one exact INTL address. RE1 therefore uses a stricter rule for candidate-level corroboration: at each exact/reference-only/constant-only stage, an address pair is usable only when that stage signature is unique on both sides among the candidates still eligible at that stage. Duplicate signatures remain **unmapped** rather than inheriting a `zip` pairing.
 
-- 609/613 EN reference-only pairs reproduce as reference-only in the International product pair;
-- 517/525 EN constant-only pairs reproduce as constant-only;
-- 66/116 EN Antagonizer structural regions have a recoverable locale mapping and are structural on the International product side.
+With that fail-closed address mapping:
 
-The structural denominator is mapping-limited; lack of a locale map is not evidence that a structural change exists only in English.
+- 564/613 EN reference-only pairs reproduce as the same reference-only product pair in the International build;
+- 450/525 EN constant-only pairs reproduce as the same constant-only product pair;
+- 66/116 EN Antagonizer structural regions have a recoverable unambiguous EN→INTL Antagonizer mapping and are structural on the International product side.
+
+The ambiguity accounting is explicit in the machine report: Antagonizer EN↔INTL has 45 ambiguous reference-only pairs, patch EN↔INTL has 45, and the INTL product comparison has 45 ambiguous reference-only plus 67 ambiguous constant-only pairs at address-mapping level. The earlier RE1 draft counts `609/613` and `517/525` are superseded: they consumed multiset pair order as if it established address identity. The aggregate differential counts were never affected, and all Tier-1 leads above remain corroborated under the stricter rule.
+
+Lack of a usable locale map means **not corroborated by this mapping**, not “different only in English.” This is especially important for structural regions, whose locale correspondence can be unavailable because a structurally changed candidate has no exact/reference/constant locale pair from which to derive an address mapping.
 
 ## Negative findings
 

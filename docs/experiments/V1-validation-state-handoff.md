@@ -48,9 +48,10 @@ When the operator attaches the two files to a cloud task, verify their exact ide
 
 ```sh
 python3 tools/verify_v1_validation_state.py \
-  --manifest tools/v1-validation-state-manifest.json \
   --input-dir /path/to/attached/save-directory
 ```
+
+The verifier intentionally resolves the reviewed repository manifest at `tools/v1-validation-state-manifest.json` internally. The normal CLI has no manifest/source override; tests may inject a synthetic manifest only through the Python-only test seam.
 
 Expected identity-only result:
 

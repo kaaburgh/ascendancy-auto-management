@@ -51,8 +51,20 @@ Strongly preferred:
 
 Neutral but worth recording: whatever player name the save carries becomes part of a repository-visible fixture description, so prefer a neutral one.
 
+## Adding a fixture
+
+`scripts/add_validation_fixture.py` takes the save plus a description of what it contains, computes size and SHA-256, copies the payload into the repository when it is committed, writes the declaration, and refuses to write anything that would not validate. `--dry-run` shows the computed entry without touching either.
+
+Agents have the same workflow as a skill at [`.claude/skills/add-save-fixture/SKILL.md`](../../.claude/skills/add-save-fixture/SKILL.md).
+
+The declaration must name every player-owned planet individually rather than only counting them. The count is derived from the names, duplicate names are rejected, and the planets that start with no current action are named separately — those are the properties consumers actually branch on.
+
 ## Verification status
 
-Runtime properties in the declaration are claims, and each carries an `evidence` level. A fixture whose properties are `unverified` may be declared, but `scripts/validate_validation_fixtures.py` refuses to let it satisfy a role requirement. Promoting a fixture to `runtime` requires a named experiment that observed the properties on the exact target, in the same way the current fixture's single-planet property was established.
+Runtime properties in the declaration are claims, and each carries an `evidence` level.
+
+An `unverified` fixture is a legitimate declaration — that is how a save enters the repository before anyone has run it — but it never satisfies a role: the validator reports it as unusable and `--require-role <role>` fails. Promoting it to `runtime` requires a named experiment that observed the properties on the exact target, in the same way the current fixture's single-planet property was established.
+
+Declared-but-wrong properties are treated differently from unverified ones. If a fixture claims verified evidence and its own numbers contradict the role it claims, validation fails closed rather than marking it unusable: an honest "not checked yet" is a state to work through, a verified claim that does not hold is an error.
 
 The declaration check is intentionally split in two: the declaration is always validated, while payload identity is verified when the payload is reachable. A `repository` fixture must always be present and verified; an `operator-supplied` one is verified only when the file is supplied.

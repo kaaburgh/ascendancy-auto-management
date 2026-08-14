@@ -150,23 +150,33 @@ def check_declaration(document: dict[str, Any]) -> list[dict[str, Any]]:
                 f"player-owned: {unknown_names}"
             )
 
-        check_role_requirements(identifier, fixture, requirements)
+        fixture["_role_status"] = check_role_requirements(identifier, fixture, requirements)
 
     return fixtures
 
 
 def check_role_requirements(
     identifier: str, fixture: dict[str, Any], requirements: dict[str, Any]
-) -> None:
+) -> dict[str, Any]:
+    """Decide whether a fixture may be used for its declared role.
+
+    A fixture whose runtime properties are still `unverified` is a legitimate
+    declaration — that is how a save enters the repository before a runtime
+    experiment confirms it — but it never satisfies a role. Declared-but-wrong
+    properties are a different matter and fail closed: if a fixture claims
+    verified evidence, its numbers must support the role it claims.
+    """
     required = requirements.get(fixture["role"])
     if required is None:
-        return
+        return {"role": fixture["role"], "satisfied": True, "reason": "role has no requirements"}
     properties = fixture["runtime_properties"]
     if properties["evidence"] == "unverified":
-        raise FixtureDeclarationError(
-            f"fixture {identifier!r} claims role {fixture['role']!r} on unverified "
-            "runtime properties; verify them in a named runtime experiment first"
-        )
+        return {
+            "role": fixture["role"],
+            "satisfied": False,
+            "reason": "runtime properties are unverified; confirm them in a named runtime "
+            "experiment before any consumer relies on this fixture",
+        }
     observed = {
         "min_player_owned_planets": properties["player_owned_planet_count"],
         "min_planets_with_empty_current_action_at_load": len(
@@ -178,9 +188,10 @@ def check_role_requirements(
             raise FixtureDeclarationError(f"unknown role requirement {key!r}")
         if observed[key] < minimum:
             raise FixtureDeclarationError(
-                f"fixture {identifier!r} does not satisfy role {fixture['role']!r}: "
-                f"{key} is {observed[key]}, requires at least {minimum}"
+                f"fixture {identifier!r} declares verified properties that contradict role "
+                f"{fixture['role']!r}: {key} is {observed[key]}, requires at least {minimum}"
             )
+    return {"role": fixture["role"], "satisfied": True, "reason": "verified"}
 
 
 def check_payloads(
@@ -234,18 +245,42 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Fail when a declared payload is missing instead of reporting it absent.",
     )
+    parser.add_argument(
+        "--require-role",
+        default=None,
+        help="Fail unless at least one fixture satisfies this role with verified properties.",
+    )
     args = parser.parse_args(argv)
 
     try:
         document = json.loads(args.declaration.read_text(encoding="utf-8"))
         fixtures = check_declaration(document)
         results = check_payloads(fixtures, args.fixture_dir, args.require_present)
+        if args.require_role is not None:
+            satisfying = [
+                fixture["id"]
+                for fixture in fixtures
+                if fixture["role"] == args.require_role and fixture["_role_status"]["satisfied"]
+            ]
+            if not satisfying:
+                raise FixtureDeclarationError(
+                    f"no fixture satisfies role {args.require_role!r} with verified "
+                    "runtime properties"
+                )
     except (FixtureDeclarationError, json.JSONDecodeError, OSError) as exc:
         print(f"validation-fixtures: FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
 
+    status = {fixture["id"]: fixture["_role_status"] for fixture in fixtures}
     for entry in results:
-        print(f"  {entry['id']}: {entry['filename']} payload={entry['payload']}")
+        role = status[entry["id"]]
+        mark = "usable" if role["satisfied"] else "NOT usable"
+        print(
+            f"  {entry['id']}: {entry['filename']} payload={entry['payload']} "
+            f"role={role['role']} ({mark})"
+        )
+        if not role["satisfied"]:
+            print(f"      {role['reason']}")
     print(f"validation-fixtures: PASS ({len(results)} declared)")
     return 0
 

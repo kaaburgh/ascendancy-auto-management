@@ -60,19 +60,33 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
         entry, _ = multi_planet_fixture()
         self.assertTrue(fixtures.check_declaration(document_with(entry)))
 
-    def test_single_planet_save_cannot_claim_the_m1_role(self):
+    def test_unverified_fixture_is_declarable_but_not_usable(self):
         entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["evidence"] = "unverified"
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("unverified", status["reason"])
+
+    def test_verified_properties_contradicting_the_role_fail_closed(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["evidence"] = "runtime"
         entry["runtime_properties"]["player_owned_planet_count"] = 1
         entry["runtime_properties"]["player_planet_names"] = ["Alpha I"]
         entry["runtime_properties"]["planets_with_empty_current_action_at_load"] = ["Alpha I"]
         with self.assertRaises(fixtures.FixtureDeclarationError):
             fixtures.check_declaration(document_with(entry))
 
-    def test_unverified_properties_cannot_satisfy_a_role(self):
+    def test_require_role_rejects_a_declaration_with_only_unverified_candidates(self):
         entry, _ = multi_planet_fixture()
         entry["runtime_properties"]["evidence"] = "unverified"
-        with self.assertRaises(fixtures.FixtureDeclarationError):
-            fixtures.check_declaration(document_with(entry))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "declaration.json"
+            path.write_text(json.dumps(document_with(entry)), encoding="utf-8")
+            self.assertEqual(
+                fixtures.main(["--declaration", str(path), "--require-role", "m1-multi-planet"]), 1
+            )
+            self.assertEqual(fixtures.main(["--declaration", str(path)]), 0)
 
     def test_planet_count_must_match_the_named_planets(self):
         entry, _ = multi_planet_fixture()

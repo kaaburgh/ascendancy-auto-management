@@ -43,8 +43,10 @@ python scripts/add_validation_fixture.py --replace \
   --storage repository --repository-path fixtures/saves/resume-multi.gam \
   --player-planet "Alpha I" --player-planet "Beta II" --player-planet "Gamma III" \
   --empty-action-planet "Beta II" \
-  --evidence runtime --verified-by docs/experiments/<record>.md
+  --evidence runtime --verified-by docs/experiments/<record-that-pins-this-save>.md
 ```
+
+`--verified-by` must point at a record under `docs/experiments/` that contains the fixture's SHA-256. A policy document or a path that merely exists will not do: the validator reports the role unusable, because a record that never names the save establishes nothing about it.
 
 Never promote a fixture on its description alone. If the declared numbers contradict the claimed role, validation fails closed rather than reporting the fixture as unusable — a wrong verified claim is an error, an honest unverified one is not.
 

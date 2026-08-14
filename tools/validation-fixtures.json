@@ -30,7 +30,7 @@
         "planets_with_empty_current_action_at_load": [
           "Xerxes I"
         ],
-        "source": "docs/re/auto-management-turn-path.md"
+        "source": "docs/experiments/RE5-runtime-turn-path.md"
       },
       "repository_path": "fixtures/saves/resume.gam",
       "limitations": [

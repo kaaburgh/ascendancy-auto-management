@@ -107,11 +107,17 @@ def resolve_destination(
     return destination
 
 
-def place_payload(save: Path, destination: Path | None) -> None:
+def place_payload(save: Path, destination: Path | None) -> bool:
+    """Copy the payload if needed; report whether this call created the file."""
     if destination is None or destination == save.resolve():
-        return
+        return False
+    if destination.exists():
+        # Identical bytes by the time we get here, so there is nothing to write
+        # and nothing this invocation would be entitled to roll back.
+        return False
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(save, destination)
+    return True
 
 
 def merge_entry(
@@ -126,6 +132,15 @@ def merge_entry(
         )
     if existing:
         previous = existing[0]
+        # The identity guard belongs to the fixture id, not to any path: other
+        # evidence is pinned to this id, so the bytes behind it may never change
+        # regardless of where the payload is read from or written to.
+        if previous["sha256"] != entry["sha256"]:
+            raise validator.FixtureDeclarationError(
+                f"fixture {entry['id']!r} is declared with SHA-256 {previous['sha256']} and the "
+                f"supplied save is {entry['sha256']}; declare a new fixture id rather than "
+                "rebinding an identifier existing evidence is pinned to"
+            )
         fixtures[fixtures.index(previous)] = entry
         return previous
     fixtures.append(entry)
@@ -212,14 +227,16 @@ def main(argv: list[str] | None = None) -> int:
         fixtures = validator.check_declaration(json.loads(json.dumps(document)))
 
         if not args.dry_run:
-            place_payload(save, destination)
+            created = place_payload(save, destination)
             try:
                 validator.check_payloads(fixtures, None, require_present=False)
                 args.declaration.write_text(
                     json.dumps(document, indent=2, sort_keys=False) + "\n", encoding="utf-8"
                 )
             except Exception:
-                if destination is not None and destination != save.resolve():
+                # Only undo what this invocation created; a payload that was
+                # already committed belongs to the repository, not to this run.
+                if created and destination is not None:
                     destination.unlink(missing_ok=True)
                 raise
     except (validator.FixtureDeclarationError, json.JSONDecodeError, OSError) as exc:

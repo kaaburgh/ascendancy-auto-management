@@ -27,7 +27,7 @@ def multi_planet_fixture(**overrides):
         "produced_by_target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
         "runtime_properties": {
             "evidence": "runtime",
-            "source": "docs/re/validation-fixtures.md",
+            "source": SYNTHETIC_SOURCE,
             "player_race_id": 0,
             "player_owned_planet_count": 3,
             "player_planet_names": ["Alpha I", "Beta II", "Gamma III"],
@@ -36,6 +36,19 @@ def multi_planet_fixture(**overrides):
     }
     entry.update(overrides)
     return entry, payload
+
+
+SYNTHETIC_SOURCE = "docs/experiments/_synthetic_fixture_record.md"
+
+
+def write_synthetic_source(case, sha256: str, *, directory: str = "experiments") -> str:
+    """Create a throwaway experiment record that pins the given fixture hash."""
+    relative = f"docs/{directory}/_synthetic_fixture_record.md"
+    path = Path(fixtures.ROOT) / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"# synthetic record\n\nPinned save SHA-256 `{sha256}`.\n", encoding="utf-8")
+    case.addCleanup(path.unlink, missing_ok=True)
+    return relative
 
 
 def document_with(entry) -> dict:
@@ -59,7 +72,33 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
 
     def test_multi_planet_role_is_accepted_when_requirements_are_met(self):
         entry, _ = multi_planet_fixture()
-        self.assertTrue(fixtures.check_declaration(document_with(entry)))
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry["sha256"])
+        declared = fixtures.check_declaration(document_with(entry))
+        self.assertTrue(declared[0]["_role_status"]["satisfied"])
+
+    def test_source_outside_experiments_does_not_satisfy_a_role(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry["sha256"], directory="re"
+        )
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("experiments/", status["reason"])
+
+    def test_source_not_naming_this_fixture_does_not_satisfy_a_role(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, "0" * 64)
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("SHA-256", status["reason"])
+
+    def test_a_policy_document_cannot_stand_in_for_an_experiment_record(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = "docs/re/validation-fixtures.md"
+        declared = fixtures.check_declaration(document_with(entry))
+        self.assertFalse(declared[0]["_role_status"]["satisfied"])
 
     def test_unverified_fixture_is_declarable_but_not_usable(self):
         entry, _ = multi_planet_fixture()

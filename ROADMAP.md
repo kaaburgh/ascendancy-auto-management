@@ -614,7 +614,8 @@ V1 requires setting `Agricultural` on one player-owned planet and `Industrial` o
 ### Deliverables
 
 - [x] `tools/validation-fixtures.json` declaring fixtures, roles and role requirements;
-- [x] `scripts/validate_validation_fixtures.py` with fail-closed declaration checks and present-payload identity verification;
+- [x] `scripts/validate_validation_fixtures.py` with fail-closed declaration checks, present-payload identity verification and `--require-role` for consumers;
+- [x] `scripts/add_validation_fixture.py` to add or promote a fixture without hand-editing the declaration, plus the `add-save-fixture` skill so agents follow the same path;
 - [x] [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) recording the storage convention, the established single-planet limitation and the requirements for the new save;
 - [ ] the maintainer-supplied save payload, pinned by size and SHA-256;
 - [ ] a runtime experiment record promoting its properties from `unverified` to `runtime`.

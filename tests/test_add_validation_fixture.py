@@ -21,6 +21,22 @@ class AddValidationFixtureTests(unittest.TestCase):
         self.save.write_bytes(b"pretend save payload")
         self.declaration = self.directory / "validation-fixtures.json"
         shutil.copy2(validator.DEFAULT_DECLARATION, self.declaration)
+        self.runtime_source_relative = "docs/experiments/_synthetic_add_fixture_record.md"
+        self.runtime_source = Path(validator.ROOT) / self.runtime_source_relative
+        self.runtime_source.write_text(
+            "\n".join(
+                [
+                    "# synthetic fixture runtime record",
+                    "",
+                    validator.RUNTIME_EVIDENCE_MARKER,
+                    f"Target SHA-256 `{validator.CANONICAL_TARGET_SHA256}`.",
+                    f"Pinned save SHA-256 `{validator.sha256_file(self.save)}`.",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        self.addCleanup(self.runtime_source.unlink, missing_ok=True)
         self.addCleanup(self.temp.cleanup)
 
     def run_adder(self, *extra: str) -> int:
@@ -64,7 +80,7 @@ class AddValidationFixtureTests(unittest.TestCase):
     def test_committed_storage_requires_a_repository_path(self):
         self.assertEqual(self.run_adder("--storage", "repository"), 1)
 
-    def test_runtime_evidence_requires_a_verifying_document(self):
+    def test_runtime_evidence_requires_a_valid_verifying_record(self):
         self.assertEqual(
             self.run_adder("--storage", "operator-supplied", "--evidence", "runtime"), 1
         )
@@ -76,6 +92,17 @@ class AddValidationFixtureTests(unittest.TestCase):
                 "runtime",
                 "--verified-by",
                 "docs/experiments/X-fixture.md",
+            ),
+            1,
+        )
+        self.assertEqual(
+            self.run_adder(
+                "--storage",
+                "operator-supplied",
+                "--evidence",
+                "runtime",
+                "--verified-by",
+                self.runtime_source_relative,
             ),
             0,
         )
@@ -194,7 +221,7 @@ class AddValidationFixtureTests(unittest.TestCase):
                 "--evidence",
                 "runtime",
                 "--verified-by",
-                "docs/re/validation-fixtures.md",
+                self.runtime_source_relative,
             ),
             0,
         )

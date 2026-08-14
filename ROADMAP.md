@@ -590,8 +590,8 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ## T3 — Supply a multi-planet save fixture for M1 validation
 
-- **Status:** Open — blocked on a maintainer-supplied save payload; the declaration contract and its checks are in place.
-- **Execution:** **LOCAL ONLY** — producing the save requires ordinary play on the canonical target. Everything downstream of it (declaration, verification, use by experiments) is `CLOUD`.
+- **Status:** Investigation first — the declaration contract and its checks are in place; obtaining a qualifying save is the open question.
+- **Execution:** **GATED** — how a qualifying save is produced is not yet settled, so no agent should take that part yet. It must not be classified `LOCAL ONLY` on the assumption that "ordinary play needs a workstation": CF3/CF4 already established cloud execution of the canonical target with UI automation, and RE4/RE5 drove the running game from cloud. A named `CLOUD RESEARCH` step must either establish a reproducible cloud path or record the concrete blocker. A maintainer-supplied save short-circuits the question entirely and is the expected route. The declaration/verification tooling around it is already `CLOUD` and complete.
 - **Priority:** High
 - **Category:** Target baseline / validation fixtures
 - **Origin:** Fixture limitation found while investigating the RE5 Manual record bracket
@@ -600,9 +600,9 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ### Established limitation
 
-The pinned `resume.gam` has **exactly one** player-owned planet (`Xerxes I`, owner `0`); the immediate `± 0x7b` neighbours are unowned and the nearest owned records belong to other races. Evidence is `runtime`, established by the RE5 follow-up in PR #18 and declared in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json). It lands in [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) with that PR; this item does not depend on its outcome, because the fixture gap holds regardless of how RE5 concludes.
+V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a **different** one and confirming both hold their own mode. That needs a save with at least two player-owned planets, and no such fixture is declared. This is a fixture gap, not an implementation gap, and it is independent of how A1/A2 represent the profile.
 
-V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one and confirming both hold their own mode. Those steps **cannot be performed on the current fixture at all**, independently of how A1/A2 represent the profile. This is a fixture gap, not an implementation gap, and it does not reopen any completed item: RE4 and RE5 established per-planet state and the per-turn causal path on the fixtures they actually used, and stay attached to those fixtures.
+The pinned `resume.gam` is believed to hold exactly one player-owned planet (`Xerxes I`, owner `0`), which would make V1 steps 2–4 impossible on it. That observation comes from the RE5 follow-up in PR #18 and is **not yet part of the supported repository state**, so the declaration in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json) records it as `unverified` and it is promoted when that PR lands. T3 does not depend on the outcome: a fixture that provably supports two profiles is required either way, and nothing here reopens a completed item — RE4 and RE5 stay attached to the fixtures they actually used.
 
 ### Work
 

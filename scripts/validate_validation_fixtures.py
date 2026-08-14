@@ -27,6 +27,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DECLARATION = ROOT / "tools" / "validation-fixtures.json"
 SUPPORTED_SCHEMA = 1
+CANONICAL_TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
+VERIFIED_EVIDENCE = "runtime"
 REPOSITORY_STORAGE = "repository"
 OPERATOR_STORAGE = "operator-supplied"
 SUPPORTED_STORAGE = (REPOSITORY_STORAGE, OPERATOR_STORAGE)
@@ -160,22 +162,39 @@ def check_role_requirements(
 ) -> dict[str, Any]:
     """Decide whether a fixture may be used for its declared role.
 
-    A fixture whose runtime properties are still `unverified` is a legitimate
-    declaration — that is how a save enters the repository before a runtime
-    experiment confirms it — but it never satisfies a role. Declared-but-wrong
-    properties are a different matter and fail closed: if a fixture claims
-    verified evidence, its numbers must support the role it claims.
+    A role is satisfied only by properties observed on the exact canonical
+    target: `evidence` must be `runtime` and must name the record that
+    established it. Anything weaker — `unverified`, or `static` reasoning about
+    a save's contents — is a legitimate declaration but never satisfies a role,
+    because these properties are claims about what a running game does with the
+    save. Declared-but-wrong properties are a different matter and fail closed:
+    if a fixture claims verified evidence, its numbers must support the role it
+    claims.
     """
     required = requirements.get(fixture["role"])
     if required is None:
         return {"role": fixture["role"], "satisfied": True, "reason": "role has no requirements"}
     properties = fixture["runtime_properties"]
-    if properties["evidence"] == "unverified":
+    if properties["evidence"] != VERIFIED_EVIDENCE:
         return {
             "role": fixture["role"],
             "satisfied": False,
-            "reason": "runtime properties are unverified; confirm them in a named runtime "
-            "experiment before any consumer relies on this fixture",
+            "reason": f"evidence is {properties['evidence']!r}; a role requires "
+            f"{VERIFIED_EVIDENCE!r} properties observed on the canonical target",
+        }
+    if not properties.get("source"):
+        return {
+            "role": fixture["role"],
+            "satisfied": False,
+            "reason": "runtime evidence names no source; record the experiment that "
+            "established these properties",
+        }
+    if fixture["produced_by_target_sha256"] != CANONICAL_TARGET_SHA256:
+        return {
+            "role": fixture["role"],
+            "satisfied": False,
+            "reason": "save was not produced by the canonical target "
+            f"({CANONICAL_TARGET_SHA256[:12]}…); it cannot carry target evidence",
         }
     observed = {
         "min_player_owned_planets": properties["player_owned_planet_count"],

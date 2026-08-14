@@ -69,17 +69,32 @@ def build_entry(args: argparse.Namespace, save: Path) -> dict[str, Any]:
     return entry
 
 
-def place_payload(entry: dict[str, Any], save: Path, dry_run: bool) -> Path | None:
+def resolve_destination(entry: dict[str, Any], save: Path) -> Path | None:
+    """Resolve and containment-check the destination without touching the disk."""
     if entry["storage"] != validator.REPOSITORY_STORAGE:
         return None
-    destination = ROOT / entry["repository_path"]
-    if destination.resolve() == save.resolve():
+    destination = (ROOT / entry["repository_path"]).resolve()
+    try:
+        destination.relative_to(ROOT.resolve())
+    except ValueError:
+        raise validator.FixtureDeclarationError(
+            f"repository_path escapes the repository: {entry['repository_path']}"
+        ) from None
+    if destination == save.resolve():
         return destination
-    if dry_run:
-        return destination
+    if destination.exists():
+        raise validator.FixtureDeclarationError(
+            f"refusing to overwrite existing {entry['repository_path']}; "
+            "choose a path that does not already hold a file"
+        )
+    return destination
+
+
+def place_payload(save: Path, destination: Path | None) -> None:
+    if destination is None or destination == save.resolve():
+        return
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(save, destination)
-    return destination
 
 
 def merge_entry(document: dict[str, Any], entry: dict[str, Any], replace: bool) -> None:
@@ -167,14 +182,24 @@ def main(argv: list[str] | None = None) -> int:
         document = json.loads(args.declaration.read_text(encoding="utf-8"))
         entry = build_entry(args, save)
         merge_entry(document, entry, args.replace)
-        destination = place_payload(entry, save, args.dry_run)
 
+        # Everything that can reject the request runs before anything is
+        # written, so a failed invocation leaves no copied payload behind and
+        # no half-updated declaration.
+        destination = resolve_destination(entry, save)
         fixtures = validator.check_declaration(json.loads(json.dumps(document)))
+
         if not args.dry_run:
-            validator.check_payloads(fixtures, None, require_present=False)
-            args.declaration.write_text(
-                json.dumps(document, indent=2, sort_keys=False) + "\n", encoding="utf-8"
-            )
+            place_payload(save, destination)
+            try:
+                validator.check_payloads(fixtures, None, require_present=False)
+                args.declaration.write_text(
+                    json.dumps(document, indent=2, sort_keys=False) + "\n", encoding="utf-8"
+                )
+            except Exception:
+                if destination is not None and destination != save.resolve():
+                    destination.unlink(missing_ok=True)
+                raise
     except (validator.FixtureDeclarationError, json.JSONDecodeError, OSError) as exc:
         print(f"add-validation-fixture: FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1

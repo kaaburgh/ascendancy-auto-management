@@ -160,6 +160,8 @@ The product critical path above remains inside the blind-RE gate through M1. The
 
 RE4 runtime-confirmed the existing per-planet Managed state. RE5 now closes the player automation-gate handoff with orthogonal evidence: the established Managed intervention chain plus a separate read-only Manual override witness with two normally progressing exact-target PASS runs. The earlier process-wide marker remains a documented perturbing negative experiment and is not load-bearing for completion.
 
+**T3 runs in parallel** to the RE/A/P/UI path and blocks nothing on it, but V1 cannot execute until it supplies a save with more than one player-owned planet.
+
 ---
 
 # Track CF — Cloud feasibility
@@ -583,6 +585,43 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 ### Acceptance criteria
 
 **Met.** A later CLOUD task can reason about target structure and reproduce the relevant derived outputs without relying on undocumented local GUI state, and the LE load-map facts have an independent target-level `wdump` comparison.
+
+---
+
+## T3 — Supply a multi-planet save fixture for M1 validation
+
+- **Status:** Open — blocked on a maintainer-supplied save payload; the declaration contract and its checks are in place.
+- **Execution:** **LOCAL ONLY** — producing the save requires ordinary play on the canonical target. Everything downstream of it (declaration, verification, use by experiments) is `CLOUD`.
+- **Priority:** High
+- **Category:** Target baseline / validation fixtures
+- **Origin:** Fixture limitation found while investigating the RE5 Manual record bracket
+- **Depends on:** T1 (complete)
+- **Question:** Which saved game lets V1 demonstrate two player-owned planets holding different automation profiles at the same time?
+
+### Established limitation
+
+The pinned `resume.gam` has **exactly one** player-owned planet (`Xerxes I`, owner `0`); the immediate `± 0x7b` neighbours are unowned and the nearest owned records belong to other races. Evidence is `runtime`, established by the RE5 follow-up in PR #18 and declared in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json). It lands in [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) with that PR; this item does not depend on its outcome, because the fixture gap holds regardless of how RE5 concludes.
+
+V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one and confirming both hold their own mode. Those steps **cannot be performed on the current fixture at all**, independently of how A1/A2 represent the profile. This is a fixture gap, not an implementation gap, and it does not reopen any completed item: RE4 and RE5 established per-planet state and the per-turn causal path on the fixtures they actually used, and stay attached to those fixtures.
+
+### Work
+
+1. Produce a save by ordinary play on the canonical `ANTAG.EXE` that satisfies the requirements in [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) — at minimum two player-owned planets, at least one of them with no current action at load, unique planet names.
+2. Declare it in `tools/validation-fixtures.json` with `evidence: unverified`.
+3. Verify the declared runtime properties on the exact target in a named experiment, then promote the entry to `evidence: runtime`.
+4. Parameterise the planet selection currently hard-coded to `Xerxes I`, and pin the new save alongside the existing one rather than replacing it — the single-planet fixture remains the fixture of record for the completed RE4/RE5 observations.
+
+### Deliverables
+
+- [x] `tools/validation-fixtures.json` declaring fixtures, roles and role requirements;
+- [x] `scripts/validate_validation_fixtures.py` with fail-closed declaration checks and present-payload identity verification;
+- [x] [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) recording the storage convention, the established single-planet limitation and the requirements for the new save;
+- [ ] the maintainer-supplied save payload, pinned by size and SHA-256;
+- [ ] a runtime experiment record promoting its properties from `unverified` to `runtime`.
+
+### Acceptance criteria
+
+A fixture declared with role `m1-multi-planet` passes `scripts/validate_validation_fixtures.py` with `evidence: runtime`, and V1 steps 2–4 are executable against it.
 
 ---
 
@@ -1040,8 +1079,10 @@ The patch/build output contains the full intended M1 behavior and passes all clo
 - **Priority:** Critical
 - **Category:** End-to-end validation
 - **Origin:** Milestone exit criteria
-- **Depends on:** UI2, CF4
+- **Depends on:** UI2, CF4, T3
 - **Goal:** Establish runtime evidence that Manual / Agricultural / Industrial selection works correctly for multiple planets in a real running game session.
+
+Steps 2–4 below require a save with at least two player-owned planets. The currently pinned `resume.gam` has exactly one, so T3 must supply the fixture before this item can run.
 
 ### Required scenario
 

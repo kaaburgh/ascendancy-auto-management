@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "id": "ascendancy-validation-save-fixtures",
+  "note": "Declares maintainer-supplied save fixtures and the runtime properties later experiments are allowed to rely on. Save payloads are not committed; each fixture is pinned by size and SHA-256 exactly like the retail runtime manifest.",
+  "roles": {
+    "single-planet-causal": "Bounded per-planet causal/runtime observation. One player-owned planet is sufficient.",
+    "m1-multi-planet": "M1/V1 acceptance. Must support two player-owned planets holding different automation profiles at the same time."
+  },
+  "evidence_levels": ["runtime", "static", "unverified"],
+  "fixtures": [
+    {
+      "id": "resume-en-canonical-single-planet",
+      "filename": "resume.gam",
+      "role": "single-planet-causal",
+      "storage": "operator-supplied",
+      "size": 81647,
+      "sha256": "fe7b29f63b685df3b098c0bd109a44e95c9a36a2116617b6c0363eb289a813d3",
+      "produced_by_target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+      "runtime_properties": {
+        "evidence": "runtime",
+        "player_race_id": 0,
+        "player_owned_planet_count": 1,
+        "player_planet_names": ["Xerxes I"],
+        "planets_with_empty_current_action_at_load": ["Xerxes I"],
+        "source": "docs/re/auto-management-turn-path.md"
+      },
+      "limitations": [
+        "Exactly one planet has owner 0, so no two player-owned planets can hold different automation profiles at the same time.",
+        "The player-race pass over the planet array visits a single record, so no same-race two-sided record bracket exists in this save."
+      ],
+      "used_by": [
+        "scripts/run_re4_runtime_state.py",
+        "scripts/run_re5_runtime_turn_path.py",
+        "scripts/run_re5_override_witness.py"
+      ]
+    }
+  ],
+  "role_requirements": {
+    "single-planet-causal": {
+      "min_player_owned_planets": 1,
+      "min_planets_with_empty_current_action_at_load": 1
+    },
+    "m1-multi-planet": {
+      "min_player_owned_planets": 2,
+      "min_planets_with_empty_current_action_at_load": 1
+    }
+  }
+}

@@ -776,10 +776,10 @@ RE4 does **not** runtime-confirm the per-turn decision/policy/action path. RE3's
 
 - the Managed-side causal interventions remain established and preserve the existing policy/commit layering;
 - the earlier process-wide marker is retained as a negative instrumentation result because it severely suppresses normal progress and cannot carry the final Manual claim;
-- the replacement witness performs no guest code or guest data writes and fails closed unless five independent initialized-data signatures derive one consistent runtime data-object relationship;
-- two fresh runs tied to published runner revision `a122801ebb0243d8f1d76151f2bbf8beb109bf54` passed the predeclared read-only oracle: 273 samples with stardate `+234`, and 272 samples with stardate `+232`; the separate RE3 override condition was zero in every coherent sample in both runs;
-- the two repository-safe artifacts are [`RE5-override-witness-a122-run1.json`](./docs/experiments/RE5-override-witness-a122-run1.json) and [`RE5-override-witness-a122-run2.json`](./docs/experiments/RE5-override-witness-a122-run2.json);
-- static direct-reference inspection supports the bounded runtime result but does not rule out hypothetical indirect writers or establish broader gameplay semantics.
+- the replacement witness performs no guest code or guest data writes, derives the override operand from the canonical gate's LE relocation, and fails closed unless five disjoint initialized-data signatures derive one consistent runtime data-object relationship;
+- two fresh v2 runs tied to published runner revision `b795235b34c4b7d739a18e5245f45e398383cfcc` passed the predeclared read-only oracle: 272 samples with stardate `+235`, and 273 samples with stardate `+235`; the statically identified RE3 override condition was zero in every coherent sample in both runs;
+- the two repository-safe artifacts are [`RE5-override-witness-b795-run1.json`](./docs/experiments/RE5-override-witness-b795-run1.json) and [`RE5-override-witness-b795-run2.json`](./docs/experiments/RE5-override-witness-b795-run2.json);
+- the varying stardate control is resolved through the same bias-derived data path and cross-checked against the established anchor-relative witness; direct-writer static corroboration still does not rule out hypothetical indirect writers or establish broader gameplay semantics.
 
 The old six-scenario marker aggregate is deliberately not reconstructed or retroactively stamped. Its Manual arm is the perturbing experiment that motivated the replacement witness. Completion uses orthogonal evidence: the already established Managed causal chain plus the new read-only Manual override observation.
 

@@ -223,6 +223,81 @@ class AddValidationFixtureTests(unittest.TestCase):
         )
         self.assertEqual(destination.read_bytes(), original)
 
+    def test_rebinding_an_id_to_different_bytes_is_refused_at_a_new_path(self):
+        """A fresh repository_path must not become a way around the identity guard."""
+        self.assertEqual(self.run_adder("--storage", "operator-supplied"), 0)
+        original_sha = validator.sha256_file(self.save)
+        self.save.write_bytes(b"a different save entirely")
+        self.assertEqual(
+            self.run_adder(
+                "--replace", "--storage", "repository", "--repository-path",
+                "fixtures/saves/test-rebind-tmp.gam",
+            ),
+            1,
+        )
+        self.assertFalse((Path(adder.ROOT) / "fixtures/saves/test-rebind-tmp.gam").exists())
+        entry = next(item for item in self.declared() if item["id"] == "resume-en-multi-planet")
+        self.assertEqual(entry["sha256"], original_sha)
+
+    def test_rebinding_an_id_is_refused_when_the_committed_payload_is_the_source(self):
+        relative = "fixtures/saves/test-selfsource-tmp.gam"
+        destination = Path(adder.ROOT) / relative
+
+        def cleanup() -> None:
+            destination.unlink(missing_ok=True)
+            for parent in (destination.parent, destination.parent.parent):
+                if parent.is_dir() and not any(parent.iterdir()):
+                    parent.rmdir()
+
+        self.addCleanup(cleanup)
+        self.assertEqual(
+            self.run_adder("--storage", "repository", "--repository-path", relative), 0
+        )
+        # Someone edits the committed payload in place and re-runs with it as --save,
+        # so destination == save and the destination-based guard never fires.
+        destination.write_bytes(b"tampered payload")
+        self.assertEqual(
+            adder.main(
+                [
+                    "--save", str(destination), "--id", "resume-en-multi-planet",
+                    "--role", "m1-multi-planet", "--declaration", str(self.declaration),
+                    "--player-planet", "Alpha I", "--player-planet", "Beta II",
+                    "--empty-action-planet", "Beta II", "--replace",
+                    "--storage", "repository", "--repository-path", relative,
+                ]
+            ),
+            1,
+        )
+
+    def test_a_failed_write_does_not_delete_a_pre_existing_payload(self):
+        relative = "fixtures/saves/test-rollback-tmp.gam"
+        destination = Path(adder.ROOT) / relative
+
+        def cleanup() -> None:
+            destination.unlink(missing_ok=True)
+            for parent in (destination.parent, destination.parent.parent):
+                if parent.is_dir() and not any(parent.iterdir()):
+                    parent.rmdir()
+
+        self.addCleanup(cleanup)
+        self.assertEqual(
+            self.run_adder("--storage", "repository", "--repository-path", relative), 0
+        )
+        original = destination.read_bytes()
+
+        def explode(*args, **kwargs):
+            raise validator.FixtureDeclarationError("simulated failure after placement")
+
+        real_check = validator.check_payloads
+        validator.check_payloads = explode
+        self.addCleanup(setattr, validator, "check_payloads", real_check)
+        self.assertEqual(
+            self.run_adder("--replace", "--storage", "repository", "--repository-path", relative),
+            1,
+        )
+        self.assertTrue(destination.is_file(), "pre-existing payload was deleted by rollback")
+        self.assertEqual(destination.read_bytes(), original)
+
     def test_declaration_stays_valid_after_the_write(self):
         self.assertEqual(self.run_adder("--storage", "operator-supplied"), 0)
         document = json.loads(self.declaration.read_text(encoding="utf-8"))

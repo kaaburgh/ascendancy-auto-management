@@ -66,7 +66,7 @@ Runtime properties in the declaration are claims, and each carries an `evidence`
 A role is satisfied only by `runtime` evidence that names its source and comes from a save produced by the canonical target. Three separate conditions, each of which can fail on its own:
 
 - `evidence` must be `runtime`. `unverified` is a legitimate declaration — that is how a save enters the repository before anyone has run it — and `static` reasoning about a save's bytes is not the same claim as observing what a running game does with it. Neither satisfies a role.
-- `source` must name the experiment record that established the properties.
+- `source` must name an experiment record under `docs/experiments/` that contains this fixture's SHA-256. Existence alone is not enough — otherwise any repository file, including this document, would pass — and a record that never names the save establishes nothing about it.
 - `produced_by_target_sha256` must be the canonical `ANTAG.EXE`. A save written by the bug-patch build or the vanilla release cannot carry evidence about the canonical target.
 
 A fixture failing any of these is reported as unusable and `--require-role <role>` fails.

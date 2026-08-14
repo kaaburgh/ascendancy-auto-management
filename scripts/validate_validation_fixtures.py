@@ -29,6 +29,7 @@ DEFAULT_DECLARATION = ROOT / "tools" / "validation-fixtures.json"
 SUPPORTED_SCHEMA = 1
 CANONICAL_TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
 VERIFIED_EVIDENCE = "runtime"
+EXPERIMENT_RECORD_DIR = "experiments"
 REPOSITORY_STORAGE = "repository"
 OPERATOR_STORAGE = "operator-supplied"
 SUPPORTED_STORAGE = (REPOSITORY_STORAGE, OPERATOR_STORAGE)
@@ -157,6 +158,45 @@ def check_declaration(document: dict[str, Any]) -> list[dict[str, Any]]:
     return fixtures
 
 
+def check_source_record(source: str, fixture_sha256: str) -> str | None:
+    """Return why `source` is not an experiment record for this fixture, or None.
+
+    Existing-file-ness is not enough: any repository file would pass, including
+    the policy documents that describe this very mechanism. A source has to be
+    an experiment record, and it has to pin the fixture whose properties it is
+    credited with establishing — otherwise the declaration cites a document that
+    never mentions the save.
+    """
+    source_path = Path(source)
+    if source_path.is_absolute():
+        return f"source {source!r} must be a repository-relative path"
+    resolved = (ROOT / source_path).resolve()
+    try:
+        resolved.relative_to(ROOT.resolve())
+    except ValueError:
+        return f"source {source!r} escapes the repository"
+    if not resolved.is_file():
+        return (
+            f"source {source!r} does not resolve to a record in the supported repository "
+            "state; a named path that does not exist is an assertion, not evidence"
+        )
+    if EXPERIMENT_RECORD_DIR not in source_path.parts:
+        return (
+            f"source {source!r} is not under {EXPERIMENT_RECORD_DIR}/; runtime properties are "
+            "established by a reproducible experiment record, not by a policy or summary document"
+        )
+    try:
+        text = resolved.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return f"source {source!r} could not be read: {exc}"
+    if fixture_sha256 not in text:
+        return (
+            f"source {source!r} never names this fixture's SHA-256, so it does not establish "
+            "anything about this save"
+        )
+    return None
+
+
 def check_role_requirements(
     identifier: str, fixture: dict[str, Any], requirements: dict[str, Any]
 ) -> dict[str, Any]:
@@ -182,36 +222,9 @@ def check_role_requirements(
             "reason": f"evidence is {properties['evidence']!r}; a role requires "
             f"{VERIFIED_EVIDENCE!r} properties observed on the canonical target",
         }
-    source = properties.get("source")
-    if not source:
-        return {
-            "role": fixture["role"],
-            "satisfied": False,
-            "reason": "runtime evidence names no source; record the experiment that "
-            "established these properties",
-        }
-    source_path = Path(source)
-    resolved = (ROOT / source_path).resolve()
-    inside = not source_path.is_absolute()
-    if inside:
-        try:
-            resolved.relative_to(ROOT.resolve())
-        except ValueError:
-            inside = False
-    if not inside or not resolved.is_file():
-        return {
-            "role": fixture["role"],
-            "satisfied": False,
-            "reason": f"source {source!r} does not resolve to a record in the supported "
-            "repository state; a named path that does not exist is an assertion, not evidence",
-        }
-    if fixture["produced_by_target_sha256"] != CANONICAL_TARGET_SHA256:
-        return {
-            "role": fixture["role"],
-            "satisfied": False,
-            "reason": "save was not produced by the canonical target "
-            f"({CANONICAL_TARGET_SHA256[:12]}…); it cannot carry target evidence",
-        }
+    # A claim of verified evidence must be internally consistent before its
+    # provenance is even worth inspecting, so this one fails closed rather than
+    # reporting the role as merely unsatisfied.
     observed = {
         "min_player_owned_planets": properties["player_owned_planet_count"],
         "min_planets_with_empty_current_action_at_load": len(
@@ -226,6 +239,25 @@ def check_role_requirements(
                 f"fixture {identifier!r} declares verified properties that contradict role "
                 f"{fixture['role']!r}: {key} is {observed[key]}, requires at least {minimum}"
             )
+
+    if fixture["produced_by_target_sha256"] != CANONICAL_TARGET_SHA256:
+        return {
+            "role": fixture["role"],
+            "satisfied": False,
+            "reason": "save was not produced by the canonical target "
+            f"({CANONICAL_TARGET_SHA256[:12]}…); it cannot carry target evidence",
+        }
+    source = properties.get("source")
+    if not source:
+        return {
+            "role": fixture["role"],
+            "satisfied": False,
+            "reason": "runtime evidence names no source; record the experiment that "
+            "established these properties",
+        }
+    source_problem = check_source_record(source, fixture["sha256"])
+    if source_problem is not None:
+        return {"role": fixture["role"], "satisfied": False, "reason": source_problem}
     return {"role": fixture["role"], "satisfied": True, "reason": "verified"}
 
 

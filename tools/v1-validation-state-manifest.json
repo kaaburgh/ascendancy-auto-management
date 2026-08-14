@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "v1-operator-validation-state-2026-08-14",
+  "purpose": "Operator-supplied candidate validation state for V1/M1 end-to-end runtime validation.",
+  "raw_files_committed": false,
+  "raw_input_policy": "Supply these exact files ephemerally to the cloud/runtime task; do not commit them to the public repository.",
+  "target": {
+    "filename": "ANTAG.EXE",
+    "size": 610863,
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
+  },
+  "provenance": {
+    "date": "2026-08-14",
+    "evidence_class": "reported",
+    "blind_re_provenance": "clean",
+    "description": "Maintainer-created ordinary-game state using the canonical Antagonizer target. No cheats, save editing, or guest-memory modification were reported."
+  },
+  "files": [
+    {
+      "name": "02.SAV",
+      "role": "manual_save",
+      "size": 133721,
+      "sha256": "c56d4843c171dbed5c977434037690cdfed5039ca99f80c4f0ac6f87bff47066"
+    },
+    {
+      "name": "resume.gam",
+      "role": "resume_companion",
+      "size": 133721,
+      "sha256": "d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1"
+    }
+  ],
+  "pair_observation": {
+    "evidence_class": "static",
+    "equal_size": true,
+    "differing_byte_count": 15,
+    "highest_differing_offset": "0x72",
+    "identical_from_offset": "0x73",
+    "identical_suffix_sha256": "b04cacb277178aa0eed1b6ed5f7f596b29d3b20b1aa4d95d8c1c0bd855ef2e01",
+    "interpretation": "The two files share byte-identical content from 0x73 through EOF. No semantic meaning is assigned to the differing header bytes."
+  },
+  "reported_state": {
+    "player_race_display": "Minions",
+    "owned_planets_display": 3,
+    "controlled_systems_display": 1,
+    "planet_names": [
+      "Corpuscle I",
+      "Corpuscle II",
+      "Corpuscle III"
+    ],
+    "project_display_by_planet": {
+      "Corpuscle I": "No Project",
+      "Corpuscle II": "No Project",
+      "Corpuscle III": "No Project"
+    },
+    "visible_modal": false
+  },
+  "must_verify_at_runtime_before_v1_use": [
+    "the attached file hash and size match this manifest",
+    "the save loads under the canonical target",
+    "the player is the intended race/internal id for the V1 scenario",
+    "at least two distinct player-owned planets exist; prefer all three reported planets",
+    "planet names are unique",
+    "at least one player-owned planet has the internal empty/no-current-action state",
+    "the chosen scripted start has no blocking modal and is timing-stable enough for the V1 action sequence"
+  ]
+}

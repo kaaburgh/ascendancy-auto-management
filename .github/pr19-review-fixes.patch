@@ -1,0 +1,265 @@
+diff --git a/.claude/skills/add-save-fixture/SKILL.md b/.claude/skills/add-save-fixture/SKILL.md
+index 6e9c0de..a745b63 100644
+--- a/.claude/skills/add-save-fixture/SKILL.md
++++ b/.claude/skills/add-save-fixture/SKILL.md
+@@ -46,7 +46,7 @@ python scripts/add_validation_fixture.py --replace \
+   --evidence runtime --verified-by docs/experiments/<record-that-pins-this-save>.md
+ ```
+ 
+-`--verified-by` must point at a record under `docs/experiments/` that contains the fixture's SHA-256. A policy document or a path that merely exists will not do: the validator reports the role unusable, because a record that never names the save establishes nothing about it.
++`--verified-by` must point at a Markdown record under `docs/experiments/` that declares `Evidence class: **runtime**` and contains both the fixture's full SHA-256 and the full canonical target SHA-256. A policy document, arbitrary existing file, or experiment record missing either identity will not do; runtime promotion fails closed.
+ 
+ Never promote a fixture on its description alone. If the declared numbers contradict the claimed role, validation fails closed rather than reporting the fixture as unusable — a wrong verified claim is an error, an honest unverified one is not.
+ 
+diff --git a/docs/re/validation-fixtures.md b/docs/re/validation-fixtures.md
+index 6625020..9911d6e 100644
+--- a/docs/re/validation-fixtures.md
++++ b/docs/re/validation-fixtures.md
+@@ -66,7 +66,7 @@ Runtime properties in the declaration are claims, and each carries an `evidence`
+ A role is satisfied only by `runtime` evidence that names its source and comes from a save produced by the canonical target. Three separate conditions, each of which can fail on its own:
+ 
+ - `evidence` must be `runtime`. `unverified` is a legitimate declaration — that is how a save enters the repository before anyone has run it — and `static` reasoning about a save's bytes is not the same claim as observing what a running game does with it. Neither satisfies a role.
+-- `source` must name an experiment record under `docs/experiments/` that contains this fixture's SHA-256. Existence alone is not enough — otherwise any repository file, including this document, would pass — and a record that never names the save establishes nothing about it.
++- `source` must name a Markdown experiment record under `docs/experiments/` that declares `Evidence class: **runtime**` and contains both this fixture's full SHA-256 and the full `produced_by_target_sha256`. Existence alone is not enough — otherwise any repository file, including this document, would pass — and a record that does not bind both save and target identities is not evidence for this fixture.
+ - `produced_by_target_sha256` must be the canonical `ANTAG.EXE`. A save written by the bug-patch build or the vanilla release cannot carry evidence about the canonical target.
+ 
+ A fixture failing any of these is reported as unusable and `--require-role <role>` fails.
+diff --git a/scripts/add_validation_fixture.py b/scripts/add_validation_fixture.py
+index 2a9878e..af00268 100644
+--- a/scripts/add_validation_fixture.py
++++ b/scripts/add_validation_fixture.py
+@@ -116,7 +116,14 @@ def place_payload(save: Path, destination: Path | None) -> bool:
+         # and nothing this invocation would be entitled to roll back.
+         return False
+     destination.parent.mkdir(parents=True, exist_ok=True)
+-    shutil.copy2(save, destination)
++    try:
++        shutil.copy2(save, destination)
++    except Exception:
++        # copy2 may have created a partial destination before failing. It did
++        # not exist on entry, so removing it cannot destroy prior repository
++        # state.
++        destination.unlink(missing_ok=True)
++        raise
+     return True
+ 
+ 
+@@ -225,6 +232,12 @@ def main(argv: list[str] | None = None) -> int:
+         # no half-updated declaration.
+         destination = resolve_destination(entry, save, previous)
+         fixtures = validator.check_declaration(json.loads(json.dumps(document)))
++        status = next(item for item in fixtures if item["id"] == entry["id"])["_role_status"]
++        if args.evidence == validator.VERIFIED_EVIDENCE and not status["satisfied"]:
++            raise validator.FixtureDeclarationError(
++                f"runtime promotion for fixture {entry['id']!r} is not usable: "
++                f"{status['reason']}"
++            )
+ 
+         if not args.dry_run:
+             created = place_payload(save, destination)
+@@ -243,7 +256,6 @@ def main(argv: list[str] | None = None) -> int:
+         print(f"add-validation-fixture: FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
+         return 1
+ 
+-    status = next(item for item in fixtures if item["id"] == entry["id])["_role_status"]
+     prefix = "would add" if args.dry_run else "added"
+     print(f"add-validation-fixture: {prefix} {entry['id']}")
+     print(f"  size {entry['size']} sha256 {entry['sha256']}")
+diff --git a/scripts/validate_validation_fixtures.py b/scripts/validate_validation_fixtures.py
+index 9ac51b6..4626df3 100644
+--- a/scripts/validate_validation_fixtures.py
++++ b/scripts/validate_validation_fixtures.py
+@@ -29,7 +29,8 @@ DEFAULT_DECLARATION = ROOT / "tools" / "validation-fixtures.json"
+ SUPPORTED_SCHEMA = 1
+ CANONICAL_TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
+ VERIFIED_EVIDENCE = "runtime"
+-EXPERIMENT_RECORD_DIR = "experiments"
++EXPERIMENT_RECORD_PREFIX = ("docs", "experiments")
++RUNTIME_EVIDENCE_MARKER = "Evidence class: **runtime**"
+ REPOSITORY_STORAGE = "repository"
+ OPERATOR_STORAGE = "operator-supplied"
+ SUPPORTED_STORAGE = (REPOSITORY_STORAGE, OPERATOR_STORAGE)
+@@ -158,7 +159,9 @@ def check_declaration(document: dict[str, Any]) -> list[dict[str, Any]]:
+     return fixtures
+ 
+ 
+-def check_source_record(source: str, fixture_sha256: str) -> str | None:
++def check_source_record(
++    source: str, fixture_sha256: str, target_sha256: str
++) -> str | None:
+     """Return why `source` is not an experiment record for this fixture, or None.
+ 
+     Existing-file-ness is not enough: any repository file would pass, including
+@@ -180,20 +183,31 @@ def check_source_record(source: str, fixture_sha256: str) -> str | None:
+             f"source {source!r} does not resolve to a record in the supported repository "
+             "state; a named path that does not exist is an assertion, not evidence"
+         )
+-    if EXPERIMENT_RECORD_DIR not in source_path.parts:
++    relative = resolved.relative_to(ROOT.resolve())
++    if relative.parts[:2] != EXPERIMENT_RECORD_PREFIX or resolved.suffix.lower() != ".md":
+         return (
+-            f"source {source!r} is not under {EXPERIMENT_RECORD_DIR}/; runtime properties are "
+-            "established by a reproducible experiment record, not by a policy or summary document"
++            f"source {source!r} is not a Markdown runtime experiment record under "
++            "docs/experiments/; policy/RE prose cannot satisfy a runtime role"
+         )
+     try:
+         text = resolved.read_text(encoding="utf-8", errors="replace")
+     except OSError as exc:
+         return f"source {source!r} could not be read: {exc}"
++    if RUNTIME_EVIDENCE_MARKER not in text:
++        return (
++            f"source {source!r} does not declare {RUNTIME_EVIDENCE_MARKER!r}; "
++            "an experiment path alone is not runtime evidence"
++        )
+     if fixture_sha256 not in text:
+         return (
+             f"source {source!r} never names this fixture's SHA-256, so it does not establish "
+             "anything about this save"
+         )
++    if target_sha256 not in text:
++        return (
++            f"source {source!r} never names produced target SHA-256 {target_sha256}; "
++            "the record is not bound to the target that produced this save"
++        )
+     return None
+ 
+ 
+@@ -255,7 +269,9 @@ def check_role_requirements(
+             "reason": "runtime evidence names no source; record the experiment that "
+             "established these properties",
+         }
+-    source_problem = check_source_record(source, fixture["sha256"])
++    source_problem = check_source_record(
++        source, fixture["sha256"], fixture["produced_by_target_sha256"]
++    )
+     if source_problem is not None:
+         return {"role": fixture["role"], "satisfied": False, "reason": source_problem}
+     return {"role": fixture["role"], "satisfied": True, "reason": "verified"}
+diff --git a/tests/test_add_validation_fixture.py b/tests/test_add_validation_fixture.py
+index 2f5624f..64fdea1 100644
+--- a/tests/test_add_validation_fixture.py
++++ b/tests/test_add_validation_fixture.py
+@@ -21,6 +21,22 @@ class AddValidationFixtureTests(unittest.TestCase):
+         self.save.write_bytes(b"pretend save payload")
+         self.declaration = self.directory / "validation-fixtures.json"
+         shutil.copy2(validator.DEFAULT_DECLARATION, self.declaration)
++        self.runtime_source_relative = "docs/experiments/_synthetic_add_fixture_record.md"
++        self.runtime_source = Path(validator.ROOT) / self.runtime_source_relative
++        self.runtime_source.write_text(
++            "\n".join(
++                [
++                    "# synthetic fixture runtime record",
++                    "",
++                    validator.RUNTIME_EVIDENCE_MARKER,
++                    f"Target SHA-256 `{validator.CANONICAL_TARGET_SHA256}`.",
++                    f"Pinned save SHA-256 `{validator.sha256_file(self.save)}`.",
++                    "",
++                ]
++            ),
++            encoding="utf-8",
++        )
++        self.addCleanup(self.runtime_source.unlink, missing_ok=True)
+         self.addCleanup(self.temp.cleanup)
+ 
+     def run_adder(self, *extra: str) -> int:
+@@ -64,7 +80,7 @@ class AddValidationFixtureTests(unittest.TestCase):
+     def test_committed_storage_requires_a_repository_path(self):
+         self.assertEqual(self.run_adder("--storage", "repository"), 1)
+ 
+-    def test_runtime_evidence_requires_a_verifying_document(self):
++    def test_runtime_evidence_requires_a_valid_verifying_record(self):
+         self.assertEqual(
+             self.run_adder("--storage", "operator-supplied", "--evidence", "runtime"), 1
+         )
+@@ -77,6 +93,17 @@ class AddValidationFixtureTests(unittest.TestCase):
+                 "--verified-by",
+                 "docs/experiments/X-fixture.md",
+             ),
++            1,
++        )
++        self.assertEqual(
++            self.run_adder(
++                "--storage",
++                "operator-supplied",
++                "--evidence",
++                "runtime",
++                "--verified-by",
++                self.runtime_source_relative,
++            ),
+             0,
+         )
+ 
+@@ -194,7 +221,7 @@ class AddValidationFixtureTests(unittest.TestCase):
+                 "--evidence",
+                 "runtime",
+                 "--verified-by",
+-                "docs/re/validation-fixtures.md",
++                self.runtime_source_relative,
+             ),
+             0,
+         )
+diff --git a/tests/test_validate_validation_fixtures.py b/tests/test_validate_validation_fixtures.py
+index ad34854..cefd179 100644
+--- a/tests/test_validate_validation_fixtures.py
++++ b/tests/test_validate_validation_fixtures.py
+@@ -41,12 +41,29 @@ def multi_planet_fixture(**overrides):
+ SYNTHETIC_SOURCE = "docs/experiments/_synthetic_fixture_record.md"
+ 
+ 
+-def write_synthetic_source(case, sha256: str, *, directory: str = "experiments") -> str:
+-    """Create a throwaway experiment record that pins the given fixture hash."""
++def write_synthetic_source(
++    case,
++    sha256: str,
++    *,
++    directory: str = "experiments",
++    target_sha256: str = fixtures.CANONICAL_TARGET_SHA256,
++    runtime_marker: bool = True,
++) -> str:
++    """Create a throwaway runtime record carrying fixture and target identities."""
+     relative = f"docs/{directory}/_synthetic_fixture_record.md"
+     path = Path(fixtures.ROOT) / relative
+     path.parent.mkdir(parents=True, exist_ok=True)
+-    path.write_text(f"# synthetic record\n\nPinned save SHA-256 `{sha256}`.\n", encoding="utf-8")
++    lines = ["# synthetic record", ""]
++    if runtime_marker:
++        lines.append(fixtures.RUNTIME_EVIDENCE_MARKER)
++    lines.extend(
++        [
++            f"Target SHA-256 `{target_sha256}`.",
++            f"Pinned save SHA-256 `{sha256}`.",
++            "",
++        ]
++    )
++    path.write_text("\n".join(lines), encoding="utf-8")
+     case.addCleanup(path.unlink, missing_ok=True)
+     return relative
+ 
+@@ -94,6 +111,26 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
+         self.assertFalse(status["satisfied"])
+         self.assertIn("SHA-256", status["reason"])
+ 
++    def test_experiment_without_runtime_marker_does_not_satisfy_a_role(self):
++        entry, _ = multi_planet_fixture()
++        entry["runtime_properties"]["source"] = write_synthetic_source(
++            self, entry["sha256"], runtime_marker=False
++        )
++        declared = fixtures.check_declaration(document_with(entry))
++        status = declared[0]["_role_status"]
++        self.assertFalse(status["satisfied"])
++        self.assertIn("Evidence class", status["reason"])
++
++    def test_experiment_for_a_different_target_does_not_satisfy_a_role(self):
++        entry, _ = multi_planet_fixture()
++        entry["runtime_properties"]["source"] = write_synthetic_source(
++            self, entry["sha256"], target_sha256="0" * 64
++        )
++        declared = fixtures.check_declaration(document_with(entry))
++        status = declared[0]["_role_status"]
++        self.assertFalse(status["satisfied"])
++        self.assertIn("target SHA-256", status["reason"])
++
+     def test_a_policy_document_cannot_stand_in_for_an_experiment_record(self):
+         entry, _ = multi_planet_fixture()
+         entry["runtime_properties"]["source"] = "docs/re/validation-fixtures.md"

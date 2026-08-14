@@ -6,28 +6,36 @@
     "single-planet-causal": "Bounded per-planet causal/runtime observation. One player-owned planet is sufficient.",
     "m1-multi-planet": "M1/V1 acceptance. Must support two player-owned planets holding different automation profiles at the same time."
   },
-  "evidence_levels": ["runtime", "static", "unverified"],
+  "evidence_levels": [
+    "runtime",
+    "static",
+    "unverified"
+  ],
   "fixtures": [
     {
       "id": "resume-en-canonical-single-planet",
       "filename": "resume.gam",
       "role": "single-planet-causal",
-      "storage": "operator-supplied",
+      "storage": "repository",
       "size": 81647,
       "sha256": "fe7b29f63b685df3b098c0bd109a44e95c9a36a2116617b6c0363eb289a813d3",
       "produced_by_target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
       "runtime_properties": {
-        "evidence": "unverified",
+        "evidence": "runtime",
         "player_race_id": 0,
         "player_owned_planet_count": 1,
-        "player_planet_names": ["Xerxes I"],
-        "planets_with_empty_current_action_at_load": ["Xerxes I"],
-        "source": null,
-        "note": "RE4 established Xerxes I as a player-owned planet record in this save. That it is the ONLY player-owned planet is established by the RE5 follow-up in PR #18, which is not yet part of the supported repository state, so these properties stay unverified here and are promoted when that lands."
+        "player_planet_names": [
+          "Xerxes I"
+        ],
+        "planets_with_empty_current_action_at_load": [
+          "Xerxes I"
+        ],
+        "source": "docs/re/auto-management-turn-path.md"
       },
+      "repository_path": "fixtures/saves/resume.gam",
       "limitations": [
-        "Believed to hold exactly one planet with owner 0, so no two player-owned planets can hold different automation profiles at the same time. Pending confirmation in the supported repository state.",
-        "If that holds, the player-race pass over the planet array visits a single record, so no same-race two-sided record bracket exists in this save."
+        "Exactly one planet has owner 0, so no two player-owned planets can hold different automation profiles at the same time.",
+        "The player-race pass over the planet array visits a single record, so no same-race two-sided record bracket exists in this save."
       ],
       "used_by": [
         "scripts/run_re4_runtime_state.py",

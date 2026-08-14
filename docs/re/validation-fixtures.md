@@ -11,17 +11,17 @@ A fixture declares `storage`, and both values are legitimate:
 - `repository` — the payload is committed under `fixtures/saves/`, and the declaration check then requires it to be present and hash-verified on every run.
 - `operator-supplied` — the payload is maintainer-supplied and referenced by hash only. Absence is reported rather than fatal, unless the caller passes `--require-present`.
 
-Nothing in the repository rules forbids committing a save. `AGENTS.md` bars proprietary game binaries, copyrighted assets, private dumps, huge captures, secrets, and private user data; a maintainer's own save of their own game is none of those. The retail manifest's exclusion of "mutable configuration/save files" describes what that manifest pins — immutable runtime files — not a commit ban. The current `resume.gam` is `operator-supplied` because that is how it arrived, not because a rule required it.
+Nothing in the repository rules forbids committing a save. `AGENTS.md` bars proprietary game binaries, copyrighted assets, private dumps, huge captures, secrets, and private user data; a maintainer's own save of their own game is none of those. The retail manifest's exclusion of "mutable configuration/save files" describes what that manifest pins — immutable runtime files — not a commit ban. `resume.gam` is committed at `fixtures/saves/resume.gam`; it carries only game-generated content — star, planet and technology names from the game's own tables — and no personal data.
 
 For saves specifically, committing is usually the better default. A fixture that exists only on one machine can be lost, and every conclusion pinned to its hash then becomes unreproducible; the declaration makes that loss detectable but cannot undo it. A save is also small — the current one is 81647 bytes — and the repository already commits target-derived material of the same kind, including planet names taken from the game's own tables.
 
 Before committing a save, check three things: that it is the maintainer's own save of a game they are entitled to distribute, that it carries no personal data (the player name is the likely place), and that it has not grown large enough to belong under an ignored path instead.
 
-## Believed property of the current fixture
+## Established property of the current fixture
 
-`resume.gam` (SHA-256 `fe7b29f6…`) is believed to have **exactly one player-owned planet**, `Xerxes I`.
+`resume.gam` (SHA-256 `fe7b29f6…`) has **exactly one player-owned planet**, `Xerxes I`.
 
-RE4 established `Xerxes I` as a player-owned planet record in this save. That it is the *only* one comes from the RE5 follow-up in PR #18, which is not yet part of the supported repository state — current `main` plus the change under review. The declaration therefore records these properties as `unverified` and they are promoted when that PR lands. The observations reported there were:
+RE4 established `Xerxes I` as a player-owned planet record in this save, and the RE5 follow-up established that it is the only one while investigating whether a same-race record bracket could be built around it. Both are now in the supported repository state; see [`auto-management-turn-path.md`](./auto-management-turn-path.md). The observations were:
 
 - the immediate `Xerxes ± 0x7b` records are `Stavern IV` and `Xerxes II`, both owner `0xff`;
 - `Xerxes I` is the only record with owner `0`;
@@ -31,7 +31,7 @@ RE3 established that the per-race pass skips planets whose `+0x57` does not matc
 
 ### What that blocks
 
-V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. That needs a save with at least two player-owned planets, and none is declared; if the single-planet property above holds, those steps cannot be performed on `resume.gam` at all. Either way this is a fixture limitation rather than an implementation gap, and it is independent of how A1/A2 choose to represent the profile.
+V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. **Those steps cannot be performed on `resume.gam` at all**, and no fixture declaring two player-owned planets exists. This is a fixture limitation rather than an implementation gap, and it is independent of how A1/A2 choose to represent the profile.
 
 ## Requirements for an M1 multi-planet fixture
 

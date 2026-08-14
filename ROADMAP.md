@@ -1037,6 +1037,7 @@ The patch/build output contains the full intended M1 behavior and passes all clo
 
 - **Status:** Investigation first
 - **Execution:** **CLOUD** — set by CF4: use `scripts/run_cf4_ui_validation.py` with a checked-in action file and a retail tree verified by `tools/retail-runtime-manifest.json`; see [`docs/experiments/CF4-cloud-ui-validation.md`](./docs/experiments/CF4-cloud-ui-validation.md).
+- **Validation state:** Use the maintainer-created operator state pinned by [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json) and [`docs/experiments/V1-validation-state-handoff.md`](./docs/experiments/V1-validation-state-handoff.md) when the exact raw saves are supplied ephemerally. Verify them with `python3 tools/verify_v1_validation_state.py --input-dir <attached-save-dir>` before runtime use; do not substitute a different state without updating the pinned handoff.
 - **Priority:** Critical
 - **Category:** End-to-end validation
 - **Origin:** Milestone exit criteria

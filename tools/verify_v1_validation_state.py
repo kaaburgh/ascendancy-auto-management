@@ -11,6 +11,11 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from typing import Sequence
+
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST_PATH = ROOT / "tools" / "v1-validation-state-manifest.json"
+MANIFEST_ID = "v1-operator-validation-state-2026-08-14"
 
 
 class VerificationError(RuntimeError):
@@ -39,17 +44,20 @@ def casefold_map(root: Path) -> dict[str, Path]:
     return result
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--manifest", type=Path, required=True)
     ap.add_argument("--input-dir", type=Path, required=True)
-    ns = ap.parse_args()
+    return ap
 
-    manifest = json.loads(ns.manifest.read_text(encoding="utf-8"))
-    if manifest.get("schema") != 1 or manifest.get("id") != "v1-operator-validation-state-2026-08-14":
+
+def load_manifest(manifest_path: Path) -> dict:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema") != 1 or manifest.get("id") != MANIFEST_ID:
         raise VerificationError("unexpected manifest schema/id")
+    return manifest
 
-    root = ns.input_dir.resolve()
+
+def verify_input(root: Path, manifest: dict) -> None:
     if not root.is_dir():
         raise VerificationError("input-dir is not a directory")
     files = casefold_map(root)
@@ -83,6 +91,13 @@ def main() -> int:
     if hashlib.sha256(manual[start:]).hexdigest() != pair["identical_suffix_sha256"]:
         raise VerificationError("paired save suffix SHA-256 mismatch")
 
+
+def main(argv: Sequence[str] | None = None, *, manifest_path: Path = MANIFEST_PATH) -> int:
+    ns = build_parser().parse_args(argv)
+    manifest = load_manifest(manifest_path)
+    verify_input(ns.input_dir.resolve(), manifest)
+
+    pair = manifest["pair_observation"]
     print(
         "V1 operator validation-state identity: PASS "
         f"({len(manifest['files'])} files; suffix identical from {pair['identical_from_offset']})"

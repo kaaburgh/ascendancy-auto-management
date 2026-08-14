@@ -1,0 +1,17 @@
+name: PR19 export workspace
+on:
+  push:
+    branches:
+      - claude/review-ascendancy-pr-8-m2c6zy
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pack workspace
+        run: tar --exclude=.git -czf /tmp/pr19-workspace.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr19-workspace
+          path: /tmp/pr19-workspace.tar.gz
+          retention-days: 1

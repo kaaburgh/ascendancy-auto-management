@@ -29,7 +29,8 @@ DEFAULT_DECLARATION = ROOT / "tools" / "validation-fixtures.json"
 SUPPORTED_SCHEMA = 1
 CANONICAL_TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
 VERIFIED_EVIDENCE = "runtime"
-EXPERIMENT_RECORD_DIR = "experiments"
+EXPERIMENT_RECORD_PREFIX = ("docs", "experiments")
+RUNTIME_EVIDENCE_MARKER = "Evidence class: **runtime**"
 REPOSITORY_STORAGE = "repository"
 OPERATOR_STORAGE = "operator-supplied"
 SUPPORTED_STORAGE = (REPOSITORY_STORAGE, OPERATOR_STORAGE)
@@ -158,7 +159,9 @@ def check_declaration(document: dict[str, Any]) -> list[dict[str, Any]]:
     return fixtures
 
 
-def check_source_record(source: str, fixture_sha256: str) -> str | None:
+def check_source_record(
+    source: str, fixture_sha256: str, target_sha256: str
+) -> str | None:
     """Return why `source` is not an experiment record for this fixture, or None.
 
     Existing-file-ness is not enough: any repository file would pass, including
@@ -180,19 +183,30 @@ def check_source_record(source: str, fixture_sha256: str) -> str | None:
             f"source {source!r} does not resolve to a record in the supported repository "
             "state; a named path that does not exist is an assertion, not evidence"
         )
-    if EXPERIMENT_RECORD_DIR not in source_path.parts:
+    relative = resolved.relative_to(ROOT.resolve())
+    if relative.parts[:2] != EXPERIMENT_RECORD_PREFIX or resolved.suffix.lower() != ".md":
         return (
-            f"source {source!r} is not under {EXPERIMENT_RECORD_DIR}/; runtime properties are "
-            "established by a reproducible experiment record, not by a policy or summary document"
+            f"source {source!r} is not a Markdown runtime experiment record under "
+            "docs/experiments/; policy/RE prose cannot satisfy a runtime role"
         )
     try:
         text = resolved.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         return f"source {source!r} could not be read: {exc}"
+    if RUNTIME_EVIDENCE_MARKER not in text:
+        return (
+            f"source {source!r} does not declare {RUNTIME_EVIDENCE_MARKER!r}; "
+            "an experiment path alone is not runtime evidence"
+        )
     if fixture_sha256 not in text:
         return (
             f"source {source!r} never names this fixture's SHA-256, so it does not establish "
             "anything about this save"
+        )
+    if target_sha256 not in text:
+        return (
+            f"source {source!r} never names produced target SHA-256 {target_sha256}; "
+            "the record is not bound to the target that produced this save"
         )
     return None
 
@@ -255,7 +269,9 @@ def check_role_requirements(
             "reason": "runtime evidence names no source; record the experiment that "
             "established these properties",
         }
-    source_problem = check_source_record(source, fixture["sha256"])
+    source_problem = check_source_record(
+        source, fixture["sha256"], fixture["produced_by_target_sha256"]
+    )
     if source_problem is not None:
         return {"role": fixture["role"], "satisfied": False, "reason": source_problem}
     return {"role": fixture["role"], "satisfied": True, "reason": "verified"}

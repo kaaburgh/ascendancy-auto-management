@@ -41,12 +41,29 @@ def multi_planet_fixture(**overrides):
 SYNTHETIC_SOURCE = "docs/experiments/_synthetic_fixture_record.md"
 
 
-def write_synthetic_source(case, sha256: str, *, directory: str = "experiments") -> str:
-    """Create a throwaway experiment record that pins the given fixture hash."""
+def write_synthetic_source(
+    case,
+    sha256: str,
+    *,
+    directory: str = "experiments",
+    target_sha256: str = fixtures.CANONICAL_TARGET_SHA256,
+    runtime_marker: bool = True,
+) -> str:
+    """Create a throwaway runtime record carrying fixture and target identities."""
     relative = f"docs/{directory}/_synthetic_fixture_record.md"
     path = Path(fixtures.ROOT) / relative
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"# synthetic record\n\nPinned save SHA-256 `{sha256}`.\n", encoding="utf-8")
+    lines = ["# synthetic record", ""]
+    if runtime_marker:
+        lines.append(fixtures.RUNTIME_EVIDENCE_MARKER)
+    lines.extend(
+        [
+            f"Target SHA-256 `{target_sha256}`.",
+            f"Pinned save SHA-256 `{sha256}`.",
+            "",
+        ]
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
     case.addCleanup(path.unlink, missing_ok=True)
     return relative
 
@@ -93,6 +110,26 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
         status = declared[0]["_role_status"]
         self.assertFalse(status["satisfied"])
         self.assertIn("SHA-256", status["reason"])
+
+    def test_experiment_without_runtime_marker_does_not_satisfy_a_role(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry["sha256"], runtime_marker=False
+        )
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("Evidence class", status["reason"])
+
+    def test_experiment_for_a_different_target_does_not_satisfy_a_role(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry["sha256"], target_sha256="0" * 64
+        )
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("target SHA-256", status["reason"])
 
     def test_a_policy_document_cannot_stand_in_for_an_experiment_record(self):
         entry, _ = multi_planet_fixture()

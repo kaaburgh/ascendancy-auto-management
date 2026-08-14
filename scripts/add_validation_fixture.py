@@ -116,7 +116,14 @@ def place_payload(save: Path, destination: Path | None) -> bool:
         # and nothing this invocation would be entitled to roll back.
         return False
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(save, destination)
+    try:
+        shutil.copy2(save, destination)
+    except Exception:
+        # copy2 may have created a partial destination before failing. It did
+        # not exist on entry, so removing it cannot destroy prior repository
+        # state.
+        destination.unlink(missing_ok=True)
+        raise
     return True
 
 
@@ -225,6 +232,12 @@ def main(argv: list[str] | None = None) -> int:
         # no half-updated declaration.
         destination = resolve_destination(entry, save, previous)
         fixtures = validator.check_declaration(json.loads(json.dumps(document)))
+        status = next(item for item in fixtures if item["id"] == entry["id"])["_role_status"]
+        if args.evidence == validator.VERIFIED_EVIDENCE and not status["satisfied"]:
+            raise validator.FixtureDeclarationError(
+                f"runtime promotion for fixture {entry['id']!r} is not usable: "
+                f"{status['reason']}"
+            )
 
         if not args.dry_run:
             created = place_payload(save, destination)
@@ -243,7 +256,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"add-validation-fixture: FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
 
-    status = next(item for item in fixtures if item["id"] == entry["id"])["_role_status"]
     prefix = "would add" if args.dry_run else "added"
     print(f"add-validation-fixture: {prefix} {entry['id']}")
     print(f"  size {entry['size']} sha256 {entry['sha256']}")

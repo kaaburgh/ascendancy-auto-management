@@ -4,13 +4,18 @@ Durable record of which saved games the project relies on, what each one is allo
 
 Declarations live in [`../../tools/validation-fixtures.json`](../../tools/validation-fixtures.json) and are checked by `scripts/validate_validation_fixtures.py`.
 
-## Why save payloads are not committed
+## Where save payloads live
 
-`tools/retail-runtime-manifest.json` pins the immutable retail payload by size and SHA-256 and states that the proprietary payload is never committed; mutable configuration and save files are deliberately excluded from it. `AGENTS.md` places proprietary game material and local raw artifacts under ignored paths.
+A fixture declares `storage`, and both values are legitimate:
 
-Save fixtures follow the same model: the payload is maintainer-supplied and referenced by hash, and only the declaration is committed. A save is game-generated rather than a shipped asset, so this is a convention rather than a settled legal boundary — see the open question at the end of this document.
+- `repository` — the payload is committed. The declaration check then requires it to be present and hash-verified on every run.
+- `operator-supplied` — the payload is maintainer-supplied and referenced by hash only. Absence is reported rather than fatal, unless the caller passes `--require-present`.
 
-The cost of that choice is real and should be stated plainly: a fixture that exists only on one machine can be lost, and every conclusion pinned to its hash becomes unreproducible. The declaration exists so that the loss is at least detectable rather than silent.
+Nothing in the repository rules forbids committing a save. `AGENTS.md` bars proprietary game binaries, copyrighted assets, private dumps, huge captures, secrets, and private user data; a maintainer's own save of their own game is none of those. The retail manifest's exclusion of "mutable configuration/save files" describes what that manifest pins — immutable runtime files — not a commit ban. The current `resume.gam` is `operator-supplied` because that is how it arrived, not because a rule required it.
+
+For saves specifically, committing is usually the better default. A fixture that exists only on one machine can be lost, and every conclusion pinned to its hash then becomes unreproducible; the declaration makes that loss detectable but cannot undo it. A save is also small — the current one is 81647 bytes — and the repository already commits target-derived material of the same kind, including planet names taken from the game's own tables.
+
+Before committing a save, check three things: that it is the maintainer's own save of a game they are entitled to distribute, that it carries no personal data (the player name is the likely place), and that it has not grown large enough to belong under an ignored path instead.
 
 ## Established property of the current fixture
 
@@ -50,10 +55,4 @@ Neutral but worth recording: whatever player name the save carries becomes part 
 
 Runtime properties in the declaration are claims, and each carries an `evidence` level. A fixture whose properties are `unverified` may be declared, but `scripts/validate_validation_fixtures.py` refuses to let it satisfy a role requirement. Promoting a fixture to `runtime` requires a named experiment that observed the properties on the exact target, in the same way the current fixture's single-planet property was established.
 
-The declaration check is intentionally split in two: the declaration is always validated, while the payload is verified by size and SHA-256 only when it is actually present, since the payload is not part of the repository.
-
-## Open question for the maintainer
-
-Whether save payloads should be committed rather than referenced is a maintainer decision, not a technical one. Committing removes the loss risk described above; referencing keeps consistency with the retail manifest and with `AGENTS.md`.
-
-This document assumes the referencing convention because that is what the repository does today. If the decision changes, it should change explicitly — by amending the rule in `AGENTS.md` and the note in the retail manifest — rather than by adding a silent exception for one file.
+The declaration check is intentionally split in two: the declaration is always validated, while payload identity is verified when the payload is reachable. A `repository` fixture must always be present and verified; an `operator-supplied` one is verified only when the file is supplied.

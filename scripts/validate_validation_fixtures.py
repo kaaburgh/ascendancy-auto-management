@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Validate the save-fixture declarations in `tools/validation-fixtures.json`.
 
-The save payloads themselves are maintainer-supplied and never committed, so
-this check has two independent halves:
+A fixture payload may be committed (`storage: repository`) or maintainer-supplied
+and referenced by hash (`storage: operator-supplied`), so this check has two
+independent halves:
 
 * the declaration is always checked — schema, required fields, role
   requirements, and evidence level;
-* the payload is checked only when it is actually present in a supplied
-  fixture directory, by size and SHA-256.
+* payload identity is checked by size and SHA-256 whenever the payload is
+  reachable. A committed payload must always be present; a maintainer-supplied
+  one is verified only when a fixture directory actually provides it.
 
 Runtime properties recorded here are claims established by a named runtime
 experiment. A fixture whose properties are still `unverified` may be declared,
@@ -25,6 +27,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DECLARATION = ROOT / "tools" / "validation-fixtures.json"
 SUPPORTED_SCHEMA = 1
+REPOSITORY_STORAGE = "repository"
+OPERATOR_STORAGE = "operator-supplied"
+SUPPORTED_STORAGE = (REPOSITORY_STORAGE, OPERATOR_STORAGE)
 REQUIRED_FIXTURE_FIELDS = (
     "id",
     "filename",
@@ -92,6 +97,23 @@ def check_declaration(document: dict[str, Any]) -> list[dict[str, Any]]:
             raise FixtureDeclarationError(
                 f"fixture {identifier!r} declares unknown role {fixture['role']!r}"
             )
+        if fixture["storage"] not in SUPPORTED_STORAGE:
+            raise FixtureDeclarationError(
+                f"fixture {identifier!r} declares unknown storage {fixture['storage']!r}; "
+                f"expected one of {list(SUPPORTED_STORAGE)}"
+            )
+        if fixture["storage"] == REPOSITORY_STORAGE:
+            repository_path = fixture.get("repository_path")
+            if not repository_path:
+                raise FixtureDeclarationError(
+                    f"fixture {identifier!r} declares storage {REPOSITORY_STORAGE!r} "
+                    "without a repository_path"
+                )
+            if Path(repository_path).is_absolute() or ".." in Path(repository_path).parts:
+                raise FixtureDeclarationError(
+                    f"fixture {identifier!r} repository_path must be a relative path "
+                    "inside the repository"
+                )
         if not isinstance(fixture["size"], int) or fixture["size"] <= 0:
             raise FixtureDeclarationError(f"fixture {identifier!r} has a non-positive size")
         if len(fixture["sha256"]) != 64:
@@ -167,8 +189,17 @@ def check_payloads(
     results: list[dict[str, Any]] = []
     for fixture in fixtures:
         entry: dict[str, Any] = {"id": fixture["id"], "filename": fixture["filename"]}
-        path = None if fixture_dir is None else fixture_dir / fixture["filename"]
+        committed = fixture["storage"] == REPOSITORY_STORAGE
+        if committed:
+            path = ROOT / fixture["repository_path"]
+        else:
+            path = None if fixture_dir is None else fixture_dir / fixture["filename"]
         if path is None or not path.is_file():
+            if committed:
+                raise FixtureDeclarationError(
+                    f"fixture {fixture['id']!r} declares storage {REPOSITORY_STORAGE!r} "
+                    f"but {fixture['filename']} is not in the repository"
+                )
             if require_present:
                 raise FixtureDeclarationError(
                     f"fixture {fixture['id']!r} payload not found; "

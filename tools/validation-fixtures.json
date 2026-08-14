@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "ascendancy-validation-save-fixtures",
-  "note": "Declares maintainer-supplied save fixtures and the runtime properties later experiments are allowed to rely on. Save payloads are not committed; each fixture is pinned by size and SHA-256 exactly like the retail runtime manifest.",
+  "note": "Declares save fixtures and the runtime properties later experiments are allowed to rely on. Every fixture is pinned by size and SHA-256. A fixture is either committed (storage 'repository', with a relative repository_path, always verified) or maintainer-supplied (storage 'operator-supplied', verified when provided).",
   "roles": {
     "single-planet-causal": "Bounded per-planet causal/runtime observation. One player-owned planet is sufficient.",
     "m1-multi-planet": "M1/V1 acceptance. Must support two player-owned planets holding different automation profiles at the same time."

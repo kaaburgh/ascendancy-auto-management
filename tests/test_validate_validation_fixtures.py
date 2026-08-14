@@ -116,6 +116,33 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
             with self.assertRaises(fixtures.FixtureDeclarationError):
                 fixtures.check_payloads([entry], Path(directory), require_present=True)
 
+    def test_unknown_storage_is_rejected(self):
+        entry, _ = multi_planet_fixture()
+        entry["storage"] = "somewhere-else"
+        with self.assertRaises(fixtures.FixtureDeclarationError):
+            fixtures.check_declaration(document_with(entry))
+
+    def test_repository_storage_requires_a_repository_path(self):
+        entry, _ = multi_planet_fixture()
+        entry["storage"] = "repository"
+        with self.assertRaises(fixtures.FixtureDeclarationError):
+            fixtures.check_declaration(document_with(entry))
+
+    def test_repository_path_may_not_escape_the_repository(self):
+        entry, _ = multi_planet_fixture()
+        entry["storage"] = "repository"
+        entry["repository_path"] = "../outside/resume-multi.gam"
+        with self.assertRaises(fixtures.FixtureDeclarationError):
+            fixtures.check_declaration(document_with(entry))
+
+    def test_committed_payload_must_exist_even_without_require_present(self):
+        entry, _ = multi_planet_fixture()
+        entry["storage"] = "repository"
+        entry["repository_path"] = "tests/fixtures/definitely-absent.gam"
+        fixtures.check_declaration(document_with(entry))
+        with self.assertRaises(fixtures.FixtureDeclarationError):
+            fixtures.check_payloads([entry], None, require_present=False)
+
     def test_unknown_role_is_rejected(self):
         entry, _ = multi_planet_fixture()
         entry["role"] = "not-a-declared-role"

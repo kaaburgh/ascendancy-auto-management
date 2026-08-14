@@ -168,6 +168,61 @@ class AddValidationFixtureTests(unittest.TestCase):
         entry = next(item for item in self.declared() if item["id"] == "resume-en-multi-planet")
         self.assertEqual(entry["repository_path"], relative)
 
+    def test_promotion_of_a_committed_fixture_reuses_its_own_destination(self):
+        relative = "fixtures/saves/test-promote-tmp.gam"
+        destination = Path(adder.ROOT) / relative
+
+        def cleanup() -> None:
+            destination.unlink(missing_ok=True)
+            for parent in (destination.parent, destination.parent.parent):
+                if parent.is_dir() and not any(parent.iterdir()):
+                    parent.rmdir()
+
+        self.addCleanup(cleanup)
+        self.assertEqual(
+            self.run_adder("--storage", "repository", "--repository-path", relative), 0
+        )
+        # The promotion run supplies the same save from its original path, so the
+        # destination already exists and must not be treated as a foreign file.
+        self.assertEqual(
+            self.run_adder(
+                "--replace",
+                "--storage",
+                "repository",
+                "--repository-path",
+                relative,
+                "--evidence",
+                "runtime",
+                "--verified-by",
+                "docs/re/validation-fixtures.md",
+            ),
+            0,
+        )
+        entry = next(item for item in self.declared() if item["id"] == "resume-en-multi-planet")
+        self.assertEqual(entry["runtime_properties"]["evidence"], "runtime")
+
+    def test_replacing_a_committed_fixture_with_different_bytes_is_refused(self):
+        relative = "fixtures/saves/test-swap-tmp.gam"
+        destination = Path(adder.ROOT) / relative
+
+        def cleanup() -> None:
+            destination.unlink(missing_ok=True)
+            for parent in (destination.parent, destination.parent.parent):
+                if parent.is_dir() and not any(parent.iterdir()):
+                    parent.rmdir()
+
+        self.addCleanup(cleanup)
+        self.assertEqual(
+            self.run_adder("--storage", "repository", "--repository-path", relative), 0
+        )
+        original = destination.read_bytes()
+        self.save.write_bytes(b"a different save entirely")
+        self.assertEqual(
+            self.run_adder("--replace", "--storage", "repository", "--repository-path", relative),
+            1,
+        )
+        self.assertEqual(destination.read_bytes(), original)
+
     def test_declaration_stays_valid_after_the_write(self):
         self.assertEqual(self.run_adder("--storage", "operator-supplied"), 0)
         document = json.loads(self.declaration.read_text(encoding="utf-8"))

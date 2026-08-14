@@ -182,12 +182,28 @@ def check_role_requirements(
             "reason": f"evidence is {properties['evidence']!r}; a role requires "
             f"{VERIFIED_EVIDENCE!r} properties observed on the canonical target",
         }
-    if not properties.get("source"):
+    source = properties.get("source")
+    if not source:
         return {
             "role": fixture["role"],
             "satisfied": False,
             "reason": "runtime evidence names no source; record the experiment that "
             "established these properties",
+        }
+    source_path = Path(source)
+    resolved = (ROOT / source_path).resolve()
+    inside = not source_path.is_absolute()
+    if inside:
+        try:
+            resolved.relative_to(ROOT.resolve())
+        except ValueError:
+            inside = False
+    if not inside or not resolved.is_file():
+        return {
+            "role": fixture["role"],
+            "satisfied": False,
+            "reason": f"source {source!r} does not resolve to a record in the supported "
+            "repository state; a named path that does not exist is an assertion, not evidence",
         }
     if fixture["produced_by_target_sha256"] != CANONICAL_TARGET_SHA256:
         return {

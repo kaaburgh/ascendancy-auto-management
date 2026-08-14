@@ -591,7 +591,7 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 ## T3 — Supply a multi-planet save fixture for M1 validation
 
 - **Status:** Investigation first — the declaration contract and its checks are in place; obtaining a qualifying save is the open question.
-- **Execution:** **GATED** — how a qualifying save is produced is not yet settled, so no agent should take that part yet. It must not be classified `LOCAL ONLY` on the assumption that "ordinary play needs a workstation": CF3/CF4 already established cloud execution of the canonical target with UI automation, and RE4/RE5 drove the running game from cloud. A named `CLOUD RESEARCH` step must either establish a reproducible cloud path or record the concrete blocker. A maintainer-supplied save short-circuits the question entirely and is the expected route. The declaration/verification tooling around it is already `CLOUD` and complete.
+- **Execution:** **CLOUD RESEARCH** — obtaining the fixture *is* the feasibility question, so this item owns it rather than waiting behind a gate nothing can unlock. It must not be classified `LOCAL ONLY` on the assumption that "ordinary play needs a workstation": CF3/CF4 established cloud execution of the canonical target with UI automation, and RE4/RE5 drove the running game from cloud. A maintainer-supplied save short-circuits the investigation and is the expected route; if one arrives, record it and close the feasibility question as not needed.
 - **Priority:** High
 - **Category:** Target baseline / validation fixtures
 - **Origin:** Fixture limitation found while investigating the RE5 Manual record bracket
@@ -600,13 +600,22 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ### Established limitation
 
-V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a **different** one and confirming both hold their own mode. That needs a save with at least two player-owned planets, and no such fixture is declared. This is a fixture gap, not an implementation gap, and it is independent of how A1/A2 represent the profile.
+V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a **different** one and confirming both hold their own mode. The pinned `resume.gam` holds exactly one player-owned planet (`Xerxes I`, owner `0`), established by RE4 and the RE5 follow-up and declared as `runtime` evidence in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json), so V1 steps 2–4 cannot be performed on it at all.
 
-The pinned `resume.gam` is believed to hold exactly one player-owned planet (`Xerxes I`, owner `0`), which would make V1 steps 2–4 impossible on it. That observation comes from the RE5 follow-up in PR #18 and is **not yet part of the supported repository state**, so the declaration in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json) records it as `unverified` and it is promoted when that PR lands. T3 does not depend on the outcome: a fixture that provably supports two profiles is required either way, and nothing here reopens a completed item — RE4 and RE5 stay attached to the fixtures they actually used.
+This is a fixture gap, not an implementation gap, and it is independent of how A1/A2 represent the profile. Nothing here reopens a completed item: RE4 and RE5 stay attached to the fixture they actually used, which is now committed at `fixtures/saves/resume.gam`.
+
+### Required feasibility outcome
+
+As a `CLOUD RESEARCH` item this must end in one of the two outcomes the execution contract defines, not in a prose opinion:
+
+1. **Cloud path found** — a reproducible way for a cloud agent to reach a qualifying save on the canonical target using the existing CF3/CF4 harness (playing forward from an existing save until a second planet is owned, or equivalent), with the script committed and a smoke test where practical. Reclassify the remaining work `CLOUD`.
+2. **Cloud path not practical** — record the concrete blocker and what was tried under `docs/experiments/`, reduce the manual part to the smallest one-shot local procedure, and define the repo-safe artifact it produces. Reclassify `LOCAL ONLY`.
+
+A maintainer-supplied save resolves the item without either outcome: the feasibility question then never had to be answered, and that should be recorded as the reason rather than leaving a stale investigation open.
 
 ### Work
 
-1. Produce a save by ordinary play on the canonical `ANTAG.EXE` that satisfies the requirements in [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) — at minimum two player-owned planets, at least one of them with no current action at load, unique planet names.
+1. Obtain a save satisfying the requirements in [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) — at minimum two player-owned planets, at least one of them with no current action at load, unique planet names — produced by ordinary play on the canonical `ANTAG.EXE`.
 2. Declare it in `tools/validation-fixtures.json` with `evidence: unverified`.
 3. Verify the declared runtime properties on the exact target in a named experiment, then promote the entry to `evidence: runtime`.
 4. Parameterise the planet selection currently hard-coded to `Xerxes I`, and pin the new save alongside the existing one rather than replacing it — the single-planet fixture remains the fixture of record for the completed RE4/RE5 observations.
@@ -617,7 +626,8 @@ The pinned `resume.gam` is believed to hold exactly one player-owned planet (`Xe
 - [x] `scripts/validate_validation_fixtures.py` with fail-closed declaration checks, present-payload identity verification and `--require-role` for consumers;
 - [x] `scripts/add_validation_fixture.py` to add or promote a fixture without hand-editing the declaration, plus the `add-save-fixture` skill so agents follow the same path;
 - [x] [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) recording the storage convention, the established single-planet limitation and the requirements for the new save;
-- [ ] the maintainer-supplied save payload, pinned by size and SHA-256;
+- [x] the existing single-planet fixture committed at `fixtures/saves/resume.gam` and hash-verified on every run;
+- [ ] a multi-planet save payload satisfying the M1 role, pinned by size and SHA-256;
 - [ ] a runtime experiment record promoting its properties from `unverified` to `runtime`.
 
 ### Acceptance criteria

@@ -69,8 +69,17 @@ def build_entry(args: argparse.Namespace, save: Path) -> dict[str, Any]:
     return entry
 
 
-def resolve_destination(entry: dict[str, Any], save: Path) -> Path | None:
-    """Resolve and containment-check the destination without touching the disk."""
+def resolve_destination(
+    entry: dict[str, Any], save: Path, previous: dict[str, Any] | None
+) -> Path | None:
+    """Resolve and containment-check the destination without touching the disk.
+
+    An existing destination is accepted only when it is this fixture's own
+    already-committed payload and its content matches the incoming save. That
+    keeps promotion working — the second run supplies the same save from its
+    original path — while still refusing to overwrite an unrelated file or to
+    swap different bytes in under an identifier other work is pinned to.
+    """
     if entry["storage"] != validator.REPOSITORY_STORAGE:
         return None
     destination = (ROOT / entry["repository_path"]).resolve()
@@ -80,12 +89,20 @@ def resolve_destination(entry: dict[str, Any], save: Path) -> Path | None:
         raise validator.FixtureDeclarationError(
             f"repository_path escapes the repository: {entry['repository_path']}"
         ) from None
-    if destination == save.resolve():
+    if destination == save.resolve() or not destination.exists():
         return destination
-    if destination.exists():
+
+    same_fixture = previous is not None and previous.get("repository_path") == entry["repository_path"]
+    if not same_fixture:
         raise validator.FixtureDeclarationError(
-            f"refusing to overwrite existing {entry['repository_path']}; "
-            "choose a path that does not already hold a file"
+            f"refusing to overwrite existing {entry['repository_path']}; it does not belong "
+            f"to fixture {entry['id']!r}"
+        )
+    if validator.sha256_file(destination) != entry["sha256"]:
+        raise validator.FixtureDeclarationError(
+            f"{entry['repository_path']} already holds different bytes for fixture "
+            f"{entry['id']!r}; declare a new fixture id rather than swapping the payload "
+            "under one that existing evidence is pinned to"
         )
     return destination
 
@@ -97,7 +114,10 @@ def place_payload(save: Path, destination: Path | None) -> None:
     shutil.copy2(save, destination)
 
 
-def merge_entry(document: dict[str, Any], entry: dict[str, Any], replace: bool) -> None:
+def merge_entry(
+    document: dict[str, Any], entry: dict[str, Any], replace: bool
+) -> dict[str, Any] | None:
+    """Insert or replace the entry, returning the declaration it displaced."""
     fixtures = document["fixtures"]
     existing = [item for item in fixtures if item["id"] == entry["id"]]
     if existing and not replace:
@@ -105,9 +125,11 @@ def merge_entry(document: dict[str, Any], entry: dict[str, Any], replace: bool) 
             f"fixture {entry['id']!r} already declared; pass --replace to update it"
         )
     if existing:
-        fixtures[fixtures.index(existing[0])] = entry
-    else:
-        fixtures.append(entry)
+        previous = existing[0]
+        fixtures[fixtures.index(previous)] = entry
+        return previous
+    fixtures.append(entry)
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -181,12 +203,12 @@ def main(argv: list[str] | None = None) -> int:
 
         document = json.loads(args.declaration.read_text(encoding="utf-8"))
         entry = build_entry(args, save)
-        merge_entry(document, entry, args.replace)
+        previous = merge_entry(document, entry, args.replace)
 
         # Everything that can reject the request runs before anything is
         # written, so a failed invocation leaves no copied payload behind and
         # no half-updated declaration.
-        destination = resolve_destination(entry, save)
+        destination = resolve_destination(entry, save, previous)
         fixtures = validator.check_declaration(json.loads(json.dumps(document)))
 
         if not args.dry_run:

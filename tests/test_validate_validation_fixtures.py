@@ -27,7 +27,7 @@ def multi_planet_fixture(**overrides):
         "produced_by_target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
         "runtime_properties": {
             "evidence": "runtime",
-            "source": "docs/experiments/X-multi-planet-fixture.md",
+            "source": "docs/re/validation-fixtures.md",
             "player_race_id": 0,
             "player_owned_planet_count": 3,
             "player_planet_names": ["Alpha I", "Beta II", "Gamma III"],
@@ -92,6 +92,20 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
         status = declared[0]["_role_status"]
         self.assertFalse(status["satisfied"])
         self.assertIn("canonical", status["reason"])
+
+    def test_source_naming_a_missing_record_does_not_satisfy_a_role(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = "docs/experiments/does-not-exist.md"
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("does not resolve", status["reason"])
+
+    def test_source_escaping_the_repository_does_not_satisfy_a_role(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = "../../etc/passwd"
+        declared = fixtures.check_declaration(document_with(entry))
+        self.assertFalse(declared[0]["_role_status"]["satisfied"])
 
     def test_verified_properties_contradicting_the_role_fail_closed(self):
         entry, _ = multi_planet_fixture()

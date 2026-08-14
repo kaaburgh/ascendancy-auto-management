@@ -127,6 +127,47 @@ class AddValidationFixtureTests(unittest.TestCase):
             1,
         )
 
+    def test_repository_path_escaping_the_repo_copies_nothing(self):
+        outside = self.directory / "outside.gam"
+        self.assertEqual(
+            self.run_adder(
+                "--storage", "repository", "--repository-path", f"../{outside.name}"
+            ),
+            1,
+        )
+        self.assertFalse(outside.exists())
+        self.assertNotIn(
+            "resume-en-multi-planet", [item["id"] for item in self.declared()]
+        )
+
+    def test_existing_repository_destination_is_never_overwritten(self):
+        root = Path(adder.ROOT)
+        readme = root / "README.md"
+        before = readme.read_bytes()
+        self.assertEqual(
+            self.run_adder("--storage", "repository", "--repository-path", "README.md"), 1
+        )
+        self.assertEqual(readme.read_bytes(), before)
+
+    def test_committed_payload_is_placed_and_declared_together(self):
+        relative = "fixtures/saves/test-add-fixture-tmp.gam"
+        destination = Path(adder.ROOT) / relative
+
+        def cleanup() -> None:
+            destination.unlink(missing_ok=True)
+            for parent in (destination.parent, destination.parent.parent):
+                if parent.is_dir() and not any(parent.iterdir()):
+                    parent.rmdir()
+
+        self.addCleanup(cleanup)
+        self.assertEqual(
+            self.run_adder("--storage", "repository", "--repository-path", relative), 0
+        )
+        self.assertTrue(destination.is_file())
+        self.assertEqual(destination.read_bytes(), self.save.read_bytes())
+        entry = next(item for item in self.declared() if item["id"] == "resume-en-multi-planet")
+        self.assertEqual(entry["repository_path"], relative)
+
     def test_declaration_stays_valid_after_the_write(self):
         self.assertEqual(self.run_adder("--storage", "operator-supplied"), 0)
         document = json.loads(self.declaration.read_text(encoding="utf-8"))

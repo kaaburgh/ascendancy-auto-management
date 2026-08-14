@@ -8,7 +8,7 @@ Declarations live in [`../../tools/validation-fixtures.json`](../../tools/valida
 
 A fixture declares `storage`, and both values are legitimate:
 
-- `repository` — the payload is committed. The declaration check then requires it to be present and hash-verified on every run.
+- `repository` — the payload is committed under `fixtures/saves/`, and the declaration check then requires it to be present and hash-verified on every run.
 - `operator-supplied` — the payload is maintainer-supplied and referenced by hash only. Absence is reported rather than fatal, unless the caller passes `--require-present`.
 
 Nothing in the repository rules forbids committing a save. `AGENTS.md` bars proprietary game binaries, copyrighted assets, private dumps, huge captures, secrets, and private user data; a maintainer's own save of their own game is none of those. The retail manifest's exclusion of "mutable configuration/save files" describes what that manifest pins — immutable runtime files — not a commit ban. The current `resume.gam` is `operator-supplied` because that is how it arrived, not because a rule required it.
@@ -17,11 +17,11 @@ For saves specifically, committing is usually the better default. A fixture that
 
 Before committing a save, check three things: that it is the maintainer's own save of a game they are entitled to distribute, that it carries no personal data (the player name is the likely place), and that it has not grown large enough to belong under an ignored path instead.
 
-## Established property of the current fixture
+## Believed property of the current fixture
 
-`resume.gam` (SHA-256 `fe7b29f6…`) has **exactly one player-owned planet**, `Xerxes I`.
+`resume.gam` (SHA-256 `fe7b29f6…`) is believed to have **exactly one player-owned planet**, `Xerxes I`.
 
-This was established by the RE5 follow-up in PR #18, while investigating whether a same-race record bracket could be built around `Xerxes I`. The full derivation lands in [`auto-management-turn-path.md`](./auto-management-turn-path.md) with that PR; the observations are:
+RE4 established `Xerxes I` as a player-owned planet record in this save. That it is the *only* one comes from the RE5 follow-up in PR #18, which is not yet part of the supported repository state — current `main` plus the change under review. The declaration therefore records these properties as `unverified` and they are promoted when that PR lands. The observations reported there were:
 
 - the immediate `Xerxes ± 0x7b` records are `Stavern IV` and `Xerxes II`, both owner `0xff`;
 - `Xerxes I` is the only record with owner `0`;
@@ -31,7 +31,7 @@ RE3 established that the per-race pass skips planets whose `+0x57` does not matc
 
 ### What that blocks
 
-V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. **Those steps cannot be performed on `resume.gam` at all.** This is a fixture limitation, not an implementation gap, and it is independent of how A1/A2 choose to represent the profile.
+V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. That needs a save with at least two player-owned planets, and none is declared; if the single-planet property above holds, those steps cannot be performed on `resume.gam` at all. Either way this is a fixture limitation rather than an implementation gap, and it is independent of how A1/A2 choose to represent the profile.
 
 ## Requirements for an M1 multi-planet fixture
 
@@ -63,7 +63,13 @@ The declaration must name every player-owned planet individually rather than onl
 
 Runtime properties in the declaration are claims, and each carries an `evidence` level.
 
-An `unverified` fixture is a legitimate declaration — that is how a save enters the repository before anyone has run it — but it never satisfies a role: the validator reports it as unusable and `--require-role <role>` fails. Promoting it to `runtime` requires a named experiment that observed the properties on the exact target, in the same way the current fixture's single-planet property was established.
+A role is satisfied only by `runtime` evidence that names its source and comes from a save produced by the canonical target. Three separate conditions, each of which can fail on its own:
+
+- `evidence` must be `runtime`. `unverified` is a legitimate declaration — that is how a save enters the repository before anyone has run it — and `static` reasoning about a save's bytes is not the same claim as observing what a running game does with it. Neither satisfies a role.
+- `source` must name the experiment record that established the properties.
+- `produced_by_target_sha256` must be the canonical `ANTAG.EXE`. A save written by the bug-patch build or the vanilla release cannot carry evidence about the canonical target.
+
+A fixture failing any of these is reported as unusable and `--require-role <role>` fails.
 
 Declared-but-wrong properties are treated differently from unverified ones. If a fixture claims verified evidence and its own numbers contradict the role it claims, validation fails closed rather than marking it unusable: an honest "not checked yet" is a state to work through, a verified claim that does not hold is an error.
 

@@ -127,12 +127,15 @@ jobs:
           python "$KIT_PATH" adopt . --apply "$plan_id"
           python "$KIT_PATH" check .
 
-          git rm "$plan_path" "$approval_path" .github/workflows/agentic-adoption.yml
+          # The GitHub Actions token cannot publish workflow-file changes. Keep
+          # the generated workflow out of this commit; the workflow-capable
+          # GitHub connector publishes it immediately after this verified push.
+          rm .github/workflows/agentic-repo-check.yml
+          git rm "$plan_path" "$approval_path"
           git add .agentic-repo.lock.json \
             AGENTS.md CLAUDE.md \
             .github/copilot-instructions.md \
             .github/pull_request_template.md \
-            .github/workflows/agentic-repo-check.yml \
             docs/agent-playbook.md \
             docs/roadmap-authoring.md \
             docs/re/README.md \

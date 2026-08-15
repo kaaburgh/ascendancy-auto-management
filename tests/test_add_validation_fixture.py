@@ -23,6 +23,17 @@ class AddValidationFixtureTests(unittest.TestCase):
         shutil.copy2(validator.DEFAULT_DECLARATION, self.declaration)
         self.runtime_source_relative = "docs/experiments/_synthetic_add_fixture_record.md"
         self.runtime_source = Path(validator.ROOT) / self.runtime_source_relative
+        observations = {
+            "schema": validator.OBSERVATION_BLOCK_SCHEMA,
+            "fixture_sha256": validator.sha256_file(self.save),
+            "target_sha256": validator.CANONICAL_TARGET_SHA256,
+            "runtime_properties": {
+                "player_race_id": 0,
+                "player_owned_planet_count": 2,
+                "player_planet_names": ["Alpha I", "Beta II"],
+                "planets_with_empty_current_action_at_load": ["Beta II"],
+            },
+        }
         self.runtime_source.write_text(
             "\n".join(
                 [
@@ -31,6 +42,11 @@ class AddValidationFixtureTests(unittest.TestCase):
                     validator.RUNTIME_EVIDENCE_MARKER,
                     f"Target SHA-256 `{validator.CANONICAL_TARGET_SHA256}`.",
                     f"Pinned save SHA-256 `{validator.sha256_file(self.save)}`.",
+                    "",
+                    validator.OBSERVATION_BLOCK_MARKER,
+                    "```json",
+                    json.dumps(observations, indent=2),
+                    "```",
                     "",
                 ]
             ),
@@ -105,6 +121,21 @@ class AddValidationFixtureTests(unittest.TestCase):
                 self.runtime_source_relative,
             ),
             0,
+        )
+
+    def test_runtime_promotion_rejects_properties_not_observed_by_record(self):
+        self.assertEqual(
+            self.run_adder(
+                "--storage",
+                "operator-supplied",
+                "--evidence",
+                "runtime",
+                "--verified-by",
+                self.runtime_source_relative,
+                "--player-planet",
+                "Gamma III",
+            ),
+            1,
         )
 
     def test_existing_id_is_not_silently_overwritten(self):

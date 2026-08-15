@@ -1,0 +1,21 @@
+kit_version = 1
+profiles = [
+  "core",
+  "reverse-engineering",
+  "blind-research",
+  "proprietary-target",
+  "native-binary-patching",
+]
+
+[project]
+name = "Ascendancy Auto-Management"
+kind = "closed-source game mod / native binary patching"
+roadmap = "ROADMAP.md"
+
+[workflow]
+cloud_first = true
+
+[local]
+policy_files = ["docs/agent-policy.local.md"]
+playbook_files = ["docs/agent-playbook.local.md"]
+pr_files = ["docs/pr-policy.local.md"]

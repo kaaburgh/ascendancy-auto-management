@@ -1,0 +1,94 @@
+name: PR20 address evidence-gate review v4
+
+on:
+  push:
+    branches: [v1/operator-validation-state]
+    paths: [.github/workflows/pr20-address-evidence-p2-v4.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  address-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1/operator-validation-state
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply review fix
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          source = Path('.github/workflows/pr20-address-evidence-p2.yml').read_text(encoding='utf-8')
+          begin = source.index("          python - <<'PY'\n") + len("          python - <<'PY'\n")
+          end = source.index("          PY\n", begin)
+          script = textwrap.dedent(source[begin:end])
+          exec(compile(script, '<pr20-review-fix>', 'exec'))
+
+          path = Path('tests/test_validate_validation_fixtures.py')
+          text = path.read_text(encoding='utf-8')
+
+          old = '    mentioned_fixture_sha256: str | None = None,\n    observed_properties: dict | None = None,'
+          new = '    mentioned_fixture_sha256: str | None = None,\n    observed_fixture_sha256: str | None = None,\n    observed_properties: dict | None = None,'
+          if text.count(old) != 1:
+              raise SystemExit(f'helper signature anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old = '            "fixture_sha256": fixture_sha256,\n            "target_sha256": target_sha256,'
+          new = '            "fixture_sha256": observed_fixture_sha256 or fixture_sha256,\n            "target_sha256": target_sha256,'
+          if text.count(old) != 1:
+              raise SystemExit(f'helper observation anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old = 'write_synthetic_source(self, entry, mentioned_fixture_sha256="0" * 64)'
+          new = 'write_synthetic_source(self, entry, mentioned_fixture_sha256="0" * 64, observed_fixture_sha256="0" * 64)'
+          if text.count(old) != 1:
+              raise SystemExit(f'wrong-fixture call anchor count={text.count(old)}')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Focused validation
+        id: focused
+        shell: bash
+        run: |
+          set +e
+          python -m unittest tests.test_validate_validation_fixtures tests.test_add_validation_fixture -v > /tmp/pr20-focused-validation.log 2>&1
+          rc=$?
+          if [ "$rc" -eq 0 ]; then
+            python scripts/validate_validation_fixtures.py >> /tmp/pr20-focused-validation.log 2>&1
+            rc=$?
+          fi
+          cat /tmp/pr20-focused-validation.log
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload focused validation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr20-focused-validation-v4
+          path: /tmp/pr20-focused-validation.log
+      - name: Commit fix and remove one-shot workflows
+        if: steps.focused.outputs.rc == '0'
+        shell: bash
+        run: |
+          rm .github/workflows/pr20-address-evidence-p2.yml
+          rm .github/workflows/pr20-address-evidence-p2-v2.yml
+          rm .github/workflows/pr20-address-evidence-p2-v3.yml
+          rm .github/workflows/pr20-address-evidence-p2-v4.yml
+          git config user.name "kaaburgh"
+          git config user.email "kaaburgh@gmail.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "tools: bind fixture promotion to observed runtime properties"
+          git push origin HEAD:v1/operator-validation-state
+      - name: Fail if focused validation failed
+        if: steps.focused.outputs.rc != '0'
+        shell: bash
+        run: exit 1

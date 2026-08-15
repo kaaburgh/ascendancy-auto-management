@@ -3,23 +3,23 @@
 
 This playbook turns the repository policy into an execution loop for **Ascendancy Auto-Management**.
 
-Cloud-first execution is **enabled**. One roadmap item per PR is **required**.
+Cloud-first execution is **enabled**. One roadmap item per PR is **required** for roadmap-scoped feature or investigation work; a process-only PR may omit a roadmap item when it explicitly explains why no roadmap item applies.
 
-Before work, read `AGENTS.md`, the selected roadmap item, its dependencies, and linked durable evidence. Prefer a bounded experiment or implementation whose result can be reviewed without chat history.
+Before roadmap-scoped work, read `AGENTS.md`, the selected roadmap item, its dependencies, and linked durable evidence. For process-only work, read `AGENTS.md` and the relevant durable policy/docs without inventing an unrelated roadmap item. Prefer a bounded experiment or implementation whose result can be reviewed without chat history.
 
 ## Core execution loop
 
-1. Select one ready roadmap item and verify its dependencies.
-2. Inspect current code, docs, tests, CI/build/install paths, and relevant history before changing reality.
+1. Select one ready roadmap item and verify its dependencies; for a process-only change, explicitly establish that no roadmap item applies instead of inventing one.
+2. Inspect current code, docs, tests, CI/build/install paths, and only history permitted by the active evidence policy before changing reality. If a blind-research gate excludes unsupported history, do not inspect excluded commits, branches, deleted material, or abandoned work for target-specific investigation.
 3. Separate established facts from assumptions.
-4. Choose the smallest change or experiment that can satisfy the item acceptance criteria.
+4. Choose the smallest change or experiment that can satisfy the item acceptance criteria or the explicitly bounded process-only goal.
 5. Validate what can be validated in the current environment.
 6. Reconcile roadmap and durable docs with what was actually learned.
 7. Prepare a focused PR with explicit remaining unknowns and deliberately excluded follow-ups.
 
 ## Required-capability handoff
 
-If the selected item needs a tool/capability that the current environment lacks:
+If the selected item or bounded process-only task needs a tool/capability that the current environment lacks:
 
 1. Confirm that the capability is actually required by acceptance/evidence needs; do not escalate merely useful optional cross-checks.
 2. Prefer a bounded in-repository implementation when it is a reasonable task-sized substitute with equivalent evidence quality.
@@ -143,7 +143,7 @@ Before target-specific work, read the active roadmap item plus the relevant curr
 Apply these project-specific minimums in addition to the generic profile contract when the change type matches:
 
 - **Documentation / roadmap only:** resolve relative Markdown links, keep evidence/hypothesis language accurate, and confirm no proprietary/private material was added.
-- **Analysis tool / parser / scanner:** deterministic fixture tests; malformed-input handling; zero-match/ambiguous-match coverage where applicable; exact input assumptions; schema/parser/input provenance for serialized evidence; and a clean-checkout real-target end-to-end regression when the acceptance claim depends on reproducible target bytes.
+- **Analysis tool / parser / scanner:** deterministic fixture tests; malformed-input handling; zero-match/ambiguous-match coverage where applicable; exact input assumptions; schema/parser/input provenance for serialized evidence; and, when canonical real target bytes are available, at least one clean-checkout real-target end-to-end regression using the repository entry point/commands rather than a hand-reproduced equivalent.
 - **Runtime hook / injected diagnostic:** build for the intended architecture; exercise lifecycle/cleanup where possible; consider recursion/reentrancy; fail closed on unsupported target identity; separate expensive diagnostic behavior from normal patch mode.
 - **Machine-code/runtime patch:** verify expected bytes/signature and instruction boundaries before writing; reject ambiguous matches; test rollback independently; do not call target behavior verified until it is observed on the exact target.
 - **On-disk patch:** pre-patch SHA-256 check, automatic backup, post-patch verification, automatic restore, and restored-byte/hash verification.

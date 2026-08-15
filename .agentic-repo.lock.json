@@ -1,10 +1,10 @@
 {
   "distribution": {
-    "artifact": "agentic-repo-kit-0.1.9.pyz",
-    "release": "v0.1.9",
+    "artifact": "agentic-repo-kit-0.1.10.pyz",
+    "release": "v0.1.10",
     "repository": "kaaburgh/agentic-repo-kit",
-    "sha256": "79e914bc322873025f41db0ffa118bd037362b77708e4433bb854d8dd42b041e",
-    "tool_version": "0.1.9"
+    "sha256": "6581d35cd47debfc619c6660a2964799eeaddb1d397af8db5925639ec7c45f55",
+    "tool_version": "0.1.10"
   },
   "format": 2,
   "generated": {
@@ -13,7 +13,7 @@
     ".github/workflows/agentic-repo-check.yml": "3851fb3a320ed3e7055dc42d2eca682491d1600e07aabba28ec03413d735a9c3",
     "AGENTS.md": "863039c4706d1654ee0b700fb1b814f897bc1be6987820999583c0d9de3f586d",
     "CLAUDE.md": "e68ff4b91505b9ca79f6f6656439c0c73a3448581f92407f25ee20aba9320088",
-    "docs/agent-playbook.md": "daf1ca1227f5ae0232ebb378779b53baf965ab675877e6013414897b5829c785",
+    "docs/agent-playbook.md": "b43178a6e9545d0fba43f4da5f9b98b8026bdb8565f358e97481941ab28aefe0",
     "docs/experiments/README.md": "dccd1781eb4122aebbd63673790b6a6a362cb0f2a9d2f5f2050f7ff7edc025ef",
     "docs/re/README.md": "afbf798d9885bde2df709e8dc1437b88cd64e03c9afda833d6e2c5b58231518e",
     "docs/roadmap-authoring.md": "b0c6e61685d139253846abf5996c8c4b1b1afaef509670d2a1d8826823a708e4"
@@ -31,5 +31,5 @@
     "name": "Ascendancy Auto-Management",
     "roadmap": "ROADMAP.md"
   },
-  "tool_version": "0.1.9"
+  "tool_version": "0.1.10"
 }

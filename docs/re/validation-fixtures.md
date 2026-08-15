@@ -69,6 +69,8 @@ A role is satisfied only by `runtime` evidence that names its source and comes f
 - `source` must name a Markdown experiment record under `docs/experiments/` that declares `Evidence class: **runtime**`, contains both this fixture's full SHA-256 and the full `produced_by_target_sha256`, and carries exactly one `<!-- validation-fixture-observations:v1 -->` fenced JSON block. That block independently pins the fixture/target identities plus `player_race_id`, the player-owned count/names, and the planets observed with an empty current action at load. Promotion fails closed if any declared role-critical property differs from the structured observations; merely mentioning the two hashes is not evidence for arbitrary properties.
 - `produced_by_target_sha256` must be the canonical `ANTAG.EXE`. A save written by the bug-patch build or the vanilla release cannot carry evidence about the canonical target.
 
+The structured observation block is the promotion authority for those role-critical properties: prose may explain how the experiment established them, but it cannot override, fill in, or silently widen the machine-readable observations.
+
 A fixture failing any of these is reported as unusable and `--require-role <role>` fails.
 
 Declared-but-wrong properties are treated differently from unverified ones. If a fixture claims verified evidence and its own numbers contradict the role it claims, validation fails closed rather than marking it unusable: an honest "not checked yet" is a state to work through, a verified claim that does not hold is an error.

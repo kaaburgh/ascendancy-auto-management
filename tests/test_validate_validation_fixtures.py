@@ -43,26 +43,51 @@ SYNTHETIC_SOURCE = "docs/experiments/_synthetic_fixture_record.md"
 
 def write_synthetic_source(
     case,
-    sha256: str,
+    entry: dict,
     *,
     directory: str = "experiments",
     target_sha256: str = fixtures.CANONICAL_TARGET_SHA256,
     runtime_marker: bool = True,
+    include_observations: bool = True,
+    mentioned_fixture_sha256: str | None = None,
+    observed_fixture_sha256: str | None = None,
+    observed_properties: dict | None = None,
 ) -> str:
-    """Create a throwaway runtime record carrying fixture and target identities."""
+    """Create a throwaway runtime record carrying identities and observed properties."""
     relative = f"docs/{directory}/_synthetic_fixture_record.md"
     path = Path(fixtures.ROOT) / relative
     path.parent.mkdir(parents=True, exist_ok=True)
+    fixture_sha256 = entry["sha256"]
     lines = ["# synthetic record", ""]
     if runtime_marker:
         lines.append(fixtures.RUNTIME_EVIDENCE_MARKER)
     lines.extend(
         [
             f"Target SHA-256 `{target_sha256}`.",
-            f"Pinned save SHA-256 `{sha256}`.",
+            f"Pinned save SHA-256 `{mentioned_fixture_sha256 or fixture_sha256}`.",
             "",
         ]
     )
+    if include_observations:
+        properties = observed_properties or {
+            field: copy.deepcopy(entry["runtime_properties"][field])
+            for field in fixtures.OBSERVED_RUNTIME_PROPERTY_FIELDS
+        }
+        observations = {
+            "schema": fixtures.OBSERVATION_BLOCK_SCHEMA,
+            "fixture_sha256": observed_fixture_sha256 or fixture_sha256,
+            "target_sha256": target_sha256,
+            "runtime_properties": properties,
+        }
+        lines.extend(
+            [
+                fixtures.OBSERVATION_BLOCK_MARKER,
+                "```json",
+                json.dumps(observations, indent=2),
+                "```",
+                "",
+            ]
+        )
     path.write_text("\n".join(lines), encoding="utf-8")
     case.addCleanup(path.unlink, missing_ok=True)
     return relative
@@ -89,15 +114,13 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
 
     def test_multi_planet_role_is_accepted_when_requirements_are_met(self):
         entry, _ = multi_planet_fixture()
-        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry["sha256"])
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry)
         declared = fixtures.check_declaration(document_with(entry))
         self.assertTrue(declared[0]["_role_status"]["satisfied"])
 
     def test_source_outside_experiments_does_not_satisfy_a_role(self):
         entry, _ = multi_planet_fixture()
-        entry["runtime_properties"]["source"] = write_synthetic_source(
-            self, entry["sha256"], directory="re"
-        )
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry, directory="re")
         declared = fixtures.check_declaration(document_with(entry))
         status = declared[0]["_role_status"]
         self.assertFalse(status["satisfied"])
@@ -105,7 +128,7 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
 
     def test_source_not_naming_this_fixture_does_not_satisfy_a_role(self):
         entry, _ = multi_planet_fixture()
-        entry["runtime_properties"]["source"] = write_synthetic_source(self, "0" * 64)
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry, mentioned_fixture_sha256="0" * 64, observed_fixture_sha256="0" * 64)
         declared = fixtures.check_declaration(document_with(entry))
         status = declared[0]["_role_status"]
         self.assertFalse(status["satisfied"])
@@ -113,9 +136,7 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
 
     def test_experiment_without_runtime_marker_does_not_satisfy_a_role(self):
         entry, _ = multi_planet_fixture()
-        entry["runtime_properties"]["source"] = write_synthetic_source(
-            self, entry["sha256"], runtime_marker=False
-        )
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry, runtime_marker=False)
         declared = fixtures.check_declaration(document_with(entry))
         status = declared[0]["_role_status"]
         self.assertFalse(status["satisfied"])
@@ -123,13 +144,51 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
 
     def test_experiment_for_a_different_target_does_not_satisfy_a_role(self):
         entry, _ = multi_planet_fixture()
-        entry["runtime_properties"]["source"] = write_synthetic_source(
-            self, entry["sha256"], target_sha256="0" * 64
-        )
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry, target_sha256="0" * 64)
         declared = fixtures.check_declaration(document_with(entry))
         status = declared[0]["_role_status"]
         self.assertFalse(status["satisfied"])
         self.assertIn("target SHA-256", status["reason"])
+
+    def test_runtime_record_without_structured_observations_does_not_satisfy_a_role(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, include_observations=False
+        )
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("structured runtime observations", status["reason"])
+
+    def test_runtime_record_must_match_declared_planet_names(self):
+        entry, _ = multi_planet_fixture()
+        observed = {
+            field: copy.deepcopy(entry["runtime_properties"][field])
+            for field in fixtures.OBSERVED_RUNTIME_PROPERTY_FIELDS
+        }
+        observed["player_planet_names"] = ["Alpha I", "Beta II", "Wrong III"]
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, observed_properties=observed
+        )
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("player_planet_names", status["reason"])
+
+    def test_runtime_record_must_match_declared_empty_action_planets(self):
+        entry, _ = multi_planet_fixture()
+        observed = {
+            field: copy.deepcopy(entry["runtime_properties"][field])
+            for field in fixtures.OBSERVED_RUNTIME_PROPERTY_FIELDS
+        }
+        observed["planets_with_empty_current_action_at_load"] = []
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, observed_properties=observed
+        )
+        declared = fixtures.check_declaration(document_with(entry))
+        status = declared[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("planets_with_empty_current_action_at_load", status["reason"])
 
     def test_a_policy_document_cannot_stand_in_for_an_experiment_record(self):
         entry, _ = multi_planet_fixture()

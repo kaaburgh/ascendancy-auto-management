@@ -27,6 +27,27 @@ Runtime fixture:
 - immutable manifest entries: 17, all size/SHA-256 verified before execution;
 - mutable input used by the scenario: `resume.gam`, SHA-256 `fe7b29f63b685df3b098c0bd109a44e95c9a36a2116617b6c0363eb289a813d3`.
 
+The fixture registry consumes the following machine-readable summary of properties directly observed by this runtime experiment and its retained structural follow-up. The later follow-up below establishes that `Xerxes I` is the only owner-`0` record in this pinned save; the load precondition above establishes its empty current action.
+
+<!-- validation-fixture-observations:v1 -->
+```json
+{
+  "schema": 1,
+  "fixture_sha256": "fe7b29f63b685df3b098c0bd109a44e95c9a36a2116617b6c0363eb289a813d3",
+  "target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+  "runtime_properties": {
+    "player_race_id": 0,
+    "player_owned_planet_count": 1,
+    "player_planet_names": [
+      "Xerxes I"
+    ],
+    "planets_with_empty_current_action_at_load": [
+      "Xerxes I"
+    ]
+  }
+}
+```
+
 Runtime/tooling:
 
 - supplied DOSBox 0.74-3 Linux x86-64 runtime bundle; its `verify.sh` passed before the experiment;

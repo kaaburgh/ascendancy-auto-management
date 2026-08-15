@@ -31,6 +31,14 @@ CANONICAL_TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd28
 VERIFIED_EVIDENCE = "runtime"
 EXPERIMENT_RECORD_PREFIX = ("docs", "experiments")
 RUNTIME_EVIDENCE_MARKER = "Evidence class: **runtime**"
+OBSERVATION_BLOCK_MARKER = "<!-- validation-fixture-observations:v1 -->"
+OBSERVATION_BLOCK_SCHEMA = 1
+OBSERVED_RUNTIME_PROPERTY_FIELDS = (
+    "player_race_id",
+    "player_owned_planet_count",
+    "player_planet_names",
+    "planets_with_empty_current_action_at_load",
+)
 REPOSITORY_STORAGE = "repository"
 OPERATOR_STORAGE = "operator-supplied"
 SUPPORTED_STORAGE = (REPOSITORY_STORAGE, OPERATOR_STORAGE)
@@ -159,17 +167,46 @@ def check_declaration(document: dict[str, Any]) -> list[dict[str, Any]]:
     return fixtures
 
 
-def check_source_record(
-    source: str, fixture_sha256: str, target_sha256: str
-) -> str | None:
-    """Return why `source` is not an experiment record for this fixture, or None.
+def parse_source_observations(text: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Parse the single machine-readable runtime-property block from an experiment."""
+    marker_count = text.count(OBSERVATION_BLOCK_MARKER)
+    if marker_count != 1:
+        return None, (
+            f"runtime experiment must contain exactly one {OBSERVATION_BLOCK_MARKER!r} "
+            f"block; found {marker_count}"
+        )
 
-    Existing-file-ness is not enough: any repository file would pass, including
-    the policy documents that describe this very mechanism. A source has to be
-    an experiment record, and it has to pin the fixture whose properties it is
-    credited with establishing — otherwise the declaration cites a document that
-    never mentions the save.
+    tail = text.split(OBSERVATION_BLOCK_MARKER, 1)[1].lstrip()
+    lines = tail.splitlines()
+    if not lines or lines[0].strip() != "```json":
+        return None, "runtime observation marker must be followed by a fenced JSON block"
+    try:
+        fence_end = next(
+            index for index, line in enumerate(lines[1:], start=1) if line.strip() == "```"
+        )
+    except StopIteration:
+        return None, "runtime observation JSON block has no closing fence"
+
+    payload = "\n".join(lines[1:fence_end])
+    try:
+        observations = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        return None, f"runtime observation block is not valid JSON: {exc}"
+    if not isinstance(observations, dict):
+        return None, "runtime observation block must be a JSON object"
+    return observations, None
+
+
+def check_source_record(source: str, fixture: dict[str, Any]) -> str | None:
+    """Return why `source` does not establish this fixture's declared runtime properties.
+
+    A runtime source must bind both identities and every role-critical property in
+    a structured observation block. Merely mentioning the save/target hashes in
+    prose is insufficient because a declaration could otherwise promote values
+    that the experiment never observed.
     """
+    fixture_sha256 = fixture["sha256"]
+    target_sha256 = fixture["produced_by_target_sha256"]
     source_path = Path(source)
     if source_path.is_absolute():
         return f"source {source!r} must be a repository-relative path"
@@ -208,6 +245,33 @@ def check_source_record(
             f"source {source!r} never names produced target SHA-256 {target_sha256}; "
             "the record is not bound to the target that produced this save"
         )
+
+    observations, observation_problem = parse_source_observations(text)
+    if observation_problem is not None:
+        return f"source {source!r} has no usable structured runtime observations: {observation_problem}"
+    assert observations is not None
+    if observations.get("schema") != OBSERVATION_BLOCK_SCHEMA:
+        return (
+            f"source {source!r} observation schema is {observations.get('schema')!r}; "
+            f"expected {OBSERVATION_BLOCK_SCHEMA}"
+        )
+    if observations.get("fixture_sha256") != fixture_sha256:
+        return f"source {source!r} structured observations are for a different fixture SHA-256"
+    if observations.get("target_sha256") != target_sha256:
+        return f"source {source!r} structured observations are for a different target SHA-256"
+
+    observed_properties = observations.get("runtime_properties")
+    if not isinstance(observed_properties, dict):
+        return f"source {source!r} structured observations have no runtime_properties object"
+    declared_properties = fixture["runtime_properties"]
+    for field in OBSERVED_RUNTIME_PROPERTY_FIELDS:
+        if field not in observed_properties:
+            return f"source {source!r} structured observations omit {field!r}"
+        if observed_properties[field] != declared_properties[field]:
+            return (
+                f"source {source!r} observed {field}={observed_properties[field]!r}, "
+                f"but the fixture declares {declared_properties[field]!r}"
+            )
     return None
 
 
@@ -269,9 +333,7 @@ def check_role_requirements(
             "reason": "runtime evidence names no source; record the experiment that "
             "established these properties",
         }
-    source_problem = check_source_record(
-        source, fixture["sha256"], fixture["produced_by_target_sha256"]
-    )
+    source_problem = check_source_record(source, fixture)
     if source_problem is not None:
         return {"role": fixture["role"], "satisfied": False, "reason": source_problem}
     return {"role": fixture["role"], "satisfied": True, "reason": "verified"}

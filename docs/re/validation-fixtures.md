@@ -31,7 +31,20 @@ RE3 established that the per-race pass skips planets whose `+0x57` does not matc
 
 ### What that blocks
 
-V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. **Those steps cannot be performed on `resume.gam` at all**, and no fixture declaring two player-owned planets exists. This is a fixture limitation rather than an implementation gap, and it is independent of how A1/A2 choose to represent the profile.
+V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. **Those steps cannot be performed on the historical single-planet `resume.gam` at all.** T3 now supplies a separate operator-supplied multi-planet fixture; the historical save remains the fixture of record for completed RE4/RE5 evidence rather than being replaced.
+
+## T3 multi-planet fixture
+
+`resume-en-operator-multi-planet-2026-08-14` is an operator-supplied `resume.gam`, 133721 bytes, SHA-256 `d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1`. Its current role properties are `runtime` evidence from [`../experiments/T3-multi-planet-save-fixture.md`](../experiments/T3-multi-planet-save-fixture.md):
+
+- current player/race id `0`;
+- exactly three player-owned planets: `Corpuscle I`, `Corpuscle II`, `Corpuscle III`;
+- all three load with no current action (`+0x52 == 0xffff`, `+0x54 == 0xff`);
+- the independently discovered 305-record runtime planet sequence has unique names.
+
+The payload remains `operator-supplied`, not committed. Its historical campaign provenance remains the maintainer report preserved by the V1 handoff; T3 independently establishes exact-target load compatibility and the role-critical current runtime properties. The declaration keeps the same stable fixture id and exact bytes that were introduced as `unverified`; runtime promotion does not rebind that id to a derived save.
+
+The RE4/RE5 selection entry points now accept an explicit save hash and planet name while retaining the historical `Xerxes I` defaults. RE4 additionally accepts a bounded visible planet-list row. Exact-target row-1 validation on `Corpuscle I` established two distinct UI geometries: click centers use a 145-pixel stride, while the `Self-Managed` renderer-oracle regions use a measured 141-pixel stride. RE5 focused-artifact aggregation rejects mixed planet identities.
 
 ## Requirements for an M1 multi-planet fixture
 

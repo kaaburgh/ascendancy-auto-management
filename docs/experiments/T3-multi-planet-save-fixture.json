@@ -1,0 +1,178 @@
+{
+  "artifact_schema": "ascendancy.t3-multi-planet-fixture/v2",
+  "blind_re_provenance": "clean",
+  "candidate_fixture": {
+    "id": "resume-en-operator-multi-planet-2026-08-14",
+    "sha256": "d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1",
+    "size": 133721,
+    "source_unchanged": true,
+    "storage": "operator-supplied"
+  },
+  "diagnostic_guest_code_writes": false,
+  "diagnostic_guest_data_writes": false,
+  "evidence_class": "runtime",
+  "harness_dependencies": {
+    "run_re4_runtime_state.py": "6b2ab340ac17d822049c61e0495a809224810b56f032899b0c238882e92399ee",
+    "run_re5_override_witness.py": "9002537c85ae1aab6c729981acb9b42ff2e512f34a307e9fb814eaad8e670040",
+    "run_re5_runtime_turn_path.py": "2f44d13c24540c38e8594d696b321be77cdefc1455194bdff5cd950ab023798a"
+  },
+  "retail_fixture": {
+    "id": "ascendancy-retail-en-canonical-antagonizer-runtime-fixture",
+    "manifest_sha256": "814c37ea8683e9c32ce494bcb9568d08a33d3ef8e6d91b99ac07f37958269852",
+    "verified_files": 17
+  },
+  "roadmap_item": "T3",
+  "role_claim": {
+    "planets_with_empty_current_action_at_load": [
+      "Corpuscle I",
+      "Corpuscle II",
+      "Corpuscle III"
+    ],
+    "player_owned_planet_count": 3,
+    "player_planet_names": [
+      "Corpuscle I",
+      "Corpuscle II",
+      "Corpuscle III"
+    ],
+    "player_race_id": 0,
+    "role": "m1-multi-planet"
+  },
+  "runner_revision": "f318a66788adfa49b23ed5793025e1ca359ecb6f",
+  "runner_source_sha256": "b811ba2b90db4664e2464a74b69a7e86d45c3c515ade54612b31c6625777030d",
+  "runtime_environment": {
+    "dosbox": {
+      "filename": "dosbox",
+      "sha256": "48ca305e0fc428de991c4bf0651ef127e9ad6a0d2eac40e228ee767ea4b1957a",
+      "size": 176,
+      "version_output": "DOSBox version 0.74-3, copyright 2002-2019 DOSBox Team.\n\nDOSBox is written by the DOSBox Team (See AUTHORS file))\nDOSBox comes with ABSOLUTELY NO WARRANTY.  This is free software,\nand you are welcome to redistribute it under certain conditions;\nplease read the COPYING file thoroughly before doing so."
+    },
+    "dosbox_config": {
+      "cpu_core": "normal",
+      "cycles": "max",
+      "sdl_audio_driver": "dummy",
+      "sdl_fullscreen": false,
+      "xvfb_screen": "1024x768x24"
+    },
+    "host": {
+      "machine": "x86_64",
+      "python": "3.13.5",
+      "release": "6.18.35",
+      "system": "Linux"
+    }
+  },
+  "scenario_contract": "t3/operator-save-runtime-verify/v2",
+  "source_inputs_modified": false,
+  "status": "passed",
+  "target": {
+    "filename": "ANTAG.EXE",
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+    "size": 610863
+  },
+  "verification": {
+    "current_player_id_source": {
+      "read_through_validated_data_object_bias": true,
+      "static_va": "0x104bea"
+    },
+    "observation": {
+      "checks": {
+        "at_least_one_player_planet_has_empty_current_action": true,
+        "at_least_two_player_owned_planets": true,
+        "runtime_planet_names_unique": true,
+        "runtime_record_count_matches_contract": true
+      },
+      "current_player_id": 0,
+      "planets_with_empty_current_action_at_load": [
+        "Corpuscle I",
+        "Corpuscle II",
+        "Corpuscle III"
+      ],
+      "player_owned_planet_count": 3,
+      "player_planet_names": [
+        "Corpuscle I",
+        "Corpuscle II",
+        "Corpuscle III"
+      ],
+      "player_planets": [
+        {
+          "action_0x54": "ff",
+          "managed_0x5a": "00000000",
+          "name": "Corpuscle I",
+          "owner_0x57": 0,
+          "slot_0x52": "ffff"
+        },
+        {
+          "action_0x54": "ff",
+          "managed_0x5a": "00000000",
+          "name": "Corpuscle II",
+          "owner_0x57": 0,
+          "slot_0x52": "ffff"
+        },
+        {
+          "action_0x54": "ff",
+          "managed_0x5a": "00000000",
+          "name": "Corpuscle III",
+          "owner_0x57": 0,
+          "slot_0x52": "ffff"
+        }
+      ],
+      "runtime_planet_name_sequence_sha256": "92e8f0a56ff190c717d2ed8eea8964b38691cba385ec7635029f7ee332512fc0",
+      "runtime_planet_record_count": 305,
+      "status": "passed"
+    },
+    "process_stopped_for_coherent_snapshot": true,
+    "record_layout": {
+      "action_offset": 84,
+      "managed_offset": 90,
+      "name_offset": 36,
+      "owner_offset": 87,
+      "record_size": 123,
+      "slot_offset": 82
+    },
+    "runtime_mapping": {
+      "anchor_static_va": "0x37915",
+      "data_object_runtime_bias": "-0xd000",
+      "host_addresses_omitted": true,
+      "signatures": [
+        {
+          "runtime_mapping_offset": 9664677,
+          "runtime_match_count": 1,
+          "size": 40,
+          "static_bytes_sha256": "4916435e99683a36e832e1a3245c26cc610e79ccfa8a9be49b6bd9bff155b389",
+          "static_va": "0x90895"
+        },
+        {
+          "runtime_mapping_offset": 9666248,
+          "runtime_match_count": 1,
+          "size": 40,
+          "static_bytes_sha256": "2080b7b7d3437d28f1b03e7316771c7b9491d054a9ddf6ff371c37aa216736d0",
+          "static_va": "0x90eb8"
+        },
+        {
+          "runtime_mapping_offset": 9683080,
+          "runtime_match_count": 1,
+          "size": 40,
+          "static_bytes_sha256": "c8633d68b40efc2df75a3c41e04b6861961f56343cebba6838b50f32df8ee293",
+          "static_va": "0x95078"
+        },
+        {
+          "runtime_mapping_offset": 9697248,
+          "runtime_match_count": 1,
+          "size": 32,
+          "static_bytes_sha256": "807336e0a4651f8980be2f218290aa7f43c1fa3149e6ebd12ab794ccdda46736",
+          "static_va": "0x987d0"
+        },
+        {
+          "runtime_mapping_offset": 9701578,
+          "runtime_match_count": 1,
+          "size": 15,
+          "static_bytes_sha256": "192bf50d5ee20e8a8f797919540153c09afaed318665a1428b05d2b5ecd6ef52",
+          "static_va": "0x998ba"
+        }
+      ],
+      "status": "passed"
+    },
+    "save_unchanged_by_verification_load": true,
+    "stardate_at_observation": 390,
+    "status": "passed"
+  }
+}

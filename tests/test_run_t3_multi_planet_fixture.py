@@ -77,6 +77,29 @@ class T3MultiPlanetFixtureTests(unittest.TestCase):
                     artifact=manifest, candidate=candidate, fixture_manifest=manifest, game_dir=game
                 )
 
+    def test_cli_rejects_alias_before_runtime_run(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            game = root / "game"
+            game.mkdir()
+            candidate = root / "resume.gam"
+            manifest = root / "manifest.json"
+            candidate.write_bytes(b"save")
+            manifest.write_text("{}", encoding="utf-8")
+            with mock.patch.object(t3, "run") as runtime_run:
+                rc = t3.main([
+                    "--game-dir", str(game),
+                    "--dosbox", "dosbox",
+                    "--fixture-manifest", str(manifest),
+                    "--candidate-save", str(candidate),
+                    "--candidate-sha256", "00" * 32,
+                    "--fixture-id", "fixture",
+                    "--runner-revision", "deadbeef",
+                    "--artifact", str(candidate),
+                ])
+            self.assertEqual(rc, 1)
+            runtime_run.assert_not_called()
+
     def test_artifact_path_rejects_source_game_tree(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

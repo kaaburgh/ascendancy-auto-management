@@ -591,8 +591,8 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ## T3 — Supply a multi-planet save fixture for M1 validation
 
-- **Status:** Investigation first — the declaration contract and its checks are in place; obtaining a qualifying save is the open question.
-- **Execution:** **CLOUD RESEARCH** — obtaining the fixture *is* the feasibility question, so this item owns it rather than waiting behind a gate nothing can unlock. It must not be classified `LOCAL ONLY` on the assumption that "ordinary play needs a workstation": CF3/CF4 established cloud execution of the canonical target with UI automation, and RE4/RE5 drove the running game from cloud. A maintainer-supplied save short-circuits the investigation and is the expected route; if one arrives, record it and close the feasibility question as not needed.
+- **Status:** Investigation first — maintainer-supplied multi-planet candidate received and hash-pinned; runtime qualification is the open question.
+- **Execution:** **CLOUD** — the maintainer-supplied candidate removes the fixture-acquisition feasibility question. Validate the exact operator-supplied `resume.gam` declared in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json) on the canonical target through the established CF3/CF4 runtime path; keep it unusable for role `m1-multi-planet` until a named runtime experiment promotes it to `evidence: runtime`.
 - **Priority:** High
 - **Category:** Target baseline / validation fixtures
 - **Origin:** Fixture limitation found while investigating the RE5 Manual record bracket
@@ -605,21 +605,18 @@ V1 requires setting `Agricultural` on one player-owned planet and `Industrial` o
 
 This is a fixture gap, not an implementation gap, and it is independent of how A1/A2 represent the profile. Nothing here reopens a completed item: RE4 and RE5 stay attached to the fixture they actually used, which is now committed at `fixtures/saves/resume.gam`.
 
-### Required feasibility outcome
+### Acquisition outcome
 
-As a `CLOUD RESEARCH` item this must end in one of the two outcomes the execution contract defines, not in a prose opinion:
+A maintainer-supplied candidate arrived on 2026-08-14, so the acquisition feasibility question was resolved by the explicit short-circuit allowed above rather than by playing forward or proving a cloud-generation path. Its exact `resume.gam` identity is declared as `resume-en-operator-multi-planet-2026-08-14` in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json); the companion `02.SAV`, pair relationship, reported visible state, and evidence boundary are pinned in [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json) and [`docs/experiments/V1-validation-state-handoff.md`](./docs/experiments/V1-validation-state-handoff.md).
 
-1. **Cloud path found** — a reproducible way for a cloud agent to reach a qualifying save on the canonical target using the existing CF3/CF4 harness (playing forward from an existing save until a second planet is owned, or equivalent), with the script committed and a smoke test where practical. Reclassify the remaining work `CLOUD`.
-2. **Cloud path not practical** — record the concrete blocker and what was tried under `docs/experiments/`, reduce the manual part to the smallest one-shot local procedure, and define the repo-safe artifact it produces. Reclassify `LOCAL ONLY`.
-
-A maintainer-supplied save resolves the item without either outcome: the feasibility question then never had to be answered, and that should be recorded as the reason rather than leaving a stale investigation open.
+This closes only acquisition. The candidate remains `evidence: unverified`: reported ownership/count/names, internal empty-action state, stable start, and canonical-target load must still be established by a named runtime experiment before the fixture can satisfy role `m1-multi-planet`.
 
 ### Work
 
-1. Obtain a save satisfying the requirements in [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) — at minimum two player-owned planets, at least one of them with no current action at load, unique planet names — produced by ordinary play on the canonical `ANTAG.EXE`.
-2. Declare it in `tools/validation-fixtures.json` with `evidence: unverified`.
-3. Verify the declared runtime properties on the exact target in a named experiment, then promote the entry to `evidence: runtime`.
-4. Parameterise the planet selection currently hard-coded to `Xerxes I`, and pin the new save alongside the existing one rather than replacing it — the single-planet fixture remains the fixture of record for the completed RE4/RE5 observations.
+1. [x] Obtain a maintainer-supplied candidate intended to satisfy the requirements in [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md); exact identity is pinned, while its qualifying runtime properties remain unverified.
+2. [x] Declare it in `tools/validation-fixtures.json` with `evidence: unverified`.
+3. [ ] Verify the declared runtime properties on the exact target in a named experiment, then promote the entry to `evidence: runtime`.
+4. [ ] Parameterise the planet selection currently hard-coded to `Xerxes I` as required by the validation runner, and keep the new operator fixture distinct from the existing single-planet fixture of record for RE4/RE5.
 
 ### Deliverables
 
@@ -628,7 +625,7 @@ A maintainer-supplied save resolves the item without either outcome: the feasibi
 - [x] `scripts/add_validation_fixture.py` to add or promote a fixture without hand-editing the declaration, plus the `add-save-fixture` skill so agents follow the same path;
 - [x] [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) recording the storage convention, the established single-planet limitation and the requirements for the new save;
 - [x] the existing single-planet fixture committed at `fixtures/saves/resume.gam` and hash-verified on every run;
-- [ ] a multi-planet save payload satisfying the M1 role, pinned by size and SHA-256;
+- [x] a maintainer-supplied multi-planet candidate payload pinned by size and SHA-256 and declared with `evidence: unverified`;
 - [ ] a runtime experiment record promoting its properties from `unverified` to `runtime`.
 
 ### Acceptance criteria
@@ -1088,14 +1085,14 @@ The patch/build output contains the full intended M1 behavior and passes all clo
 
 - **Status:** Investigation first
 - **Execution:** **CLOUD** — set by CF4: use `scripts/run_cf4_ui_validation.py` with a checked-in action file and a retail tree verified by `tools/retail-runtime-manifest.json`; see [`docs/experiments/CF4-cloud-ui-validation.md`](./docs/experiments/CF4-cloud-ui-validation.md).
-- **Validation state:** Use the maintainer-created operator state pinned by [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json) and [`docs/experiments/V1-validation-state-handoff.md`](./docs/experiments/V1-validation-state-handoff.md) when the exact raw saves are supplied ephemerally. Verify them with `python3 tools/verify_v1_validation_state.py --input-dir <attached-save-dir>` before runtime use; do not substitute a different state without updating the pinned handoff.
+- **Validation state:** T3 declares the maintainer-created candidate as `resume-en-operator-multi-planet-2026-08-14` in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json), currently `evidence: unverified`. The exact operator pair and its static relationship are pinned by [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json) and [`docs/experiments/V1-validation-state-handoff.md`](./docs/experiments/V1-validation-state-handoff.md). Verify the supplied pair with `python3 tools/verify_v1_validation_state.py --input-dir <attached-save-dir>` and the declared `resume.gam` identity with `python3 scripts/validate_validation_fixtures.py --fixture-dir <attached-save-dir>`; V1 must not use the role until T3 promotes it to runtime evidence.
 - **Priority:** Critical
 - **Category:** End-to-end validation
 - **Origin:** Milestone exit criteria
 - **Depends on:** UI2, CF4, T3
 - **Goal:** Establish runtime evidence that Manual / Agricultural / Industrial selection works correctly for multiple planets in a real running game session.
 
-Steps 2–4 below require a save with at least two player-owned planets. The currently pinned `resume.gam` has exactly one, so T3 must supply the fixture before this item can run.
+Steps 2–4 below require a save with at least two player-owned planets. The committed RE4/RE5 `resume.gam` still has exactly one. T3 now has a distinct operator-supplied three-planet candidate, but V1 remains blocked until a named runtime experiment verifies its qualifying properties and promotes role `m1-multi-planet` to `evidence: runtime`.
 
 ### Required scenario
 

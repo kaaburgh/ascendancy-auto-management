@@ -1,0 +1,67 @@
+name: Temporary fix ARK adoption
+
+on:
+  push:
+    branches: [agent/fix-ark-adoption]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Acquire pinned repo-kit 0.1.10
+        shell: bash
+        run: |
+          set -euo pipefail
+          kit="$RUNNER_TEMP/agentic-repo-kit-0.1.10.pyz"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+            --output "$kit" \
+            'https://github.com/kaaburgh/agentic-repo-kit/releases/download/v0.1.10/agentic-repo-kit-0.1.10.pyz'
+          echo '6581d35cd47debfc619c6660a2964799eeaddb1d397af8db5925639ec7c45f55  '"$kit" | sha256sum -c -
+          echo "KIT_PATH=$kit" >> "$GITHUB_ENV"
+      - name: Restore Ascendancy validation contract and upgrade managed outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('docs/agent-playbook.local.md')
+          text = path.read_text(encoding='utf-8')
+          old = '- **Analysis tool / parser / scanner:** deterministic fixture tests; malformed-input handling; zero-match/ambiguous-match coverage where applicable; exact input assumptions; schema/parser/input provenance for serialized evidence; and a clean-checkout real-target end-to-end regression when the acceptance claim depends on reproducible target bytes.'
+          new = '- **Analysis tool / parser / scanner:** deterministic fixture tests; malformed-input handling; zero-match/ambiguous-match coverage where applicable; exact input assumptions; schema/parser/input provenance for serialized evidence; and, when canonical real target bytes are available, at least one clean-checkout real-target end-to-end regression using the repository entry point/commands rather than a hand-reproduced equivalent.'
+          if text.count(old) != 1 or new in text:
+              raise SystemExit('unexpected analysis-tool validation wording; refusing non-exact migration')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+          python "$KIT_PATH" upgrade .
+          python "$KIT_PATH" check .
+
+          python - <<'PY'
+          import subprocess
+
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
+          expected = {
+              '.agentic-repo.lock.json',
+              'docs/agent-playbook.local.md',
+              'docs/agent-playbook.md',
+          }
+          if changed != expected:
+              raise SystemExit(f'unexpected upgrade diff: {sorted(changed)}; expected {sorted(expected)}')
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .agentic-repo.lock.json docs/agent-playbook.local.md docs/agent-playbook.md
+          git commit -m 'fix: address ARK adoption review'
+          git push origin HEAD

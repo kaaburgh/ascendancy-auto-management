@@ -233,7 +233,8 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 - **Priority:** Critical
 - **Category:** Cloud enablement / static RE
 - **Origin:** High-level step 2
-- **Depends on:** None. CF1 and T1 are complete, so the exact canonical pair and all four corroboration targets are available in cloud; use real bytes rather than synthetic fixtures when the task asks for real-target evidence.
+- **Depends on:** CF1, T1
+- **Dependency note:** CF1 and T1 are complete, so the exact canonical pair and all four corroboration targets are available in cloud; use real bytes rather than synthetic fixtures when the task asks for real-target evidence.
 - **Gates:** T2, RE1, RE2, RE3
 - **Question:** Can the static analysis needed for this milestone be run headlessly and reproducibly in Codex or Claude cloud rather than requiring an interactive local Ghidra session?
 
@@ -1177,7 +1178,8 @@ Do not pull these into M1 unless new evidence proves they are inseparable:
 - **Priority:** Medium
 - **Category:** Research validation / blind-RE evaluation
 - **Origin:** Project meta-goal: evaluate autonomous blind reverse engineering
-- **Depends on:** M1 (**Completed and verified**)
+- **Depends on:** V1
+- **Milestone gate:** M1 must be **Completed and verified** before X1 starts; V1 is the milestone exit validation item.
 - **Goal:** Preserve the independently produced blind-RE result, then compare it with external target-specific research as an independent verification/corroboration phase.
 
 ### Work

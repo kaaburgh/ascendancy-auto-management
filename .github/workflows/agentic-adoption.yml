@@ -51,6 +51,33 @@ jobs:
           plan_path='.agentic-adoption-plan.json'
           approval_path='.agentic-adoption-approved'
 
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('ROADMAP.md')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              '- **Depends on:** None. CF1 and T1 are complete, so the exact canonical pair and all four corroboration targets are available in cloud; use real bytes rather than synthetic fixtures when the task asks for real-target evidence.':
+                  '- **Depends on:** CF1, T1\n- **Dependency note:** CF1 and T1 are complete, so the exact canonical pair and all four corroboration targets are available in cloud; use real bytes rather than synthetic fixtures when the task asks for real-target evidence.',
+              '- **Depends on:** M1 (**Completed and verified**)':
+                  '- **Depends on:** V1\n- **Milestone gate:** M1 must be **Completed and verified** before X1 starts; V1 is the milestone exit validation item.',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one roadmap occurrence for migration replacement, found {count}: {old}')
+              text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          if ! git diff --quiet -- ROADMAP.md; then
+            rm -f "$plan_path" "$approval_path"
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -A ROADMAP.md "$plan_path" "$approval_path"
+            git commit -m 'docs: normalize roadmap dependencies for repo-kit check'
+          fi
+
           if [[ ! -e "$plan_path" ]]; then
             if [[ -e "$approval_path" ]]; then
               echo 'approval exists without a committed adoption plan' >&2

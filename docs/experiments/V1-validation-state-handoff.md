@@ -1,7 +1,8 @@
 # V1 operator validation-state handoff
 
 Date: 2026-08-14  
-Roadmap item: V1  
+Updated against the T3 fixture contract: 2026-08-15  
+Roadmap items: T3, V1  
 Evidence classes: `reported` for the visible game state/provenance, `static` for file identity and byte comparison.  
 Blind-RE provenance: **clean**.
 
@@ -9,7 +10,9 @@ Blind-RE provenance: **clean**.
 
 The maintainer created a small ordinary-game state intended to remove V1's need to play forward from a new game before validating multiple per-planet M1 modes.
 
-The raw save files are **not committed**. They are operator-supplied ephemeral runtime input, following the same model already used for the owned retail installation. Their exact identities are pinned in [`../../tools/v1-validation-state-manifest.json`](../../tools/v1-validation-state-manifest.json).
+The supplied pair is kept as **operator-supplied** input for this handoff. That is a supported storage mode under the current T3 fixture contract in [`../re/validation-fixtures.md`](../re/validation-fixtures.md); this document does **not** claim that repository policy generally forbids committing maintainer-owned saves. Their exact identities and pair relationship are pinned in [`../../tools/v1-validation-state-manifest.json`](../../tools/v1-validation-state-manifest.json).
+
+T3 remains the owner of whether a save satisfies role `m1-multi-planet`. This handoff establishes a candidate and its identity only. The candidate must still be declared/verified under the T3 fixture contract and promoted to `evidence: runtime` before V1 or another consumer may treat the role as satisfied.
 
 ## Operator-supplied files
 
@@ -34,15 +37,15 @@ The maintainer supplied a screenshot of the ordinary Planets overview showing:
 
 The maintainer reported creating the state through ordinary play on the canonical Antagonizer, without cheats, save editing, or guest-memory modification.
 
-These are **reported** facts until reproduced by a project runtime experiment. In particular, `No Project` must not be silently equated with the internal empty-action field until V1 or a bounded predecessor verifies it on this exact save.
+These are **reported** facts until reproduced by a project runtime experiment. In particular, `No Project` must not be silently equated with the internal empty-action field until T3/V1 or a bounded predecessor verifies it on this exact save.
 
-## Why the raw saves are not in git
+## Storage decision for this handoff
 
-Inspection of the save bytes shows that they embed substantial game-owned string/data tables (for example technology and race/game vocabulary), not merely maintainer-authored coordinates or a tiny synthetic state description. Repository policy forbids committing copyrighted game assets/raw proprietary target material. The safe handoff is therefore hash-pinned ephemeral input rather than source-controlled raw bytes.
+The current fixture policy supports both repository and operator-supplied saves. For this candidate pair we keep the raw files operator-supplied because the task already has a reproducible hash-pinned handoff and the pair contains substantial game-generated string/data content. This is a scoped storage decision, not a general prohibition on committed save fixtures.
 
-Do not base64-wrap the saves into a text file or otherwise bypass this rule.
+Do not base64-wrap the files or otherwise disguise them merely to bypass the selected storage mode. If the maintainer later chooses to commit a qualifying save, use the checked-in T3 authoring/validation workflow and its privacy/ownership checks rather than changing this handoff ad hoc.
 
-## Verification
+## Identity verification
 
 When the operator attaches the two files to a cloud task, verify their exact identity before use:
 
@@ -60,6 +63,10 @@ V1 operator validation-state identity: PASS (2 files; suffix identical from 0x73
 Runtime game-state verification is still required by V1.
 ```
 
+Identity verification does not satisfy T3's `m1-multi-planet` role. The generic fixture declaration/runtime-evidence contract remains authoritative for that claim.
+
+## Runtime checks still required
+
 Before V1 relies on this state, the runtime harness must still establish at least:
 
 1. the save loads under canonical `ANTAG.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`;
@@ -69,4 +76,4 @@ Before V1 relies on this state, the runtime harness must still establish at leas
 5. a stable scripted start without a blocking modal;
 6. any additional UI2-specific selector/oracle prerequisites needed by the final V1 action file.
 
-If the candidate fails one of those runtime checks, preserve the failure and either choose the companion file or produce a new operator save; do not weaken V1's acceptance criteria.
+If the candidate fails one of those runtime checks, preserve the failure and either choose the companion file or produce a new operator save; do not weaken T3/V1 acceptance criteria.

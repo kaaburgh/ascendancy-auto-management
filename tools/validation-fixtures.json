@@ -42,6 +42,35 @@
         "scripts/run_re5_runtime_turn_path.py",
         "scripts/run_re5_override_witness.py"
       ]
+    },
+    {
+      "id": "resume-en-operator-multi-planet-2026-08-14",
+      "filename": "resume.gam",
+      "role": "m1-multi-planet",
+      "storage": "operator-supplied",
+      "size": 133721,
+      "sha256": "d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1",
+      "produced_by_target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+      "runtime_properties": {
+        "evidence": "unverified",
+        "player_race_id": 0,
+        "player_owned_planet_count": 3,
+        "player_planet_names": [
+          "Corpuscle I",
+          "Corpuscle II",
+          "Corpuscle III"
+        ],
+        "planets_with_empty_current_action_at_load": []
+      },
+      "limitations": [
+        "Player race id 0, ownership/count, planet names, and canonical-target provenance are maintainer-reported until a named runtime experiment verifies them.",
+        "The visible 'No Project' rows are not treated as evidence of the internal empty-current-action state; that list remains empty until runtime verification.",
+        "The companion 02.SAV and byte relationship for this operator state are pinned separately by tools/v1-validation-state-manifest.json."
+      ],
+      "used_by": [
+        "T3 candidate validation",
+        "V1 after runtime promotion"
+      ]
     }
   ],
   "role_requirements": {

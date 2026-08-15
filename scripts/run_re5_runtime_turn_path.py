@@ -102,18 +102,21 @@ SCENARIOS = (
 )
 
 
-def verify_runtime_input(root: Path, manifest_path: Path) -> dict[str, Any]:
+def verify_runtime_input(
+    root: Path, manifest_path: Path, resume_sha256: str = RESUME_SHA256
+) -> dict[str, Any]:
     fixture = re4.verify_fixture(root, manifest_path)
     files = re4._casefold_file_map(root)
     resume = files.get("resume.gam")
-    if resume is None or re4.sha256_file(resume) != RESUME_SHA256:
+    expected_hash = resume_sha256.lower()
+    if resume is None or re4.sha256_file(resume) != expected_hash:
         raise RE5Error("resume.gam identity mismatch")
     return {
         **fixture,
         "resume": {
             "filename": "resume.gam",
             "size": resume.stat().st_size,
-            "sha256": RESUME_SHA256,
+            "sha256": expected_hash,
         },
     }
 
@@ -248,10 +251,14 @@ def sample_record(pid: int, record_host: int) -> dict[str, str]:
     }
 
 
-def arm_planet_mode(pid: int, record_host: int, inp: re4.XInput, managed: bool) -> float | None:
+def arm_planet_mode(
+    pid: int, record_host: int, inp: re4.XInput, managed: bool, planet_name: str = PLANET_NAME
+) -> float | None:
     current = re4.read_process(pid, record_host + re4.STATE_OFFSET, 4)
     if current not in (re4.MANUAL, re4.MANAGED):
-        raise RE5Error(f"unexpected Xerxes +0x{re4.STATE_OFFSET:x}: {current.hex()}")
+        raise RE5Error(
+            f"unexpected {planet_name} +0x{re4.STATE_OFFSET:x}: {current.hex()}"
+        )
     expected = re4.MANAGED if managed else re4.MANUAL
     if current == expected:
         return None
@@ -366,7 +373,14 @@ def validate_scenario(spec: ScenarioSpec, trace: dict[str, Any]) -> None:
         raise RE5Error(f"unhandled scenario {spec.name}")
 
 
-def run_scenario(root: Path, dosbox: str, timeout: float, spec: ScenarioSpec) -> dict[str, Any]:
+def run_scenario(
+    root: Path,
+    dosbox: str,
+    timeout: float,
+    spec: ScenarioSpec,
+    planet_name: str = PLANET_NAME,
+    planet_list_row: int = 0,
+) -> dict[str, Any]:
     print(f"RE5 {spec.name}: launching", flush=True)
     display = re4.choose_display()
     temp = tempfile.TemporaryDirectory(prefix=f"re5-{spec.name}-")
@@ -402,19 +416,21 @@ def run_scenario(root: Path, dosbox: str, timeout: float, spec: ScenarioSpec) ->
         re4.wait_game_geometry(window, env, proc)
         time.sleep(4.2)
         re4.scenario_steps(inp, "resume")
-        inp.move_to(205, 125)
+        inp.move_to(205, re4.planet_list_row_y(planet_list_row))
         inp.click()
         time.sleep(1.2)
 
         anchor = re4.find_unique_runtime_anchor(proc.pid)
         snapshot = re4.snapshot_anchor_map(proc.pid, anchor)
-        record_offset = find_named_planet_record(snapshot)
+        record_offset = find_named_planet_record(snapshot, planet_name)
         record_host = anchor["map_start"] + record_offset
         initial = sample_record(proc.pid, record_host)
         if initial["owner_0x57"] != "00" or initial["action_0x54"] != "ff" or initial["slot_0x52"] != "ffff":
-            raise RE5Error(f"unexpected initial Xerxes state: {initial}")
+            raise RE5Error(f"unexpected initial {planet_name} state: {initial}")
 
-        mode_toggle_ms = arm_planet_mode(proc.pid, record_host, inp, spec.managed)
+        mode_toggle_ms = arm_planet_mode(
+            proc.pid, record_host, inp, spec.managed, planet_name
+        )
         armed = sample_record(proc.pid, record_host)
         expected_state = re4.MANAGED.hex() if spec.managed else re4.MANUAL.hex()
         if armed["managed_0x5a"] != expected_state:
@@ -447,7 +463,7 @@ def run_scenario(root: Path, dosbox: str, timeout: float, spec: ScenarioSpec) ->
             "status": "passed",
             "mode": "Managed" if spec.managed else "Manual",
             "dosbox_cpu_core": "normal",
-            "planet": PLANET_NAME,
+            "planet": planet_name,
             "runtime_anchor": {
                 "mapping_size": anchor["map_size"],
                 "anchor_offset_in_mapping": anchor["anchor_offset"],
@@ -538,6 +554,7 @@ def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict
         return None
     scenarios: list[dict[str, Any]] = []
     common_window: float | None = None
+    common_planet: str | None = None
     for spec, path in zip(SCENARIOS, paths):
         record = json.loads(path.read_text(encoding="utf-8"))
         if record.get("schema") != RESULT_SCHEMA or record.get("experiment_contract") != EXPERIMENT_CONTRACT:
@@ -553,13 +570,20 @@ def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict
             validate_scenario(spec, scenario["turn_trace"])
         except (KeyError, TypeError, RE5Error) as exc:
             raise RE5Error(f"focused artifact current-oracle validation failed: {path.name}: {exc}") from exc
+        planet = scenario.get("planet")
+        if not isinstance(planet, str) or not planet:
+            raise RE5Error(f"focused artifact planet identity missing: {path.name}")
+        if common_planet is None:
+            common_planet = planet
+        elif planet != common_planet:
+            raise RE5Error("focused artifact planet identity mismatch")
         window = record.get("window_seconds")
         if common_window is None:
             common_window = window
         elif window != common_window:
             raise RE5Error("focused artifact window_seconds mismatch")
         scenarios.append(scenario)
-    assert common_window is not None
+    assert common_window is not None and common_planet is not None
     aggregate = {
         "schema": RESULT_SCHEMA,
         "experiment_contract": EXPERIMENT_CONTRACT,
@@ -568,6 +592,7 @@ def aggregate_focused_results(artifacts: Path, expected: dict[str, Any]) -> dict
         "evidence_class": "runtime",
         "target": expected["target"],
         "fixture": expected["fixture"],
+        "planet": common_planet,
         "window_seconds": common_window,
         "diagnostic_runtime_patches_are_process_memory_only": True,
         "source_artifacts": [path.name for path in paths],
@@ -589,6 +614,22 @@ def main() -> int:
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--window-seconds", type=float, default=DEFAULT_WINDOW_SECONDS)
     parser.add_argument(
+        "--resume-sha256",
+        default=RESUME_SHA256,
+        help="Exact resume.gam SHA-256 (default: canonical RE4/RE5 single-planet fixture).",
+    )
+    parser.add_argument(
+        "--planet-name",
+        default=PLANET_NAME,
+        help="Player-owned planet name to observe (default: Xerxes I).",
+    )
+    parser.add_argument(
+        "--planet-list-row",
+        type=int,
+        default=0,
+        help="Visible Planets-list row to select before toggling M (0..2; default: 0).",
+    )
+    parser.add_argument(
         "--scenario",
         choices=("all",) + tuple(spec.name for spec in SCENARIOS),
         default="all",
@@ -600,10 +641,16 @@ def main() -> int:
         parser.error("game-dir must exist")
     if args.window_seconds <= 0 or args.window_seconds > 30:
         parser.error("window-seconds must be > 0 and <= 30")
+    try:
+        re4.planet_list_row_y(args.planet_list_row)
+    except re4.RE4Error as exc:
+        parser.error(str(exc))
     for tool in (args.dosbox, "Xvfb", "xwininfo"):
         if shutil.which(tool) is None and not Path(tool).is_file():
             parser.error(f"required tool not found: {tool}")
-    fixture = verify_runtime_input(root, args.fixture_manifest.resolve())
+    fixture = verify_runtime_input(
+        root, args.fixture_manifest.resolve(), args.resume_sha256
+    )
     args.artifacts.mkdir(parents=True, exist_ok=True)
 
     selected = list(SCENARIOS) if args.scenario == "all" else [next(spec for spec in SCENARIOS if spec.name == args.scenario)]
@@ -621,7 +668,14 @@ def main() -> int:
     }
     try:
         for spec in selected:
-            scenario_result = run_scenario(root, args.dosbox, args.window_seconds, spec)
+            scenario_result = run_scenario(
+                root,
+                args.dosbox,
+                args.window_seconds,
+                spec,
+                args.planet_name,
+                args.planet_list_row,
+            )
             result["scenarios"].append(scenario_result)
             print(f"RE5 {spec.name}: PASS")
         if args.scenario == "all":

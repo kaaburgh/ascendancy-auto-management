@@ -36,6 +36,10 @@ TOGGLE_PATTERN = [
 SELF_MANAGED_REGION = (280, 73, 100, 8)
 SELF_MANAGED_RGB_SHA256 = "66df0c5f9a6774156363abc9cd878ec683b64aabd54c4d781387236cd1fff160"
 EXPECTED_FRAME = (640, 480)
+PLANET_LIST_FIRST_ROW_Y = 125
+PLANET_LIST_ROW_HEIGHT = 145
+PLANET_LIST_RENDER_ROW_HEIGHT = 141
+PLANET_LIST_VISIBLE_ROWS = 3
 
 
 class RE4Error(RuntimeError):
@@ -383,6 +387,25 @@ def wait_field(pid: int, address: int, expected: bytes, timeout: float = 0.25) -
     raise RE4Error(f"field did not reach {expected.hex()} within {timeout * 1000:.0f} ms")
 
 
+def planet_list_row_y(row: int) -> int:
+    if row < 0 or row >= PLANET_LIST_VISIBLE_ROWS:
+        raise RE4Error(
+            f"planet-list row must be in [0, {PLANET_LIST_VISIBLE_ROWS - 1}], got {row}"
+        )
+    return PLANET_LIST_FIRST_ROW_Y + row * PLANET_LIST_ROW_HEIGHT
+
+
+def select_planet_list_row(inp: "XInput", row: int) -> None:
+    inp.move_to(205, planet_list_row_y(row))
+    inp.click()
+
+
+def self_managed_region(row: int) -> tuple[int, int, int, int]:
+    x, y, width, height = SELF_MANAGED_REGION
+    planet_list_row_y(row)  # validate the same bounded visible-row contract
+    return x, y + row * PLANET_LIST_RENDER_ROW_HEIGHT, width, height
+
+
 def scenario_steps(inp: XInput, kind: str) -> None:
     inp.click()
     time.sleep(0.25)
@@ -409,7 +432,14 @@ def scenario_steps(inp: XInput, kind: str) -> None:
     time.sleep(1.0)
 
 
-def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_name: str | None) -> dict[str, Any]:
+def run_scenario(
+    root: Path,
+    dosbox: str,
+    artifacts: Path,
+    kind: str,
+    expected_name: str | None,
+    planet_list_row: int = 0,
+) -> dict[str, Any]:
     display = choose_display()
     tmp = tempfile.TemporaryDirectory(prefix="re4-runtime-")
     mount = Path(tmp.name) / "game"
@@ -430,11 +460,11 @@ def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_n
         time.sleep(3.5)
         scenario_steps(inp, kind)
 
+        managed_region = self_managed_region(planet_list_row)
         manual_list = artifacts / f"{kind}-manual-list.png"
         manual_list_sha = capture(manual_list, display, geom, env)
-        manual_region_hash = rgb_region_sha256(manual_list, *SELF_MANAGED_REGION)
-        inp.move_to(205, 125)
-        inp.click()
+        manual_region_hash = rgb_region_sha256(manual_list, *managed_region)
+        select_planet_list_row(inp, planet_list_row)
         time.sleep(1.0)
 
         anchor = find_unique_runtime_anchor(proc.pid)
@@ -463,10 +493,9 @@ def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_n
         time.sleep(0.8)
         managed_list = artifacts / f"{kind}-managed-list.png"
         managed_list_sha = capture(managed_list, display, geom, env)
-        managed_region_hash = rgb_region_sha256(managed_list, *SELF_MANAGED_REGION)
+        managed_region_hash = rgb_region_sha256(managed_list, *managed_region)
 
-        inp.move_to(205, 125)
-        inp.click()
+        select_planet_list_row(inp, planet_list_row)
         time.sleep(0.5)
         inp.key("m")
         wait_field(proc.pid, field_host, MANUAL)
@@ -474,7 +503,7 @@ def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_n
         time.sleep(0.8)
         restored_list = artifacts / f"{kind}-restored-manual-list.png"
         restored_list_sha = capture(restored_list, display, geom, env)
-        restored_region_hash = rgb_region_sha256(restored_list, *SELF_MANAGED_REGION)
+        restored_region_hash = rgb_region_sha256(restored_list, *managed_region)
         visual_transition = validate_renderer_transition(
             manual_region_hash, managed_region_hash, restored_region_hash
         )
@@ -499,7 +528,7 @@ def run_scenario(root: Path, dosbox: str, artifacts: Path, kind: str, expected_n
                 "manual_planet_list_sha256": manual_list_sha,
                 "managed_planet_list_sha256": managed_list_sha,
                 "restored_manual_planet_list_sha256": restored_list_sha,
-                "self_managed_region": list(SELF_MANAGED_REGION),
+                "self_managed_region": list(managed_region),
                 **visual_transition,
             },
         }
@@ -528,6 +557,17 @@ def main() -> int:
     ap.add_argument("--fixture-manifest", type=Path, required=True)
     ap.add_argument("--scenario", choices=("resume", "new-snovemdomas"), required=True)
     ap.add_argument("--resume-sha256", help="Exact operator-supplied resume.gam hash; required for --scenario resume")
+    ap.add_argument(
+        "--planet-name",
+        default="Xerxes I",
+        help="Expected selected planet name for --scenario resume (default: Xerxes I).",
+    )
+    ap.add_argument(
+        "--planet-list-row",
+        type=int,
+        default=0,
+        help="Visible Planets-list row to select for --scenario resume (0..2; default: 0).",
+    )
     ap.add_argument("--artifacts", type=Path, required=True)
     ns = ap.parse_args()
     root = ns.game_dir.resolve()
@@ -552,7 +592,12 @@ def main() -> int:
             ap.error(f"required tool not found: {tool}")
     ns.artifacts.mkdir(parents=True, exist_ok=True)
 
-    expected = "Xerxes I" if ns.scenario == "resume" else None
+    if ns.scenario == "resume":
+        try:
+            planet_list_row_y(ns.planet_list_row)
+        except RE4Error as exc:
+            ap.error(str(exc))
+    expected = ns.planet_name if ns.scenario == "resume" else None
     result: dict[str, Any] = {
         "schema": 1,
         "roadmap_item": "RE4",
@@ -564,7 +609,9 @@ def main() -> int:
     if resume_info is not None:
         result["resume"] = resume_info
     try:
-        result["scenario"] = run_scenario(root, ns.dosbox, ns.artifacts, ns.scenario, expected)
+        result["scenario"] = run_scenario(
+            root, ns.dosbox, ns.artifacts, ns.scenario, expected, ns.planet_list_row
+        )
         result["status"] = "passed"
     except Exception as exc:
         result["status"] = "failed"

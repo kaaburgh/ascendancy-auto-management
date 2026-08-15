@@ -3,9 +3,9 @@
 
 This experiment does not patch guest code or data. It derives the runtime
 placement of the LE data object from five independent initialized-data
-signatures, then samples the RE3 override global together with Xerxes I state
-and the independent stardate progress witness while DOSBox is confirmed
-stopped for every coherent sample.
+signatures, then samples the RE3 override global together with the selected player
+planet state and the independent stardate progress witness while DOSBox is
+confirmed stopped for every coherent sample.
 """
 from __future__ import annotations
 
@@ -335,7 +335,9 @@ def evaluate(before: dict[str, Any], samples: list[dict[str, Any]], after: dict[
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     root = args.game_dir.resolve()
-    fixture = re5.verify_runtime_input(root, args.fixture_manifest.resolve())
+    fixture = re5.verify_runtime_input(
+        root, args.fixture_manifest.resolve(), args.resume_sha256
+    )
     files = re4._casefold_file_map(root)
     target = files["antag.exe"]
     if fixture_contains_name(root, "flash.pop"):
@@ -397,7 +399,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
         with re5.stopped_process(process.pid):
             snapshot = re4.snapshot_anchor_map(process.pid, anchor)
-        record_offset = re5.find_named_planet_record(snapshot)
+        record_offset = re5.find_named_planet_record(snapshot, args.planet_name)
         record_host = anchor["map_start"] + record_offset
         initial = sample(process.pid, anchor, bias, override_va, record_host)
         if (
@@ -407,7 +409,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             or initial["managed_0x5a"] != "00000000"
             or initial["current_player_id_0x104bea"] != 0
         ):
-            raise OverrideWitnessError(f"unexpected initial Manual Xerxes state: {initial}")
+            raise OverrideWitnessError(
+                f"unexpected initial Manual {args.planet_name} state: {initial}"
+            )
 
         inp.key("Escape")
         time.sleep(0.5)
@@ -494,6 +498,16 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--dosbox", type=Path, required=True)
     result.add_argument("--fixture-manifest", type=Path, required=True)
     result.add_argument("--runner-revision", required=True)
+    result.add_argument(
+        "--resume-sha256",
+        default=re5.RESUME_SHA256,
+        help="Exact resume.gam SHA-256 (default: canonical RE5 single-planet fixture).",
+    )
+    result.add_argument(
+        "--planet-name",
+        default=re5.PLANET_NAME,
+        help="Player-owned planet name to observe (default: Xerxes I).",
+    )
     result.add_argument("--output", type=Path, required=True)
     return result
 

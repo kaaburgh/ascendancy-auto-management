@@ -2,6 +2,8 @@
 
 ## Blind-research gate and experiment accounting
 
+This project has two equal goals: ship a working Ascendancy auto-management mod and measure how well modern coding/research agents can independently reverse engineer the closed target and design safe binary patches without pre-existing target-specific recovered knowledge.
+
 The binary-first / blind-research gate remains active until milestone **M1** is `Completed and verified` in `ROADMAP.md`.
 
 For blind-experiment accounting, the supported repository evidence present on `main` at commit `0a2ea78bef5a2b521dffdbed9c904b1192c23368` is the accepted adoption baseline. This is an administrative evidence baseline, not a claim that every pre-baseline interaction can be retrospectively audited. If later supported evidence shows that a pre-baseline conclusion was influenced by prohibited target-specific recovered knowledge, mark the affected conclusion `contaminated` or `external-assisted` as appropriate and exclude it from blind-RE success accounting.
@@ -30,8 +32,12 @@ Priority describes consequence and sequencing, not enthusiasm:
 
 Dependencies outrank nominal priority. A lower-priority investigation that unlocks several higher-priority items can be the correct next task. Milestones should describe an observable capability rather than merely a collection of tasks.
 
+Preserve an item's `Origin` field when restructuring or splitting normalized roadmap work so the current execution graph remains traceable to the milestone/source item that motivated it.
+
 Blind-RE provenance (`clean`, `contaminated`, `external-assisted`) is separate from evidence class (`static`, `runtime`, `synthetic`, `reported`, `assumed`).
 
 ## Scope and safety boundary
 
 This project is for legitimate modification of software the maintainer is entitled to inspect. Do not add DRM/licensing bypasses, anti-cheat bypasses, cheats, credential theft, hidden persistence, or malware-like functionality. Diagnostic investigation of compatibility mechanisms is acceptable only when it does not create a bypass.
+
+If a future implementation introduces native Windows DLL/hook code, also account explicitly for indirect hook recursion and COM lifetime/reference counting in addition to the generic native-binary-patching requirements for loader lock, ABI, registers/stack, threading/reentrancy, lifecycle, page protection, instruction-cache flushing, and rollback.

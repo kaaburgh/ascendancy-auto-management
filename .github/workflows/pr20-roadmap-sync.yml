@@ -1,0 +1,75 @@
+name: PR20 roadmap synchronization
+
+on:
+  push:
+    branches:
+      - v1/operator-validation-state
+
+permissions:
+  contents: write
+
+jobs:
+  synchronize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1/operator-validation-state
+          fetch-depth: 0
+      - name: Update T3 and V1 roadmap state
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('ROADMAP.md')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  "- **Status:** Investigation first — the declaration contract and its checks are in place; obtaining a qualifying save is the open question.\n"
+                  "- **Execution:** **CLOUD RESEARCH** — obtaining the fixture *is* the feasibility question, so this item owns it rather than waiting behind a gate nothing can unlock. It must not be classified `LOCAL ONLY` on the assumption that \"ordinary play needs a workstation\": CF3/CF4 established cloud execution of the canonical target with UI automation, and RE4/RE5 drove the running game from cloud. A maintainer-supplied save short-circuits the investigation and is the expected route; if one arrives, record it and close the feasibility question as not needed.",
+                  "- **Status:** Investigation first — maintainer-supplied multi-planet candidate received and hash-pinned; runtime qualification is the open question.\n"
+                  "- **Execution:** **CLOUD** — the maintainer-supplied candidate removes the fixture-acquisition feasibility question. Validate the exact operator-supplied `resume.gam` declared in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json) on the canonical target through the established CF3/CF4 runtime path; keep it unusable for role `m1-multi-planet` until a named runtime experiment promotes it to `evidence: runtime`.",
+              ),
+              (
+                  "### Required feasibility outcome\n\nAs a `CLOUD RESEARCH` item this must end in one of the two outcomes the execution contract defines, not in a prose opinion:\n\n1. **Cloud path found** — a reproducible way for a cloud agent to reach a qualifying save on the canonical target using the existing CF3/CF4 harness (playing forward from an existing save until a second planet is owned, or equivalent), with the script committed and a smoke test where practical. Reclassify the remaining work `CLOUD`.\n2. **Cloud path not practical** — record the concrete blocker and what was tried under `docs/experiments/`, reduce the manual part to the smallest one-shot local procedure, and define the repo-safe artifact it produces. Reclassify `LOCAL ONLY`.\n\nA maintainer-supplied save resolves the item without either outcome: the feasibility question then never had to be answered, and that should be recorded as the reason rather than leaving a stale investigation open.\n",
+                  "### Acquisition outcome\n\nA maintainer-supplied candidate arrived on 2026-08-14, so the acquisition feasibility question was resolved by the explicit short-circuit allowed above rather than by playing forward or proving a cloud-generation path. Its exact `resume.gam` identity is declared as `resume-en-operator-multi-planet-2026-08-14` in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json); the companion `02.SAV`, pair relationship, reported visible state, and evidence boundary are pinned in [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json) and [`docs/experiments/V1-validation-state-handoff.md`](./docs/experiments/V1-validation-state-handoff.md).\n\nThis closes only acquisition. The candidate remains `evidence: unverified`: reported ownership/count/names, internal empty-action state, stable start, and canonical-target load must still be established by a named runtime experiment before the fixture can satisfy role `m1-multi-planet`.\n",
+              ),
+              (
+                  "1. Obtain a save satisfying the requirements in [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md) — at minimum two player-owned planets, at least one of them with no current action at load, unique planet names — produced by ordinary play on the canonical `ANTAG.EXE`.\n2. Declare it in `tools/validation-fixtures.json` with `evidence: unverified`.\n3. Verify the declared runtime properties on the exact target in a named experiment, then promote the entry to `evidence: runtime`.\n4. Parameterise the planet selection currently hard-coded to `Xerxes I`, and pin the new save alongside the existing one rather than replacing it — the single-planet fixture remains the fixture of record for the completed RE4/RE5 observations.",
+                  "1. [x] Obtain a maintainer-supplied candidate intended to satisfy the requirements in [`docs/re/validation-fixtures.md`](./docs/re/validation-fixtures.md); exact identity is pinned, while its qualifying runtime properties remain unverified.\n2. [x] Declare it in `tools/validation-fixtures.json` with `evidence: unverified`.\n3. [ ] Verify the declared runtime properties on the exact target in a named experiment, then promote the entry to `evidence: runtime`.\n4. [ ] Parameterise the planet selection currently hard-coded to `Xerxes I` as required by the validation runner, and keep the new operator fixture distinct from the existing single-planet fixture of record for RE4/RE5.",
+              ),
+              (
+                  "- [ ] a multi-planet save payload satisfying the M1 role, pinned by size and SHA-256;\n- [ ] a runtime experiment record promoting its properties from `unverified` to `runtime`.",
+                  "- [x] a maintainer-supplied multi-planet candidate payload pinned by size and SHA-256 and declared with `evidence: unverified`;\n- [ ] a runtime experiment record promoting its properties from `unverified` to `runtime`.",
+              ),
+              (
+                  "- **Validation state:** Use the maintainer-created operator state pinned by [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json) and [`docs/experiments/V1-validation-state-handoff.md`](./docs/experiments/V1-validation-state-handoff.md) when the exact raw saves are supplied ephemerally. Verify them with `python3 tools/verify_v1_validation_state.py --input-dir <attached-save-dir>` before runtime use; do not substitute a different state without updating the pinned handoff.",
+                  "- **Validation state:** T3 declares the maintainer-created candidate as `resume-en-operator-multi-planet-2026-08-14` in [`tools/validation-fixtures.json`](./tools/validation-fixtures.json), currently `evidence: unverified`. The exact operator pair and its static relationship are pinned by [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json) and [`docs/experiments/V1-validation-state-handoff.md`](./docs/experiments/V1-validation-state-handoff.md). Verify the supplied pair with `python3 tools/verify_v1_validation_state.py --input-dir <attached-save-dir>` and the declared `resume.gam` identity with `python3 scripts/validate_validation_fixtures.py --fixture-dir <attached-save-dir>`; V1 must not use the role until T3 promotes it to runtime evidence.",
+              ),
+              (
+                  "Steps 2–4 below require a save with at least two player-owned planets. The currently pinned `resume.gam` has exactly one, so T3 must supply the fixture before this item can run.",
+                  "Steps 2–4 below require a save with at least two player-owned planets. The committed RE4/RE5 `resume.gam` still has exactly one. T3 now has a distinct operator-supplied three-planet candidate, but V1 remains blocked until a named runtime experiment verifies its qualifying properties and promotes role `m1-multi-planet` to `evidence: runtime`.",
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'ROADMAP invariant failed: expected one match, found {count}: {old[:100]!r}')
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Remove one-shot workflow and publish update
+        shell: bash
+        run: |
+          git rm .github/workflows/pr20-roadmap-sync.yml
+          git add ROADMAP.md
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: update T3 for operator fixture"
+          git push origin HEAD:v1/operator-validation-state

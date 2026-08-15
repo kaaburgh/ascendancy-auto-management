@@ -14,19 +14,23 @@ Before roadmap-scoped work, read `AGENTS.md`, the selected roadmap item, its dep
 3. Separate established facts from assumptions.
 4. Choose the smallest change or experiment that can satisfy the item acceptance criteria or the explicitly bounded process-only goal.
 5. Validate what can be validated in the current environment.
-6. Reconcile roadmap and durable docs with what was actually learned.
+6. Reconcile roadmap and durable docs with what was actually learned; if current operator actions or instructions changed through roadmap state or procedural docs/scripts/tooling, reconcile any maintained operator-facing derived projection too.
 7. Prepare a focused PR with explicit remaining unknowns and deliberately excluded follow-ups.
 
 ## Required-capability handoff
 
-If the selected item or bounded process-only task needs a tool/capability that the current environment lacks:
+The normative decision rules live in `AGENTS.md` under **Tool availability and operator handoff**. Apply those rules first; this playbook section only defines the operator packet used when that policy calls for a handoff.
 
-1. Confirm that the capability is actually required by acceptance/evidence needs; do not escalate merely useful optional cross-checks.
-2. Prefer a bounded in-repository implementation when it is a reasonable task-sized substitute with equivalent evidence quality.
-3. Try normal install/download/bootstrap/attached-artifact routes available to the environment.
-4. If environment constraints block acquisition, continue independent work and package a precise operator handoff: capability/tool, version/platform, why required, attempts made, and exact failures.
-5. Do not infer `LOCAL ONLY` or project-level impossibility from one sandbox's acquisition failure.
-6. After resolution, preserve the working bootstrap/acquisition path or a useful negative result so the next agent does not repeat the same dead end.
+Record one bounded partial-progress packet with:
+
+- **blocked line** — the exact work item or evidence/acceptance step that cannot proceed;
+- **required capability** — tool/capability identity plus version/platform constraints when relevant;
+- **attempts and failures** — acquisition/bootstrap paths tried and their concrete errors;
+- **operator ask** — the smallest repository-permitted tool, artifact, input, or access change that would unblock the line;
+- **independent progress** — work completed or still proceeding outside the blocked line;
+- **durable follow-up** — where the reusable bootstrap path or meaningful negative result will be recorded after resolution.
+
+Do not reinterpret or duplicate the policy decision logic here; if this packet conflicts with `AGENTS.md`, `AGENTS.md` wins.
 
 ## Evidence-producing CI and regression triggers
 

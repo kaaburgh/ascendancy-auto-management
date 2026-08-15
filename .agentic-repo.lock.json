@@ -1,0 +1,35 @@
+{
+  "distribution": {
+    "artifact": "agentic-repo-kit-0.1.9.pyz",
+    "release": "v0.1.9",
+    "repository": "kaaburgh/agentic-repo-kit",
+    "sha256": "79e914bc322873025f41db0ffa118bd037362b77708e4433bb854d8dd42b041e",
+    "tool_version": "0.1.9"
+  },
+  "format": 2,
+  "generated": {
+    ".github/copilot-instructions.md": "6fe72eca1eab8a997562d448c54a6bb8d4f7726186a07dfc6d328022a9b03bf2",
+    ".github/pull_request_template.md": "7fdab6cd0c22657f40ddf3759e6a49717b27f2d0d8088a3daf11fd3ff6272475",
+    ".github/workflows/agentic-repo-check.yml": "3851fb3a320ed3e7055dc42d2eca682491d1600e07aabba28ec03413d735a9c3",
+    "AGENTS.md": "863039c4706d1654ee0b700fb1b814f897bc1be6987820999583c0d9de3f586d",
+    "CLAUDE.md": "e68ff4b91505b9ca79f6f6656439c0c73a3448581f92407f25ee20aba9320088",
+    "docs/agent-playbook.md": "daf1ca1227f5ae0232ebb378779b53baf965ab675877e6013414897b5829c785",
+    "docs/experiments/README.md": "dccd1781eb4122aebbd63673790b6a6a362cb0f2a9d2f5f2050f7ff7edc025ef",
+    "docs/re/README.md": "afbf798d9885bde2df709e8dc1437b88cd64e03c9afda833d6e2c5b58231518e",
+    "docs/roadmap-authoring.md": "b0c6e61685d139253846abf5996c8c4b1b1afaef509670d2a1d8826823a708e4"
+  },
+  "kit_version": 1,
+  "profiles": [
+    "core",
+    "reverse-engineering",
+    "blind-research",
+    "proprietary-target",
+    "native-binary-patching"
+  ],
+  "project": {
+    "kind": "closed-source game mod / native binary patching",
+    "name": "Ascendancy Auto-Management",
+    "roadmap": "ROADMAP.md"
+  },
+  "tool_version": "0.1.9"
+}

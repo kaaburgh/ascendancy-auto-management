@@ -1,5 +1,9 @@
 # Ascendancy project-local agent policy
 
+## Target-specific source precedence
+
+Within the generic source-of-truth ordering, direct evidence from the exact target binary/runtime being investigated outranks interpretations produced by project tooling, source code, roadmap prose, or historical notes when those disagree about a target-specific fact. Update the project model/tooling rather than explaining away contradictory target evidence.
+
 ## Blind-research gate and experiment accounting
 
 This project has two equal goals: ship a working Ascendancy auto-management mod and measure how well modern coding/research agents can independently reverse engineer the closed target and design safe binary patches without pre-existing target-specific recovered knowledge.

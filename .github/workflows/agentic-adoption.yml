@@ -63,10 +63,16 @@ jobs:
                   '- **Depends on:** V1\n- **Milestone gate:** M1 must be **Completed and verified** before X1 starts; V1 is the milestone exit validation item.',
           }
           for old, new in replacements.items():
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'expected exactly one roadmap occurrence for migration replacement, found {count}: {old}')
-              text = text.replace(old, new)
+              old_count = text.count(old)
+              new_count = text.count(new)
+              if old_count == 1 and new_count == 0:
+                  text = text.replace(old, new)
+              elif old_count == 0 and new_count == 1:
+                  pass
+              else:
+                  raise SystemExit(
+                      f'unexpected roadmap migration state: old={old_count} new={new_count}: {old}'
+                  )
           path.write_text(text, encoding='utf-8')
           PY
 

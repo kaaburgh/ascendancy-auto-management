@@ -28,6 +28,8 @@ Use [`auto-management-ui-state.md`](./auto-management-ui-state.md) for the RE2/R
 
 Use [`auto-management-turn-path.md`](./auto-management-turn-path.md) for the RE3 static per-turn state-gate/policy/action path and [`../experiments/RE3-static-turn-path.md`](../experiments/RE3-static-turn-path.md) for the reproducible byte-level evidence and bounded RE5 handoff.
 
+Use [`m1-profile-state-representation.md`](./m1-profile-state-representation.md) for the A1 architecture decision boundary: the selected binary `+0x5a` compatibility mirror plus mod-owned profile identity, the exact evidence it relies on, and the still-open reuse-safe identity/lifetime requirement.
+
 ## Suggested note format
 
 ```markdown

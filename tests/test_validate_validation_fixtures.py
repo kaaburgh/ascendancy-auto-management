@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -25,6 +26,7 @@ def multi_planet_fixture(**overrides):
         "size": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
         "produced_by_target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+        "producer_provenance": {"evidence": "runtime", "source": SYNTHETIC_SOURCE},
         "runtime_properties": {
             "evidence": "runtime",
             "source": SYNTHETIC_SOURCE,
@@ -52,6 +54,18 @@ def write_synthetic_source(
     mentioned_fixture_sha256: str | None = None,
     observed_fixture_sha256: str | None = None,
     observed_properties: dict | None = None,
+    include_production: bool = True,
+    target_written_exact_bytes: bool = True,
+    materialize_production_artifact: bool = True,
+    producer_artifact_status: str = "passed",
+    producer_exact_match: bool | None = None,
+    producer_harness_hash: str | None = None,
+    materialize_current_artifact: bool = True,
+    current_artifact_status: str = "passed",
+    current_artifact_properties: dict | None = None,
+    current_artifact_sha_override: str | None = None,
+    current_artifact_include_retail_fixture: bool = True,
+    current_artifact_retail_fixture: dict | None = None,
 ) -> str:
     """Create a throwaway runtime record carrying identities and observed properties."""
     relative = f"docs/{directory}/_synthetic_fixture_record.md"
@@ -73,11 +87,103 @@ def write_synthetic_source(
             field: copy.deepcopy(entry["runtime_properties"][field])
             for field in fixtures.OBSERVED_RUNTIME_PROPERTY_FIELDS
         }
+        current_artifact_relative = "docs/experiments/_synthetic_current_state_run.json"
+        current_artifact_path = Path(fixtures.ROOT) / current_artifact_relative
+        artifact_properties = copy.deepcopy(current_artifact_properties or properties)
+        snapshot_dir = Path(fixtures.ROOT) / "docs/experiments/_synthetic_current_harness"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        snapshot_names = [
+            "run_t3_multi_planet_fixture.py",
+            "run_re4_runtime_state.py",
+            "run_re5_runtime_turn_path.py",
+            "run_re5_override_witness.py",
+            "le_image.py",
+        ]
+        snapshot_paths = {}
+        snapshot_hashes = {}
+        for index, name in enumerate(snapshot_names):
+            snapshot = snapshot_dir / name
+            snapshot.write_text(f"# synthetic current harness {index}: {name}\n", encoding="utf-8")
+            case.addCleanup(snapshot.unlink, missing_ok=True)
+            snapshot_paths[name] = str(snapshot.relative_to(fixtures.ROOT))
+            snapshot_hashes[name] = fixtures.sha256_file(snapshot)
+        current_artifact = {
+            "artifact_schema": fixtures.CURRENT_STATE_RUN_ARTIFACT_SCHEMA,
+            "scenario_contract": fixtures.CURRENT_STATE_RUN_CONTRACT,
+            "blind_re_provenance": "clean",
+            "evidence_class": "runtime",
+            "status": current_artifact_status,
+            "candidate_fixture": {
+                "id": entry["id"], "sha256": fixture_sha256, "size": entry["size"],
+                "source_unchanged": True, "storage": entry["storage"],
+            },
+            "diagnostic_guest_code_writes": False,
+            "diagnostic_guest_data_writes": False,
+            "source_inputs_modified": False,
+            "runner_source_sha256": snapshot_hashes["run_t3_multi_planet_fixture.py"],
+            "harness_dependencies": {
+                name: snapshot_hashes[name]
+                for name in snapshot_names
+                if name != "run_t3_multi_planet_fixture.py"
+            },
+            "harness_source_snapshots": snapshot_paths,
+            "runtime_environment": {
+                "dosbox": {
+                    "filename": "dosbox", "size": 1234, "sha256": "a" * 64,
+                    "version_output": "DOSBox version synthetic",
+                },
+                "dosbox_config": {"cpu_core": "normal", "cycles": "max", "xvfb_screen": "1024x768x24"},
+            },
+            "target": {
+                "filename": "ANTAG.EXE", "size": fixtures.CANONICAL_TARGET_SIZE,
+                "sha256": target_sha256,
+            },
+            "role_claim": {
+                "role": entry["role"],
+                "player_race_id": artifact_properties["player_race_id"],
+                "player_owned_planet_count": artifact_properties["player_owned_planet_count"],
+                "player_planet_names": artifact_properties["player_planet_names"],
+                "planets_with_empty_current_action_at_load": artifact_properties["planets_with_empty_current_action_at_load"],
+            },
+            "verification": {
+                "status": "passed" if current_artifact_status == "passed" else "failed",
+                "process_stopped_for_coherent_snapshot": True,
+                "save_unchanged_by_verification_load": True,
+                "runtime_mapping": {"status": "passed"},
+                "observation": {
+                    "status": "passed" if current_artifact_status == "passed" else "failed",
+                    "checks": {"synthetic": current_artifact_status == "passed"},
+                    "current_player_id": artifact_properties["player_race_id"],
+                    "player_owned_planet_count": artifact_properties["player_owned_planet_count"],
+                    "player_planet_names": artifact_properties["player_planet_names"],
+                    "planets_with_empty_current_action_at_load": artifact_properties["planets_with_empty_current_action_at_load"],
+                },
+            },
+        }
+        if current_artifact_include_retail_fixture:
+            current_artifact["retail_fixture"] = copy.deepcopy(
+                current_artifact_retail_fixture
+                or {
+                    "id": fixtures.CANONICAL_RETAIL_FIXTURE_ID,
+                    "manifest_sha256": fixtures.CANONICAL_RETAIL_FIXTURE_MANIFEST_SHA256,
+                    "verified_files": fixtures.CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES,
+                }
+            )
+        if materialize_current_artifact:
+            current_artifact_path.write_text(
+                json.dumps(current_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            current_artifact_sha = current_artifact_sha_override or fixtures.sha256_file(current_artifact_path)
+            case.addCleanup(current_artifact_path.unlink, missing_ok=True)
+        else:
+            current_artifact_sha = current_artifact_sha_override or ("0" * 64)
         observations = {
             "schema": fixtures.OBSERVATION_BLOCK_SCHEMA,
             "fixture_sha256": observed_fixture_sha256 or fixture_sha256,
             "target_sha256": target_sha256,
             "runtime_properties": properties,
+            "artifact": current_artifact_relative,
+            "artifact_sha256": current_artifact_sha,
         }
         lines.extend(
             [
@@ -88,6 +194,71 @@ def write_synthetic_source(
                 "",
             ]
         )
+    if include_production:
+        harness_relative = "scripts/_synthetic_producer_harness.py"
+        harness_path = Path(fixtures.ROOT) / harness_relative
+        harness_path.write_text("# synthetic producer harness\n", encoding="utf-8")
+        case.addCleanup(harness_path.unlink, missing_ok=True)
+        harness_sha = producer_harness_hash or fixtures.sha256_file(harness_path)
+        harness_snapshot_relative = "docs/experiments/_synthetic_producer_harness.py"
+        harness_snapshot_path = Path(fixtures.ROOT) / harness_snapshot_relative
+        harness_snapshot_path.write_bytes(harness_path.read_bytes())
+        case.addCleanup(harness_snapshot_path.unlink, missing_ok=True)
+        artifact_relative = "docs/experiments/_synthetic_producer_run.json"
+        artifact_path = Path(fixtures.ROOT) / artifact_relative
+        exact_match = target_written_exact_bytes if producer_exact_match is None else producer_exact_match
+        artifact = {
+            "artifact_schema": fixtures.PRODUCTION_RUN_ARTIFACT_SCHEMA,
+            "scenario_contract": fixtures.PRODUCTION_RUN_CONTRACT,
+            "blind_re_provenance": "clean",
+            "evidence_class": "runtime",
+            "status": producer_artifact_status,
+            "target": {"filename": "ANTAG.EXE", "size": fixtures.CANONICAL_TARGET_SIZE, "sha256": target_sha256},
+            "fixture": {"size": entry["size"], "sha256": fixture_sha256, "target_written_exact_bytes": target_written_exact_bytes},
+            "runtime_environment": {
+                "dosbox": {
+                    "filename": "dosbox", "size": 1234, "sha256": "1" * 64,
+                    "version_output": "DOSBox version synthetic",
+                },
+                "configuration": {"cpu_core": "normal", "cycles": "max", "display": "Xvfb"},
+            },
+            "harness": {
+                "source": harness_relative,
+                "source_sha256": harness_sha,
+                "source_snapshot": harness_snapshot_relative,
+            },
+            "execution": {
+                "ordinary_game_method": "synthetic ordinary-game save",
+                "diagnostic_guest_code_writes": False,
+                "diagnostic_guest_data_writes": False,
+                "source_inputs_modified": False,
+                "termination": {
+                    "status": "completed", "save_write_completed": True,
+                    "output_observed_after_save": True,
+                },
+            },
+            "oracle": {
+                "status": "passed" if exact_match else "failed",
+                "exact_byte_match": exact_match, "output_sha256": fixture_sha256,
+                "output_size": entry["size"],
+            },
+        }
+        if materialize_production_artifact:
+            artifact_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            artifact_sha = fixtures.sha256_file(artifact_path)
+            case.addCleanup(artifact_path.unlink, missing_ok=True)
+        else:
+            artifact_sha = "0" * 64
+        production = {
+            "schema": fixtures.PRODUCTION_BLOCK_SCHEMA,
+            "fixture_sha256": fixture_sha256,
+            "target_sha256": target_sha256,
+            "target_written_exact_bytes": target_written_exact_bytes,
+            "method": "synthetic ordinary-game save",
+            "artifact": artifact_relative,
+            "artifact_sha256": artifact_sha,
+        }
+        lines.extend([fixtures.PRODUCTION_BLOCK_MARKER, "```json", json.dumps(production, indent=2), "```", ""])
     path.write_text("\n".join(lines), encoding="utf-8")
     case.addCleanup(path.unlink, missing_ok=True)
     return relative
@@ -117,6 +288,150 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
         entry["runtime_properties"]["source"] = write_synthetic_source(self, entry)
         declared = fixtures.check_declaration(document_with(entry))
         self.assertTrue(declared[0]["_role_status"]["satisfied"])
+
+    def test_current_state_role_requires_detached_runtime_artifact(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, materialize_current_artifact=False
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("runtime observation artifact", status["reason"])
+
+    def test_current_state_artifact_requires_transitive_le_parser_snapshot(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry)
+        artifact_path = Path(fixtures.ROOT) / "docs/experiments/_synthetic_current_state_run.json"
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        artifact["harness_dependencies"].pop("le_image.py")
+        artifact["harness_source_snapshots"].pop("le_image.py")
+        artifact_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        source_path = Path(fixtures.ROOT) / entry["runtime_properties"]["source"]
+        source = source_path.read_text(encoding="utf-8")
+        marker = fixtures.OBSERVATION_BLOCK_MARKER
+        head, tail = source.split(marker, 1)
+        match = re.search(r"```json\n(.*?)\n```", tail, re.S)
+        observations = json.loads(match.group(1))
+        observations["artifact_sha256"] = fixtures.sha256_file(artifact_path)
+        source = head + marker + tail[:match.start(1)] + json.dumps(observations, indent=2) + tail[match.end(1):]
+        source_path.write_text(source, encoding="utf-8")
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("complete T3 harness dependency set", status["reason"])
+
+    def test_current_state_artifact_snapshot_bytes_must_match_pinned_hash(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry)
+        snapshot = Path(fixtures.ROOT) / "docs/experiments/_synthetic_current_harness/run_re4_runtime_state.py"
+        snapshot.write_text("# tampered after artifact creation\n", encoding="utf-8")
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("harness snapshot", status["reason"])
+        self.assertIn("does not match pinned", status["reason"])
+
+    def test_current_state_artifact_hash_is_pinned(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, current_artifact_sha_override="0" * 64
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("does not match pinned", status["reason"])
+
+    def test_current_state_artifact_observation_must_match_declaration(self):
+        entry, _ = multi_planet_fixture()
+        wrong = {
+            "player_race_id": 0,
+            "player_owned_planet_count": 2,
+            "player_planet_names": ["Alpha I", "Beta II"],
+            "planets_with_empty_current_action_at_load": ["Beta II"],
+        }
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, current_artifact_properties=wrong
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("role claim", status["reason"])
+
+    def test_current_state_artifact_must_be_a_passed_run(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, current_artifact_status="failed"
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("passed runtime record", status["reason"])
+
+    def test_current_state_artifact_requires_canonical_retail_fixture_identity(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, current_artifact_include_retail_fixture=False
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("retail fixture identity", status["reason"])
+
+    def test_current_state_artifact_retail_fixture_identity_must_match(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self,
+            entry,
+            current_artifact_retail_fixture={
+                "id": fixtures.CANONICAL_RETAIL_FIXTURE_ID,
+                "manifest_sha256": "0" * 64,
+                "verified_files": fixtures.CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES,
+            },
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("canonical runtime fixture", status["reason"])
+
+    def test_committed_multi_planet_fixture_stays_unusable_with_reported_producer(self):
+        declared = fixtures.check_declaration(copy.deepcopy(DECLARATION))
+        entry = next(item for item in declared if item["id"] == "resume-en-operator-multi-planet-2026-08-14")
+        self.assertFalse(entry["_role_status"]["satisfied"])
+        self.assertIn("producer provenance is 'reported'", entry["_role_status"]["reason"])
+
+    def test_runtime_producer_evidence_requires_exact_byte_proof(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry, target_written_exact_bytes=False)
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("target_written_exact_bytes=true", status["reason"])
+
+    def test_runtime_producer_evidence_without_production_block_fails_closed(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(self, entry, include_production=False)
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("structured production evidence", status["reason"])
+
+    def test_producer_promotion_requires_detached_run_artifact(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, materialize_production_artifact=False
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("run artifact", status["reason"])
+
+    def test_producer_run_artifact_requires_exact_byte_oracle(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, producer_exact_match=False
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("exact-byte oracle", status["reason"])
+
+    def test_producer_run_artifact_binds_preserved_harness_source(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, producer_harness_hash="0" * 64
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("source_snapshot SHA-256", status["reason"])
 
     def test_source_outside_experiments_does_not_satisfy_a_role(self):
         entry, _ = multi_planet_fixture()

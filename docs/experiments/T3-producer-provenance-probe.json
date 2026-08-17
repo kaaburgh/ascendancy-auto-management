@@ -1,0 +1,100 @@
+{
+  "artifact_schema": "ascendancy.t3-producer-provenance-probe/v1",
+  "blind_re_provenance": "clean",
+  "evidence_class": "runtime",
+  "harness": {
+    "kind": "operator-one-shot-x11-ui-probe",
+    "limitation": "The one-shot source script was not retained; this artifact preserves identities, procedure, termination, and oracle outputs. Positive producer promotion requires a committed hash-verified harness artifact and cannot use this negative record.",
+    "replay_contract": [
+      "isolate verified retail tree",
+      "remove resume.gam and numbered saves",
+      "install exact operator 02.SAV as slot 2",
+      "start canonical ANTAG.EXE under pinned DOSBox/Xvfb",
+      "load slot 2 through ordinary Load Game UI",
+      "verify load alone does not create resume.gam",
+      "save through ordinary Save Game UI into empty slot 1",
+      "hash 01.SAV and compare byte-for-byte with operator 02.SAV and resume.gam"
+    ],
+    "source_retained_at_execution": false
+  },
+  "oracle": {
+    "comparisons": {
+      "02_vs_resume_control": {
+        "different_bytes": 15,
+        "last_difference_at_or_before": "0x72",
+        "suffix_from_0x73_identical": true
+      },
+      "output_vs_02": {
+        "different_bytes": 942,
+        "first_difference_offset": "0x20",
+        "last_difference_offset": "0x1ef38",
+        "suffix_from_0x73_identical": false
+      },
+      "output_vs_resume": {
+        "different_bytes": 953,
+        "first_difference_offset": "0x20",
+        "last_difference_offset": "0x1ef38",
+        "suffix_from_0x73_identical": false
+      }
+    },
+    "exact_operator_resume_reproduced": false,
+    "target_written_output": {
+      "filename": "01.SAV",
+      "sha256": "6b2eaaa6fa1198b49d8749d3c5457e5938723527d02f0cc9e63f5e84ff608bee",
+      "size": 133721
+    }
+  },
+  "roadmap_item": "T3",
+  "runtime_environment": {
+    "display": {
+      "backend": "Xvfb",
+      "screen": "1024x768x24"
+    },
+    "dosbox": {
+      "filename": "dosbox",
+      "sha256": "48ca305e0fc428de991c4bf0651ef127e9ad6a0d2eac40e228ee767ea4b1957a",
+      "size": 176,
+      "version_output": "DOSBox version 0.74-3"
+    },
+    "dosbox_config": {
+      "cpu_core": "normal",
+      "cycles": "max",
+      "sdl_audio_driver": "dummy",
+      "sdl_fullscreen": false
+    },
+    "input": {
+      "mechanism": "XTEST"
+    }
+  },
+  "scenario": {
+    "comparison_resume": {
+      "filename": "resume.gam",
+      "sha256": "d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1",
+      "size": 133721
+    },
+    "diagnostic_guest_code_writes": false,
+    "diagnostic_guest_data_writes": false,
+    "initial_save": {
+      "filename": "02.SAV",
+      "sha256": "c56d4843c171dbed5c977434037690cdfed5039ca99f80c4f0ac6f87bff47066",
+      "size": 133721
+    },
+    "ordinary_game_method": "Load Game slot 2, then Save Game to empty slot 1",
+    "slot_loaded": 2,
+    "slot_saved": 1,
+    "source_inputs_modified": false
+  },
+  "status": "negative",
+  "target": {
+    "filename": "ANTAG.EXE",
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+    "size": 610863
+  },
+  "termination": {
+    "load_completed": true,
+    "ordinary_save_completed": true,
+    "output_file_observed_after_save": true,
+    "probe_completed_before_runtime_teardown": true,
+    "resume_materialized_by_load": false
+  }
+}

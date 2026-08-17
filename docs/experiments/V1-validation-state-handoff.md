@@ -12,7 +12,7 @@ The maintainer created a small ordinary-game state intended to remove V1's need 
 
 The supplied pair is kept as **operator-supplied** input for this handoff. That is a supported storage mode under the current T3 fixture contract in [`../re/validation-fixtures.md`](../re/validation-fixtures.md); this document does **not** claim that repository policy generally forbids committing maintainer-owned saves. Their exact identities and pair relationship are pinned in [`../../tools/v1-validation-state-manifest.json`](../../tools/v1-validation-state-manifest.json).
 
-T3 remains the owner of whether a save satisfies role `m1-multi-planet`. The `resume.gam` candidate is now declared as `resume-en-operator-multi-planet-2026-08-14` in [`../../tools/validation-fixtures.json`](../../tools/validation-fixtures.json) with `evidence: unverified`. That declaration records the reported candidate properties without making them usable runtime evidence; T3 must still verify and promote it before V1 or another consumer may treat the role as satisfied.
+T3 remains the owner of whether a save satisfies role `m1-multi-planet`. The `resume.gam` candidate is declared as `resume-en-operator-multi-planet-2026-08-14` in [`../../tools/validation-fixtures.json`](../../tools/validation-fixtures.json). T3 subsequently runtime-qualified these exact bytes on the canonical target and promoted the same stable fixture id to `evidence: runtime`; see [`T3-multi-planet-save-fixture.md`](./T3-multi-planet-save-fixture.md). This handoff remains the provenance/static-identity record and does not retroactively become runtime evidence.
 
 ## Operator-supplied files
 
@@ -37,7 +37,7 @@ The maintainer supplied a screenshot of the ordinary Planets overview showing:
 
 The maintainer reported creating the state through ordinary play on the canonical Antagonizer, without cheats, save editing, or guest-memory modification.
 
-These are **reported** facts until reproduced by a project runtime experiment. In particular, `No Project` must not be silently equated with the internal empty-action field until T3/V1 or a bounded predecessor verifies it on this exact save. The T3 declaration therefore leaves `planets_with_empty_current_action_at_load` empty while the candidate is unverified.
+These visible/provenance statements remain **reported** facts in this handoff. T3 later reproduced the role-critical internal state on this exact `resume.gam`: current player id `0`, three player-owned planets with the listed names, and all three with `+0x52 == 0xffff` / `+0x54 == 0xff`. That runtime result is recorded separately in [`T3-multi-planet-save-fixture.md`](./T3-multi-planet-save-fixture.md); this document does not convert the screenshot itself into runtime evidence.
 
 ## Storage decision for this handoff
 
@@ -62,20 +62,13 @@ Expected identity-only result from the pair verifier:
 
 ```text
 V1 operator validation-state identity: PASS (2 files; suffix identical from 0x73)
-Runtime game-state verification is still required by V1.
+T3 current-state runtime qualification is complete; exact-byte canonical-target producer provenance remains open, so V1 is still blocked.
 ```
 
-The generic fixture validator should verify the supplied `resume.gam` payload identity while still reporting role `m1-multi-planet` as unusable because its evidence is `unverified`. Identity verification does not satisfy T3's role; a named runtime experiment and promotion remain required.
+The generic fixture validator should verify the supplied `resume.gam` payload identity **but report role `m1-multi-planet` as unusable** while `producer_provenance.evidence` remains `reported`. T3 has promoted only the structured current-state observations. The role becomes usable only after a positive runtime producer experiment is backed by the hash-bound detached producer artifact required by the fixture contract (or after a separately target-written fixture is qualified). Payload identity verification is still required whenever the operator supplies the bytes; it does not replace either producer provenance or V1 end-to-end validation.
 
-## Runtime checks still required
+## Runtime checks after the T3 handoff
 
-Before V1 relies on this state, the runtime harness must still establish at least:
+T3 now establishes the **current-state** fixture facts on the exact candidate: canonical-target load, current player id, three distinct player-owned planets with unique names, and empty internal current-action state on all three. Its established UI path also reached the ordinary Planets view without a blocking modal during the bounded qualification runs. These facts do not establish that canonical `ANTAG.EXE` wrote the exact operator bytes; that producer-provenance prerequisite remains open.
 
-1. the save loads under canonical `ANTAG.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`;
-2. the player/race identity required by the V1 scenario;
-3. at least two distinct player-owned planets, with unique names;
-4. at least one player-owned planet whose **internal** current-action state is empty;
-5. a stable scripted start without a blocking modal;
-6. any additional UI2-specific selector/oracle prerequisites needed by the final V1 action file.
-
-If the candidate fails one of those runtime checks, preserve the failure and either choose the companion file or produce a new operator save; do not weaken T3/V1 acceptance criteria.
+V1 still owns the later feature-specific checks once its implementation dependencies are ready: the final UI2 selector/oracles, simultaneous Agricultural/Industrial identities on different planets, turn persistence, restoration to Manual, preserved automated behavior, and mod rollback. T3 current-state qualification must not be read as T3 completion or as evidence for those not-yet-executed behaviors.

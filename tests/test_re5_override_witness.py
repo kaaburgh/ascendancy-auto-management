@@ -66,6 +66,14 @@ def _synthetic_gate_target(target_offset=0x10D00, target_object=2):
 
 
 class RE5OverrideWitnessTests(unittest.TestCase):
+    def test_scenario_identity_records_nondefault_planet(self):
+        self.assertEqual(
+            witness.scenario_identity("Corpuscle II"),
+            {"selected_planet_name": "Corpuscle II"},
+        )
+        with self.assertRaisesRegex(witness.OverrideWitnessError, "non-empty"):
+            witness.scenario_identity("")
+
     def test_uniform_bias_is_derived_from_all_signatures(self):
         anchor_offset = 100
         observations = [

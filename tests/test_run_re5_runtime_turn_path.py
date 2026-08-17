@@ -34,6 +34,14 @@ class RE5RuntimeTests(unittest.TestCase):
         with self.assertRaises(re5.RE5Error):
             re5.find_named_planet_record(bytes(blob))
 
+    def test_named_planet_record_accepts_parameterized_player_planet(self):
+        blob = bytearray(0x300)
+        base = 0x100
+        name = b"Corpuscle II\0"
+        blob[base + re5.re4.NAME_OFFSET:base + re5.re4.NAME_OFFSET + len(name)] = name
+        blob[base + re5.OWNER_OFFSET] = 0
+        self.assertEqual(re5.find_named_planet_record(bytes(blob), "Corpuscle II"), base)
+
     def test_static_va_translation_is_anchor_relative_and_bounded(self):
         anchor = {"map_start": 0x100000, "map_end": 0x200000, "anchor_offset": 0x50000}
         expected = 0x100000 + 0x50000 + (re5.POLICY_CALL_VA - re5.ANCHOR_VA)
@@ -172,7 +180,7 @@ class RE5RuntimeTests(unittest.TestCase):
                     "target": target,
                     "fixture": fixture,
                     "window_seconds": 7.0,
-                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": trace}],
+                    "scenarios": [{"name": spec.name, "status": "passed", "planet": "Xerxes I", "turn_trace": trace}],
                 }
                 re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
             aggregate = re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
@@ -193,10 +201,44 @@ class RE5RuntimeTests(unittest.TestCase):
                     "target": target,
                     "fixture": fixture if spec.name != "manual-control" else {"id": "wrong"},
                     "window_seconds": 7.0,
-                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": self._trace()}],
+                    "scenarios": [{"name": spec.name, "status": "passed", "planet": "Xerxes I", "turn_trace": self._trace()}],
                 }
                 re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
             with self.assertRaises(re5.RE5Error):
+                re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
+
+    def test_focused_aggregation_rejects_mixed_planet_identity(self):
+        target = {"filename": "ANTAG.EXE", "size": 610863, "sha256": re5.re4.TARGET_SHA256}
+        fixture = {"id": "fixture", "resume": {"sha256": re5.RESUME_SHA256}}
+        with tempfile.TemporaryDirectory() as td:
+            artifacts = Path(td)
+            for spec in re5.SCENARIOS:
+                if spec.name in {"manual-control", "manual-gate-probe"}:
+                    trace = self._trace(None, None, state="00000000")
+                elif spec.name == "managed-gate-probe":
+                    trace = self._trace(None, 65.0, final_action="7e")
+                elif spec.name == "managed-control":
+                    trace = self._trace(4000.0, 4010.0, final_action="00")
+                elif spec.name == "managed-policy-suppressed":
+                    trace = self._trace(None, None)
+                else:
+                    trace = self._trace(4800.0, None)
+                record = {
+                    "schema": re5.RESULT_SCHEMA,
+                    "experiment_contract": re5.EXPERIMENT_CONTRACT,
+                    "status": "passed",
+                    "target": target,
+                    "fixture": fixture,
+                    "window_seconds": 7.0,
+                    "scenarios": [{
+                        "name": spec.name,
+                        "status": "passed",
+                        "planet": "Corpuscle II" if spec.name == "managed-control" else "Xerxes I",
+                        "turn_trace": trace,
+                    }],
+                }
+                re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
+            with self.assertRaisesRegex(re5.RE5Error, "planet identity mismatch"):
                 re5.aggregate_focused_results(artifacts, {"target": target, "fixture": fixture})
 
     def test_focused_aggregation_rejects_stale_experiment_contract(self):
@@ -215,7 +257,7 @@ class RE5RuntimeTests(unittest.TestCase):
                     "target": target,
                     "fixture": fixture,
                     "window_seconds": 7.0,
-                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": self._trace()}],
+                    "scenarios": [{"name": spec.name, "status": "passed", "planet": "Xerxes I", "turn_trace": self._trace()}],
                 }
                 re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
             with self.assertRaisesRegex(re5.RE5Error, "experiment contract mismatch"):
@@ -244,7 +286,7 @@ class RE5RuntimeTests(unittest.TestCase):
                     "target": target,
                     "fixture": fixture,
                     "window_seconds": 7.0,
-                    "scenarios": [{"name": spec.name, "status": "passed", "turn_trace": trace}],
+                    "scenarios": [{"name": spec.name, "status": "passed", "planet": "Xerxes I", "turn_trace": trace}],
                 }
                 re5.focused_result_path(artifacts, spec.name).write_text(json.dumps(record), encoding="utf-8")
             with self.assertRaisesRegex(re5.RE5Error, "current-oracle validation failed"):

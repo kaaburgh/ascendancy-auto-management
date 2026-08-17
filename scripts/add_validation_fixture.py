@@ -250,6 +250,27 @@ def main(argv: list[str] | None = None) -> int:
         fixtures = validator.check_declaration(json.loads(json.dumps(document)))
         status = next(item for item in fixtures if item["id"] == entry["id"])["_role_status"]
 
+        # The two evidence axes are intentionally independent. A valid runtime
+        # current-state promotion may be persisted while producer provenance is
+        # still reported/unverified, but invalid evidence on either axis must
+        # still fail closed rather than being mistaken for an unfinished axis.
+        if args.evidence == "runtime":
+            role_requirements = document["role_requirements"].get(entry["role"], {})
+            require_artifact = role_requirements.get(
+                validator.CURRENT_STATE_ARTIFACT_REQUIREMENT_KEY, False
+            )
+            current_state_problem = validator.check_source_record(
+                args.verified_by, entry, require_artifact=require_artifact
+            )
+            if current_state_problem:
+                raise validator.FixtureDeclarationError(current_state_problem)
+        if args.producer_evidence == "runtime":
+            producer_problem = validator.check_production_source_record(
+                args.producer_verified_by, entry
+            )
+            if producer_problem:
+                raise validator.FixtureDeclarationError(producer_problem)
+
         if not args.dry_run:
             created = place_payload(save, destination)
             try:

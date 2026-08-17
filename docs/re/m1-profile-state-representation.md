@@ -10,7 +10,7 @@ The target-specific state facts below are inherited only from the supported evid
 
 A1 has one architecture direction selected but is **not complete yet**.
 
-For M1, keep the game's confirmed `planet_record+0x5a` dword in its original two-state domain and store the extra profile identity in mod-owned, current-session sidecar state. This settles the representation split, but current repository evidence does not yet establish a reuse-safe runtime key/epoch for the sidecar. A1 therefore remains investigatory until that identity/lifetime question is closed with supported evidence.
+For M1, keep the game's confirmed `planet_record+0x5a` dword in its original two-state domain and store the extra profile identity in mod-owned, current-session sidecar state. This settles the representation split, but current repository evidence does not yet establish a reuse-safe runtime key/epoch for the sidecar or a lossless invalidation boundary for original Manual transitions. A1 therefore remains investigatory until those identity/lifetime questions are closed with supported evidence.
 
 The game field remains a profile compatibility mirror:
 
@@ -96,7 +96,7 @@ anything else       -> invalid/unsupported profile state; fail closed
 
 `Agricultural` is the compatibility default for an already-Managed planet because M1 gives Agricultural and Industrial the same existing game behavior. This preserves the pre-mod Managed intent without pretending that an old Managed state historically carried either new profile identity.
 
-Once the player explicitly selects Industrial, valid sidecar state retains that identity while the game field remains `0xffffffff`.
+Once the player explicitly selects Industrial, valid sidecar state retains that identity while the game field remains `0xffffffff` **only while the sidecar lifecycle contract guarantees that no intervening transition to Manual can be missed**. Sampling the mirror only when a profile lookup happens is not sufficient: the original M path can perform `0xffffffff -> 0 -> 0xffffffff` between lookups, which would otherwise resurrect stale Industrial state.
 
 The implementation must not silently coerce an unexpected third value of `+0x5a` into either automated profile. Encountering such a value is evidence that an assumption changed or the state is corrupt; the feature must refuse the profile operation for that record rather than widening the accepted target state.
 
@@ -108,20 +108,25 @@ For any future valid sidecar entry:
 
 1. `Manual` implies the compatibility mirror is `0x00000000`.
 2. `Agricultural` and `Industrial` both imply the compatibility mirror is `0xffffffff`.
-3. Observing a zero compatibility mirror resolves the mod profile as Manual **and invalidates any automated sidecar identity for that logical record**. This covers an original/unmediated M-path transition that the mod did not perform.
-4. After such invalidation, a later observed `0xffffffff` mirror with no new valid sidecar selection resolves as Agricultural; an old Industrial identity must not resurrect merely because the original game toggled the mirror back to Managed.
+3. **Every transition** of the compatibility mirror to `0x00000000`, including an original/unmediated M-path write, must invalidate any automated sidecar identity for that logical record before a later Managed state can reuse it. A lookup that merely observes the mirror after it has already returned to `0xffffffff` cannot satisfy this invariant.
+4. After such invalidation, a later `0xffffffff` mirror with no new valid sidecar selection resolves as Agricultural; an old Industrial identity must not resurrect merely because the original game toggled the mirror back to Managed.
 5. A Managed mirror with no valid sidecar entry resolves as Agricultural.
 6. No lookup may return a profile for a different logical planet because a pointer, hypothetical index, or presentation name was reused.
 7. Mod-mediated profile changes update sidecar identity and the compatibility mirror as one logical transition; observers must not treat a partially updated pair as stable state.
 8. The sidecar does not replace, bypass, or reinterpret the established target owner/override conditions or downstream automatic policy/action path.
 
-These rules deliberately do not require A2 to intercept every original `+0x5a` write merely to keep sidecar state coherent: observing Manual is sufficient to invalidate stale automated identity and fail back to the compatibility default on a later unmanaged-to-Managed round trip.
+A1 therefore requires a **lossless Manual-transition invalidation boundary** in addition to a reuse-safe planet identity. This does not preselect A2's patch/integration mechanism: a future mechanism may intercept the original zero write, observe an equivalent target event that cannot miss the transition, or rely on independently established evidence that such an unobserved transition cannot occur. Until one of those is demonstrated, retaining an Industrial sidecar entry across arbitrary original-game activity is not a valid A1 contract.
 
 ## Lifecycle requirement still to close
 
 The sidecar is intended to exist only for the running game session. M1 deliberately does not require persistence of Agricultural/Industrial identity into the save format.
 
-However, "current session" is not itself an evidence-backed invalidation rule. **A1 itself** still owns the concrete observable boundary or immutable/reuse-detecting identity that tells the implementation when entries cease to belong to the same logical planets. Until that is established, A2/UI2 must not invent a convenient reset heuristic and A1 must remain open/investigatory.
+However, "current session" is not itself an evidence-backed invalidation rule. **A1 itself** still owns both concrete lifecycle boundaries needed before the sidecar direction is complete:
+
+- an observable epoch/reset or immutable/reuse-detecting identity that tells the implementation when an entry ceases to belong to the same logical planet; and
+- a lossless Manual-transition invalidation boundary that guarantees an original `+0x5a -> 0` transition cannot occur and return to Managed without invalidating stale automated identity.
+
+Until both are established, A2/UI2 must not invent a convenient reset heuristic or assume periodic mirror sampling is sufficient, and A1 must remain open/investigatory.
 
 A later persistence design may serialize only the mod-owned profile identity while retaining this same binary compatibility mirror, provided it has its own versioning and identity contract.
 
@@ -145,13 +150,13 @@ Not accepted yet. A raw pointer remains only a candidate until A1 establishes an
 
 ## Consequences for downstream work
 
-- **A1** owns the remaining bounded runtime/static identity-lifetime investigation. It must leave a concrete reuse-safe key/epoch contract (and any required indexing evidence) or reconsider the sidecar direction before A1 can complete.
-- **A2** may evaluate mechanisms that can hold bounded session-local sidecar state, but must not treat raw pointer stability, a slot index, or an inferred array base/count as established A1 facts.
+- **A1** owns the remaining bounded runtime/static identity-lifetime investigation. It must leave both a concrete reuse-safe key/epoch contract (and any required indexing evidence) and a lossless Manual-transition invalidation contract, or reconsider the sidecar direction before A1 can complete.
+- **A2** may evaluate mechanisms that can hold bounded session-local sidecar state, but must not treat raw pointer stability, a slot index, an inferred array base/count, or periodic mirror sampling as established A1 facts. Any chosen mechanism must be capable of satisfying A1's eventual lossless Manual-transition invalidation contract without widening target semantics.
 - **UI1** may reason about the three user-visible states, but implementation remains dependent on completed A1 and A2.
-- **UI2** will own the tested state-machine/lookup implementation only after A1 supplies the key/lifecycle contract. Its synthetic coverage must include mode mapping, independent planets, invalid sidecar entries, invalid `+0x5a` values, original/unmediated Manual↔Managed mirror transitions, identity reuse/invalidation, session reset, and the owner/override qualification where relevant.
+- **UI2** will own the tested state-machine/lookup implementation only after A1 supplies the key/lifecycle contract. Its synthetic coverage must include mode mapping, independent planets, invalid sidecar entries, invalid `+0x5a` values, original/unmediated Manual↔Managed mirror transitions including a complete `Managed -> Manual -> Managed` round trip between ordinary lookups, identity reuse/invalidation, session reset, and the owner/override qualification where relevant.
 - **P1/P2** do not need to teach the original AI about Agricultural versus Industrial; they must preserve the original Managed path and known owner/override behavior.
-- **V1** must verify two different player-owned planets retain different profile identities during the intended running-session window, both automated profiles preserve existing self-management behavior, Manual restores the ordinary field value and invalidates stale automated identity, and the observed scenario remains compatible with the established override assumptions.
+- **V1** must verify two different player-owned planets retain different profile identities during the intended running-session window, both automated profiles preserve existing self-management behavior, every Manual transition invalidates stale automated identity before any later Managed reuse, and the observed scenario remains compatible with the established override assumptions.
 
 ## Decision boundary
 
-This A1 slice selects the two-layer representation: original binary compatibility mirror plus mod-owned profile identity. It deliberately does **not** claim A1 completion until the sidecar's reuse-safe identity/lifetime rule is evidenced. It also does not choose the patch/loader mechanism, memory-allocation technique, selector UI, save-persistence format, or differentiated policy logic.
+This A1 slice selects the two-layer representation: original binary compatibility mirror plus mod-owned profile identity. It deliberately does **not** claim A1 completion until the sidecar's reuse-safe identity/lifetime rule and lossless Manual-transition invalidation boundary are evidenced. It also does not choose the patch/loader mechanism, memory-allocation technique, selector UI, save-persistence format, or differentiated policy logic.

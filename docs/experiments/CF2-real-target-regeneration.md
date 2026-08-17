@@ -2,7 +2,7 @@
 
 - Date: 2026-08-11
 - Scope: PR #4, post-`page_off @ +0x80` regeneration and review hardening
-- Evidence: **real-target static** against all four CF1 hash-pinned executables; **clean-checkout CI** for repository-level reproduction
+- Evidence: **real-target static** against all four CF1 hash-pinned executables; **clean-checkout GitHub Actions regression** for repository-level reproduction
 - Disassembler: GNU objdump, `-D -b binary -m i386 -M intel --adjust-vma=<object-base>`
 - Analysis model: current PR `le_image.py` reconstruction semantics + current `le_disasm.py` / `le_diff.py` algorithms
 - Validation: GitHub Actions run `31534837880`, PR head `67631baa78aada001103b58659364c8908e538db`, merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`
@@ -211,7 +211,7 @@ The gate passed in GitHub Actions run `31534837880` for PR head `67631baa78aada0
 - `Unit tests`: **205 tests**, `OK`.
 - `CF2 real-target regression`: all four pinned executables fetched and verified; repository `le_disasm.py` regenerated all four inventories; repository `le_diff.py` ran both product and both locale comparisons; final line `CF2 real-target regression: PASS`.
 
-This clean-checkout workflow is the authoritative repository-level validation that closes the gap between the earlier connector-read reproduction and the actual checked-out implementation. Future changes to the CF2 pipeline must continue to satisfy it.
+This clean-checkout regression remains the authoritative repository-level validation that closes the gap between connector-read reproduction and the checked-out implementation. It is now exposed only through manual `workflow_dispatch` in `.github/workflows/cf2-re1-real-target.yml`, because target acquisition depends on `archive.org` and remote availability must not gate pull requests or pushes. Changes to CF2 parser/disassembly/diff semantics should run the manual CF2 suite before treating the pipeline as real-target validated.
 
 Local focused regression while implementing the review fix was 77 `le_disasm` / `le_diff` tests, including explicit in-image call-retarget visibility and fail-closed stale-inventory cases; the later Actions run above is the authoritative full-suite and real-target result.
 

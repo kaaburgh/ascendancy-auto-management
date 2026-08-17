@@ -14,7 +14,9 @@ The producer is [`../../scripts/generate_a2_capacity_inventory.py`](../../script
 
 ## Evidence boundary
 
-The default CLI is pinned to canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` and refuses any other input before target-specific inventory generation.
+The CLI is pinned to canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` and exposes no command-line override for that identity. It refuses any other input before target-specific inventory generation. The reusable internal `build_inventory()` API still accepts an expected hash so synthetic fixtures can exercise the producer without weakening the operator-facing gate.
+
+When `--output` is used, the producer resolves both paths and fails closed if the destination aliases the immutable target executable. Inventory output must remain a separate derived artifact rather than replacing the operator-supplied evidence input.
 
 For each mapped LE object the JSON output records object range, flags, page mapping metadata, and every contiguous zero run at or above the configured threshold. Each zero run is labeled `candidate-zero-capacity-only`, with `reusable: false` and `reuse_evidence: not established` regardless of whether the linear sweep finds an incoming direct branch/call.
 
@@ -35,6 +37,8 @@ Absence of a direct reference is explicitly **not** evidence that a candidate is
 - thresholded and trailing zero-run detection;
 - direct call/branch extraction without treating ordinary immediates as control flow;
 - fail-closed target SHA mismatch before disassembly;
+- the absence of a CLI override for canonical target identity;
+- fail-closed rejection when `--output` aliases the immutable target input;
 - fail-closed durable-seam mapping for a noncanonical synthetic fixture;
 - the distinction between file-backed bytes and virtual zero-filled object tail.
 

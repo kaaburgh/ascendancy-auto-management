@@ -1,0 +1,21 @@
+name: RE2 static seam
+
+on:
+  # Exact-target acquisition is intentionally manual: archive.org availability
+  # must not gate pull requests or pushes. This workflow preserves a repo-backed
+  # clean-checkout regression path for deliberate scanner/parser validation.
+  workflow_dispatch:
+
+jobs:
+  re2-real-target:
+    name: RE2 real-target UI/state seam
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch and verify pinned comparison targets
+        run: python tools/fetch_free_targets.py
+      - name: Regenerate fail-closed RE2 static seam
+        run: python scripts/generate_re2_ui_state_map.py --binaries binaries

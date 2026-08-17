@@ -11,6 +11,10 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+# Automatic CI intentionally avoids standalone external-artifact availability
+# checks and real-target regressions that require live archive.org downloads.
+# The repository acquisition/verification tools remain available for explicit
+# local or operator-driven reproduction with pinned inputs.
 jobs:
   unit:
     name: Unit tests
@@ -30,57 +34,6 @@ jobs:
       # The suite must stay network-free: download paths are exercised against
       # synthetic file:// fixtures, and LE parsing against synthetic images.
       - run: python -m unittest discover -s tests -v
-
-  cf2-real-target:
-    name: CF2 real-target regression
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Check binutils is available
-        run: objdump --version
-      # This is intentionally separate from the network-free unit suite. The
-      # four publisher-distributed executables are fetched through the CF1
-      # fail-closed manifest, hash-verified, kept under git-ignored binaries/,
-      # and then analysed by the repository CLIs from this exact checkout.
-      - name: Validate corrected CF2 pipeline on pinned targets
-        run: python scripts/validate_cf2_real_targets.py --fetch
-
-  re1-real-target:
-    name: RE1 real-target differential map
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Check binutils is available
-        run: objdump --version
-      # RE1 is an analysis-tool change and exact target bytes are lawfully
-      # fetchable in cloud. Exercise the repository command on a clean checkout
-      # rather than accepting only synthetic pairing tests.
-      - name: Fetch and verify pinned comparison targets
-        run: python tools/fetch_free_targets.py
-      - name: Generate RE1 differential map on pinned targets
-        run: python scripts/generate_re1_diff_map.py --binaries binaries
-
-  cf3-demo-acquisition:
-    name: CF3 demo acquisition
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      # Keep live redistribution-source validation out of the deterministic
-      # unit suite. The fetcher is fail-closed on the complete archive and all
-      # extracted member hashes and writes only under git-ignored game/.
-      - name: Fetch and verify pinned playable demo
-        run: |
-          python tools/fetch_demo.py --dest game/demo
-          python tools/fetch_demo.py --verify --dest game/demo
 
   cf3-debugger:
     name: CF3 debugger capability

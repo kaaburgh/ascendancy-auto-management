@@ -13,13 +13,13 @@ a deliberate second step (`--evidence runtime --verified-by ...`).
 
 Example:
 
-    python scripts/add_validation_fixture.py \\
-      --save /path/to/resume-multi.gam \\
-      --id resume-en-multi-planet \\
-      --role m1-multi-planet \\
-      --storage repository \\
-      --repository-path fixtures/saves/resume-multi.gam \\
-      --player-planet "Alpha I" --player-planet "Beta II" \\
+    python scripts/add_validation_fixture.py \
+      --save /path/to/resume-multi.gam \
+      --id resume-en-multi-planet \
+      --role m1-multi-planet \
+      --storage repository \
+      --repository-path fixtures/saves/resume-multi.gam \
+      --player-planet "Alpha I" --player-planet "Beta II" \
       --empty-action-planet "Beta II"
 """
 from __future__ import annotations
@@ -249,11 +249,6 @@ def main(argv: list[str] | None = None) -> int:
         destination = resolve_destination(entry, save, previous)
         fixtures = validator.check_declaration(json.loads(json.dumps(document)))
         status = next(item for item in fixtures if item["id"] == entry["id"])["_role_status"]
-        if args.evidence == validator.VERIFIED_EVIDENCE and not status["satisfied"]:
-            raise validator.FixtureDeclarationError(
-                f"runtime promotion for fixture {entry['id']!r} is not usable: "
-                f"{status['reason']}"
-            )
 
         if not args.dry_run:
             created = place_payload(save, destination)

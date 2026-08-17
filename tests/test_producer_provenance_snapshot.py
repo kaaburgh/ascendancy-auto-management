@@ -52,6 +52,11 @@ class ProducerProvenanceSnapshotTests(unittest.TestCase):
                 "size": fixtures.CANONICAL_TARGET_SIZE,
                 "sha256": fixtures.CANONICAL_TARGET_SHA256,
             },
+            "retail_fixture": {
+                "id": fixtures.CANONICAL_RETAIL_FIXTURE_ID,
+                "manifest_sha256": fixtures.CANONICAL_RETAIL_FIXTURE_MANIFEST_SHA256,
+                "verified_files": fixtures.CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES,
+            },
             "fixture": {
                 "size": self.fixture["size"],
                 "sha256": self.fixture["sha256"],

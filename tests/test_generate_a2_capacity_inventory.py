@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import pathlib
 import sys
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -45,6 +46,30 @@ class TestControlFlowReferences(unittest.TestCase):
             ],
             capacity.direct_control_flow_references(instructions),
         )
+
+
+class TestCliSafety(unittest.TestCase):
+    def test_cli_cannot_override_canonical_target_hash(self) -> None:
+        with self.assertRaises(SystemExit) as caught:
+            capacity.parse_args(
+                ["target.le", "--expected-sha256", "0" * 64]
+            )
+        self.assertEqual(2, caught.exception.code)
+
+    def test_output_cannot_alias_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = pathlib.Path(temp_dir) / "ANTAG_EN.EXE"
+            target.write_bytes(b"immutable target bytes")
+            with self.assertRaises(capacity.CapacityInventoryError) as caught:
+                capacity.validate_output_path(target, target)
+        self.assertIn("aliases immutable target input", str(caught.exception))
+
+    def test_separate_output_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            target = root / "ANTAG_EN.EXE"
+            target.write_bytes(b"immutable target bytes")
+            capacity.validate_output_path(target, root / "artifacts" / "inventory.json")
 
 
 class TestInventoryBoundary(unittest.TestCase):

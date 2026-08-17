@@ -1,0 +1,51 @@
+# A2 Stage 1 — mapped-capacity inventory tooling
+
+Date: 2026-08-17  
+Roadmap item: A2  
+Issue: #30  
+Blind-RE provenance: **clean**  
+Evidence class in this slice: **synthetic/tooling** only.
+
+## Scope
+
+This slice implements the Stage 1 inventory producer defined by [`A2-patch-mechanism-decision.md`](./A2-patch-mechanism-decision.md). It does **not** yet claim that Stage 1 has established reusable capacity on the canonical target and it does not select patch family A, B, or C.
+
+The producer is [`../../scripts/generate_a2_capacity_inventory.py`](../../scripts/generate_a2_capacity_inventory.py). It consumes an LE executable through the existing `le_image` parser and uses the existing `le_disasm` linear-sweep model for direct control-flow observations.
+
+## Evidence boundary
+
+The default CLI is pinned to canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` and refuses any other input before target-specific inventory generation.
+
+For each mapped LE object the JSON output records object range, flags, page mapping metadata, and every contiguous zero run at or above the configured threshold. Each zero run is labeled `candidate-zero-capacity-only`, with `reusable: false` and `reuse_evidence: not established` regardless of whether the linear sweep finds an incoming direct branch/call.
+
+The producer also records:
+
+- file-backed spans without assuming that LE virtual pages are physically contiguous;
+- whether the complete candidate range is file-backed;
+- incoming direct `call`/branch targets from GNU `objdump` linear sweep for executable objects;
+- the durable M1 UI/automation seams already established in `docs/re/auto-management-ui-state.md` and `docs/re/auto-management-turn-path.md`;
+- target, producer, parser-layout and disassembler provenance.
+
+Absence of a direct reference is explicitly **not** evidence that a candidate is semantically unused. Indirect references, embedded data, runtime-computed control flow and unobserved consumers remain possible. This tool is therefore a capacity *inventory*, not a code-cave classifier.
+
+## Synthetic validation
+
+`tests/test_generate_a2_capacity_inventory.py` covers:
+
+- thresholded and trailing zero-run detection;
+- direct call/branch extraction without treating ordinary immediates as control flow;
+- fail-closed target SHA mismatch before disassembly;
+- fail-closed durable-seam mapping for a noncanonical synthetic fixture;
+- the distinction between file-backed bytes and virtual zero-filled object tail.
+
+These tests establish producer behavior only. They do not establish canonical-target capacity.
+
+## Next experiment
+
+Run the producer against the verified canonical executable and preserve a compact summary of the resulting candidate classes/counts and the largest fully file-backed ranges. Then review any apparently useful ranges against independent structural/runtime evidence before declaring even one byte reusable.
+
+If no sufficiently defensible existing mapped capacity is established, proceed to A2 Stage 2's target-neutral LE-growth control. Do not select the existing-mapped-byte mechanism merely because the inventory contains large zero runs.
+
+## Status impact
+
+A2 remains `Investigation first`. P1 remains blocked on A2. This slice only makes the already-defined Stage 1 exact-target experiment reproducible and reviewable.

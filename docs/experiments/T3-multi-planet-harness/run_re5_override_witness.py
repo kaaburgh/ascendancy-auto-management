@@ -296,13 +296,6 @@ def sample(
     }
 
 
-def scenario_identity(planet_name: str) -> dict[str, str]:
-    """Return the selected planet identity carried by every detached witness."""
-    if not isinstance(planet_name, str) or not planet_name.strip():
-        raise OverrideWitnessError("selected planet name must be non-empty")
-    return {"selected_planet_name": planet_name}
-
-
 def evaluate(before: dict[str, Any], samples: list[dict[str, Any]], after: dict[str, Any]) -> dict[str, Any]:
     if not samples:
         raise OverrideWitnessError("no runtime samples")
@@ -443,7 +436,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         return {
             "artifact_schema": ARTIFACT_SCHEMA,
             "scenario_contract": SCENARIO_CONTRACT,
-            "scenario": scenario_identity(args.planet_name),
             "runner_revision": args.runner_revision,
             "source_sha256": sha256_file(Path(__file__)),
             "status": observation["status"],

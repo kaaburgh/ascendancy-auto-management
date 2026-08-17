@@ -52,7 +52,7 @@
       "sha256": "d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1",
       "produced_by_target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
       "runtime_properties": {
-        "evidence": "unverified",
+        "evidence": "runtime",
         "player_race_id": 0,
         "player_owned_planet_count": 3,
         "player_planet_names": [
@@ -60,17 +60,26 @@
           "Corpuscle II",
           "Corpuscle III"
         ],
-        "planets_with_empty_current_action_at_load": []
+        "planets_with_empty_current_action_at_load": [
+          "Corpuscle I",
+          "Corpuscle II",
+          "Corpuscle III"
+        ],
+        "source": "docs/experiments/T3-multi-planet-save-fixture.md"
       },
       "limitations": [
-        "Player race id 0, ownership/count, planet names, and canonical-target provenance are maintainer-reported until a named runtime experiment verifies them.",
-        "The visible 'No Project' rows are not treated as evidence of the internal empty-current-action state; that list remains empty until runtime verification.",
-        "The companion 02.SAV and byte relationship for this operator state are pinned separately by tools/v1-validation-state-manifest.json."
+        "Current runtime ownership/count/names and empty-current-action state are verified on the canonical target by T3.",
+        "Exact-byte producer provenance remains maintainer-reported; T3 proves canonical-target load/current-state semantics, not that canonical ANTAG.EXE wrote these exact resume.gam bytes.",
+        "The companion 02.SAV and byte relationship for this operator state remain pinned separately by tools/v1-validation-state-manifest.json."
       ],
       "used_by": [
-        "T3 candidate validation",
-        "V1 after runtime promotion"
-      ]
+        "scripts/run_t3_multi_planet_fixture.py",
+        "V1"
+      ],
+      "producer_provenance": {
+        "evidence": "reported",
+        "source": "tools/v1-validation-state-manifest.json"
+      }
     }
   ],
   "role_requirements": {
@@ -80,7 +89,9 @@
     },
     "m1-multi-planet": {
       "min_player_owned_planets": 2,
-      "min_planets_with_empty_current_action_at_load": 1
+      "min_planets_with_empty_current_action_at_load": 1,
+      "requires_runtime_canonical_target_production": true,
+      "requires_detached_runtime_observation_artifact": true
     }
   }
 }

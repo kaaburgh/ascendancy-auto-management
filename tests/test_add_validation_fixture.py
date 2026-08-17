@@ -23,35 +23,180 @@ class AddValidationFixtureTests(unittest.TestCase):
         shutil.copy2(validator.DEFAULT_DECLARATION, self.declaration)
         self.runtime_source_relative = "docs/experiments/_synthetic_add_fixture_record.md"
         self.runtime_source = Path(validator.ROOT) / self.runtime_source_relative
+        runtime_properties = {
+            "player_race_id": 0,
+            "player_owned_planet_count": 2,
+            "player_planet_names": ["Alpha I", "Beta II"],
+            "planets_with_empty_current_action_at_load": ["Beta II"],
+        }
+        self.current_artifact_relative = "docs/experiments/_synthetic_add_fixture_current.json"
+        self.current_artifact = Path(validator.ROOT) / self.current_artifact_relative
+        self.current_snapshot_dir = Path(validator.ROOT) / "docs/experiments/_synthetic_add_current_harness"
+        self.current_snapshot_dir.mkdir(parents=True, exist_ok=True)
+        current_snapshot_names = [
+            "run_t3_multi_planet_fixture.py",
+            "run_re4_runtime_state.py",
+            "run_re5_runtime_turn_path.py",
+            "run_re5_override_witness.py",
+            "le_image.py",
+        ]
+        current_snapshot_paths = {}
+        current_snapshot_hashes = {}
+        for index, name in enumerate(current_snapshot_names):
+            snapshot = self.current_snapshot_dir / name
+            snapshot.write_text(f"# synthetic add current harness {index}: {name}\n", encoding="utf-8")
+            self.addCleanup(snapshot.unlink, missing_ok=True)
+            current_snapshot_paths[name] = str(snapshot.relative_to(validator.ROOT))
+            current_snapshot_hashes[name] = validator.sha256_file(snapshot)
+        current_artifact = {
+            "artifact_schema": validator.CURRENT_STATE_RUN_ARTIFACT_SCHEMA,
+            "scenario_contract": validator.CURRENT_STATE_RUN_CONTRACT,
+            "blind_re_provenance": "clean",
+            "evidence_class": "runtime",
+            "status": "passed",
+            "candidate_fixture": {
+                "id": "resume-en-multi-planet",
+                "sha256": validator.sha256_file(self.save),
+                "size": self.save.stat().st_size,
+                "source_unchanged": True,
+                "storage": "operator-supplied",
+            },
+            "diagnostic_guest_code_writes": False,
+            "diagnostic_guest_data_writes": False,
+            "source_inputs_modified": False,
+            "runner_source_sha256": current_snapshot_hashes["run_t3_multi_planet_fixture.py"],
+            "harness_dependencies": {
+                name: current_snapshot_hashes[name]
+                for name in current_snapshot_names
+                if name != "run_t3_multi_planet_fixture.py"
+            },
+            "harness_source_snapshots": current_snapshot_paths,
+            "runtime_environment": {
+                "dosbox": {
+                    "filename": "dosbox", "size": 1234, "sha256": "a" * 64,
+                    "version_output": "DOSBox version synthetic",
+                },
+                "dosbox_config": {"cpu_core": "normal", "cycles": "max"},
+            },
+            "target": {
+                "filename": "ANTAG.EXE", "size": validator.CANONICAL_TARGET_SIZE,
+                "sha256": validator.CANONICAL_TARGET_SHA256,
+            },
+            "retail_fixture": {
+                "id": validator.CANONICAL_RETAIL_FIXTURE_ID,
+                "manifest_sha256": validator.CANONICAL_RETAIL_FIXTURE_MANIFEST_SHA256,
+                "verified_files": validator.CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES,
+            },
+            "role_claim": {"role": "m1-multi-planet", **runtime_properties},
+            "verification": {
+                "status": "passed",
+                "process_stopped_for_coherent_snapshot": True,
+                "save_unchanged_by_verification_load": True,
+                "runtime_mapping": {"status": "passed"},
+                "observation": {
+                    "status": "passed", "checks": {"synthetic": True},
+                    "current_player_id": runtime_properties["player_race_id"],
+                    "player_owned_planet_count": runtime_properties["player_owned_planet_count"],
+                    "player_planet_names": runtime_properties["player_planet_names"],
+                    "planets_with_empty_current_action_at_load": runtime_properties["planets_with_empty_current_action_at_load"],
+                },
+            },
+        }
+        self.current_artifact.write_text(
+            json.dumps(current_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        self.addCleanup(self.current_artifact.unlink, missing_ok=True)
         observations = {
             "schema": validator.OBSERVATION_BLOCK_SCHEMA,
             "fixture_sha256": validator.sha256_file(self.save),
             "target_sha256": validator.CANONICAL_TARGET_SHA256,
-            "runtime_properties": {
-                "player_race_id": 0,
-                "player_owned_planet_count": 2,
-                "player_planet_names": ["Alpha I", "Beta II"],
-                "planets_with_empty_current_action_at_load": ["Beta II"],
+            "runtime_properties": runtime_properties,
+            "artifact": self.current_artifact_relative,
+            "artifact_sha256": validator.sha256_file(self.current_artifact),
+        }
+        self.producer_harness_relative = "scripts/_synthetic_add_fixture_producer.py"
+        self.producer_harness = Path(validator.ROOT) / self.producer_harness_relative
+        self.producer_harness.write_text("# synthetic add-fixture producer harness\n", encoding="utf-8")
+        self.addCleanup(self.producer_harness.unlink, missing_ok=True)
+        self.producer_harness_snapshot_relative = (
+            "docs/experiments/_synthetic_add_fixture_producer_harness.py"
+        )
+        self.producer_harness_snapshot = (
+            Path(validator.ROOT) / self.producer_harness_snapshot_relative
+        )
+        self.producer_harness_snapshot.write_bytes(self.producer_harness.read_bytes())
+        self.addCleanup(self.producer_harness_snapshot.unlink, missing_ok=True)
+        self.producer_artifact_relative = "docs/experiments/_synthetic_add_fixture_producer.json"
+        self.producer_artifact = Path(validator.ROOT) / self.producer_artifact_relative
+        producer_artifact = {
+            "artifact_schema": validator.PRODUCTION_RUN_ARTIFACT_SCHEMA,
+            "scenario_contract": validator.PRODUCTION_RUN_CONTRACT,
+            "blind_re_provenance": "clean",
+            "evidence_class": "runtime",
+            "status": "passed",
+            "target": {
+                "filename": "ANTAG.EXE",
+                "size": validator.CANONICAL_TARGET_SIZE,
+                "sha256": validator.CANONICAL_TARGET_SHA256,
+            },
+            "fixture": {
+                "size": self.save.stat().st_size,
+                "sha256": validator.sha256_file(self.save),
+                "target_written_exact_bytes": True,
+            },
+            "runtime_environment": {
+                "dosbox": {
+                    "filename": "dosbox",
+                    "size": 1234,
+                    "sha256": "1" * 64,
+                    "version_output": "DOSBox version synthetic",
+                },
+                "configuration": {"cpu_core": "normal", "cycles": "max", "display": "Xvfb"},
+            },
+            "harness": {
+                "source": self.producer_harness_relative,
+                "source_sha256": validator.sha256_file(self.producer_harness),
+                "source_snapshot": self.producer_harness_snapshot_relative,
+            },
+            "execution": {
+                "ordinary_game_method": "synthetic ordinary-game save",
+                "diagnostic_guest_code_writes": False,
+                "diagnostic_guest_data_writes": False,
+                "source_inputs_modified": False,
+                "termination": {
+                    "status": "completed",
+                    "save_write_completed": True,
+                    "output_observed_after_save": True,
+                },
+            },
+            "oracle": {
+                "status": "passed",
+                "exact_byte_match": True,
+                "output_sha256": validator.sha256_file(self.save),
+                "output_size": self.save.stat().st_size,
             },
         }
-        self.runtime_source.write_text(
-            "\n".join(
-                [
-                    "# synthetic fixture runtime record",
-                    "",
-                    validator.RUNTIME_EVIDENCE_MARKER,
-                    f"Target SHA-256 `{validator.CANONICAL_TARGET_SHA256}`.",
-                    f"Pinned save SHA-256 `{validator.sha256_file(self.save)}`.",
-                    "",
-                    validator.OBSERVATION_BLOCK_MARKER,
-                    "```json",
-                    json.dumps(observations, indent=2),
-                    "```",
-                    "",
-                ]
-            ),
-            encoding="utf-8",
+        self.producer_artifact.write_text(
+            json.dumps(producer_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+        self.addCleanup(self.producer_artifact.unlink, missing_ok=True)
+        production = {
+            "schema": validator.PRODUCTION_BLOCK_SCHEMA,
+            "fixture_sha256": validator.sha256_file(self.save),
+            "target_sha256": validator.CANONICAL_TARGET_SHA256,
+            "target_written_exact_bytes": True,
+            "method": "synthetic ordinary-game save",
+            "artifact": self.producer_artifact_relative,
+            "artifact_sha256": validator.sha256_file(self.producer_artifact),
+        }
+        self.runtime_source.write_text(
+            "\n".join([
+                "# synthetic fixture runtime record", "", validator.RUNTIME_EVIDENCE_MARKER,
+                f"Target SHA-256 `{validator.CANONICAL_TARGET_SHA256}`.",
+                f"Pinned save SHA-256 `{validator.sha256_file(self.save)}`.", "",
+                validator.OBSERVATION_BLOCK_MARKER, "```json", json.dumps(observations, indent=2), "```", "",
+                validator.PRODUCTION_BLOCK_MARKER, "```json", json.dumps(production, indent=2), "```", "",
+            ]), encoding="utf-8")
         self.addCleanup(self.runtime_source.unlink, missing_ok=True)
         self.addCleanup(self.temp.cleanup)
 
@@ -119,9 +264,21 @@ class AddValidationFixtureTests(unittest.TestCase):
                 "runtime",
                 "--verified-by",
                 self.runtime_source_relative,
+                "--producer-evidence",
+                "runtime",
+                "--producer-verified-by",
+                self.runtime_source_relative,
             ),
             0,
         )
+
+    def test_runtime_promotion_rejects_reported_producer_provenance(self):
+        self.assertEqual(self.run_adder(
+            "--storage", "operator-supplied", "--evidence", "runtime",
+            "--verified-by", self.runtime_source_relative,
+            "--producer-evidence", "reported",
+            "--producer-verified-by", "tools/v1-validation-state-manifest.json",
+        ), 1)
 
     def test_runtime_promotion_rejects_properties_not_observed_by_record(self):
         self.assertEqual(
@@ -131,6 +288,10 @@ class AddValidationFixtureTests(unittest.TestCase):
                 "--evidence",
                 "runtime",
                 "--verified-by",
+                self.runtime_source_relative,
+                "--producer-evidence",
+                "runtime",
+                "--producer-verified-by",
                 self.runtime_source_relative,
                 "--player-planet",
                 "Gamma III",
@@ -252,6 +413,10 @@ class AddValidationFixtureTests(unittest.TestCase):
                 "--evidence",
                 "runtime",
                 "--verified-by",
+                self.runtime_source_relative,
+                "--producer-evidence",
+                "runtime",
+                "--producer-verified-by",
                 self.runtime_source_relative,
             ),
             0,

@@ -104,6 +104,37 @@ class RE4RuntimeStateTests(unittest.TestCase):
         with self.assertRaisesRegex(module.RE4Error, "oracle mismatch"):
             module.validate_renderer_transition("1" * 64, "2" * 64, "1" * 64)
 
+    def test_planet_list_row_coordinates_are_bounded(self):
+        self.assertEqual(module.planet_list_row_y(0), 125)
+        self.assertEqual(module.planet_list_row_y(1), 270)
+        self.assertEqual(module.planet_list_row_y(2), 415)
+
+    def test_self_managed_region_tracks_selected_row(self):
+        self.assertEqual(module.self_managed_region(0), module.SELF_MANAGED_REGION)
+        self.assertEqual(module.self_managed_region(1), (280, 214, 100, 8))
+        self.assertEqual(module.self_managed_region(2), (280, 355, 100, 8))
+        with self.assertRaises(module.RE4Error):
+            module.self_managed_region(3)
+
+    def test_select_planet_list_row_uses_requested_row(self):
+        class FakeInput:
+            def __init__(self):
+                self.moves = []
+                self.clicks = 0
+
+            def move_to(self, x, y):
+                self.moves.append((x, y))
+
+            def click(self):
+                self.clicks += 1
+
+        inp = FakeInput()
+        module.select_planet_list_row(inp, 2)
+        self.assertEqual(inp.moves, [(205, 415)])
+        self.assertEqual(inp.clicks, 1)
+        with self.assertRaises(module.RE4Error):
+            module.planet_list_row_y(3)
+
 
 if __name__ == "__main__":
     unittest.main()

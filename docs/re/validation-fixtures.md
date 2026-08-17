@@ -31,7 +31,22 @@ RE3 established that the per-race pass skips planets whose `+0x57` does not matc
 
 ### What that blocks
 
-V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. **Those steps cannot be performed on `resume.gam` at all**, and no fixture declaring two player-owned planets exists. This is a fixture limitation rather than an implementation gap, and it is independent of how A1/A2 choose to represent the profile.
+V1 requires setting `Agricultural` on one player-owned planet and `Industrial` on a different one, then confirming both hold their own mode. **Those steps cannot be performed on the historical single-planet `resume.gam` at all.** T3 now supplies a separate operator-supplied multi-planet fixture; the historical save remains the fixture of record for completed RE4/RE5 evidence rather than being replaced.
+
+## T3 multi-planet fixture
+
+`resume-en-operator-multi-planet-2026-08-14` is an operator-supplied `resume.gam`, 133721 bytes, SHA-256 `d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1`. Its current role properties are `runtime` evidence from [`../experiments/T3-multi-planet-save-fixture.md`](../experiments/T3-multi-planet-save-fixture.md):
+
+- current player/race id `0`;
+- exactly three player-owned planets: `Corpuscle I`, `Corpuscle II`, `Corpuscle III`;
+- all three load with no current action (`+0x52 == 0xffff`, `+0x54 == 0xff`);
+- the independently discovered 305-record runtime planet sequence has unique names.
+
+The payload remains `operator-supplied`, not committed. T3 independently establishes exact-target load compatibility and the role-critical **current-state** runtime properties, but its historical producer provenance remains the maintainer report preserved by the V1 handoff. The declaration therefore records `producer_provenance.evidence: reported`, and role `m1-multi-planet` remains **NOT usable** even though `runtime_properties.evidence` is `runtime`. The negative canonical-save probe is recorded in [`../experiments/T3-producer-provenance-probe.md`](../experiments/T3-producer-provenance-probe.md).
+
+The declaration keeps the same stable fixture id and exact bytes that were introduced as `unverified`; current-state runtime qualification does not rebind that id to a derived save and does not silently promote a maintainer provenance statement into target-written-byte evidence.
+
+The RE4/RE5 selection entry points now accept an explicit save hash and planet name while retaining the historical `Xerxes I` defaults. RE4 additionally accepts a bounded visible planet-list row. Exact-target row-1 validation on `Corpuscle I` established two distinct UI geometries: click centers use a 145-pixel stride, while the `Self-Managed` renderer-oracle regions use a measured 141-pixel stride. RE5 focused-artifact aggregation rejects mixed planet identities.
 
 ## Requirements for an M1 multi-planet fixture
 
@@ -63,15 +78,16 @@ The declaration must name every player-owned planet individually rather than onl
 
 Runtime properties in the declaration are claims, and each carries an `evidence` level.
 
-A role is satisfied only by `runtime` evidence that names its source and comes from a save produced by the canonical target. Three separate conditions, each of which can fail on its own:
+A role is evaluated against independent evidence axes rather than treating one target hash as proof of everything:
 
-- `evidence` must be `runtime`. `unverified` is a legitimate declaration — that is how a save enters the repository before anyone has run it — and `static` reasoning about a save's bytes is not the same claim as observing what a running game does with it. Neither satisfies a role.
-- `source` must name a Markdown experiment record under `docs/experiments/` that declares `Evidence class: **runtime**`, contains both this fixture's full SHA-256 and the full `produced_by_target_sha256`, and carries exactly one `<!-- validation-fixture-observations:v1 -->` fenced JSON block. That block independently pins the fixture/target identities plus `player_race_id`, the player-owned count/names, and the planets observed with an empty current action at load. Promotion fails closed if any declared role-critical property differs from the structured observations; merely mentioning the two hashes is not evidence for arbitrary properties.
-- `produced_by_target_sha256` must be the canonical `ANTAG.EXE`. A save written by the bug-patch build or the vanilla release cannot carry evidence about the canonical target.
+- **Current-state runtime properties.** `runtime_properties.evidence` must be `runtime`, and `runtime_properties.source` must name a Markdown experiment under `docs/experiments/` that declares `Evidence class: **runtime**`, names this fixture's full SHA-256 and the canonical runtime target, and carries exactly one `<!-- validation-fixture-observations:v1 -->` fenced JSON block. The block pins the fixture/target identities plus `player_race_id`, player-owned count/names, and empty-current-action planets. For roles with `requires_detached_runtime_observation_artifact: true`, it must also pin a detached JSON run artifact by repository path and SHA-256. The validator requires that artifact to be the passed `ascendancy.t3-multi-planet-fixture/v2` / `t3/operator-save-runtime-verify/v2` record for the same fixture/role, canonical target, clean read-only runtime execution, pinned DOSBox configuration, content-addressed runner-source and harness-dependency identities whose exact executed bytes are materialized by the T3 runner and preserved under `docs/experiments/`, coherent stopped-process mapping, unchanged source bytes, and matching current-state observation oracle. Editing the Markdown block alone cannot promote the role.
+- **Producer provenance when the role requires it.** `produced_by_target_sha256` identifies the **claimed** producer target; equality with the canonical SHA is necessary but is never evidence by itself. A role with `requires_runtime_canonical_target_production: true` additionally requires `producer_provenance.evidence: runtime` and a Markdown runtime source under `docs/experiments/` containing exactly one `<!-- validation-fixture-production:v1 -->` fenced JSON block. That block is only an index: it binds the exact fixture SHA, canonical target SHA, ordinary-game method, and `target_written_exact_bytes: true`, **and** pins a detached JSON run artifact by repository path plus SHA-256. The run artifact must be a passed `ascendancy.validation-fixture-producer/v1` record that independently carries exact target/fixture identities, DOSBox identity and material configuration, a repository `scripts/*.py` harness identity plus source SHA and a preserved exact executed source snapshot under `docs/experiments/`, completed ordinary-save termination, no diagnostic guest writes or source-input mutation, and a passed exact-byte output oracle. A hand-authored Markdown assertion, successful load, or different derived re-save cannot satisfy the role.
 
-The structured observation block is the promotion authority for those role-critical properties: prose may explain how the experiment established them, but it cannot override, fill in, or silently widen the machine-readable observations.
+Reported or unverified producer provenance is a legitimate declaration state, but it keeps such a role unusable. This is intentionally separate from current-state qualification: a save can have excellent runtime observations while its historical producer remains unknown.
 
-A fixture failing any of these is reported as unusable and `--require-role <role>` fails.
+The Markdown observation and production blocks are machine-readable indices, not self-authenticating evidence. When a role requires a detached current-state artifact, the observation block binds its claims to that hash-verified runtime record; the production block likewise binds producer provenance to its separate hash-verified run artifact. The validator checks the corresponding identities, harness/runtime configuration, completion state, and oracle before either axis can satisfy the role. Prose may explain either experiment, but cannot override, fill in, or silently widen the machine-readable evidence.
+
+A fixture failing any required axis is reported as unusable and `--require-role <role>` fails.
 
 Declared-but-wrong properties are treated differently from unverified ones. If a fixture claims verified evidence and its own numbers contradict the role it claims, validation fails closed rather than marking it unusable: an honest "not checked yet" is a state to work through, a verified claim that does not hold is an error.
 

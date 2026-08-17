@@ -50,6 +50,12 @@ def build_entry(args: argparse.Namespace, save: Path) -> dict[str, Any]:
     if args.verified_by:
         properties["source"] = args.verified_by
 
+    producer_provenance: dict[str, Any] | None = None
+    if args.producer_evidence is not None:
+        producer_provenance = {"evidence": args.producer_evidence}
+        if args.producer_verified_by:
+            producer_provenance["source"] = args.producer_verified_by
+
     entry: dict[str, Any] = {
         "id": args.id,
         "filename": save.name,
@@ -60,6 +66,8 @@ def build_entry(args: argparse.Namespace, save: Path) -> dict[str, Any]:
         "produced_by_target_sha256": args.produced_by_target_sha256,
         "runtime_properties": properties,
     }
+    if producer_provenance is not None:
+        entry["producer_provenance"] = producer_provenance
     if args.storage == validator.REPOSITORY_STORAGE:
         entry["repository_path"] = args.repository_path
     if args.limitation:
@@ -139,6 +147,8 @@ def merge_entry(
         )
     if existing:
         previous = existing[0]
+        if "producer_provenance" not in entry and "producer_provenance" in previous:
+            entry["producer_provenance"] = dict(previous["producer_provenance"])
         # The identity guard belongs to the fixture id, not to any path: other
         # evidence is pinned to this id, so the bytes behind it may never change
         # regardless of where the payload is read from or written to.
@@ -193,6 +203,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Document establishing the runtime properties; required with --evidence runtime.",
     )
     parser.add_argument("--produced-by-target-sha256", default=CANONICAL_TARGET_SHA256)
+    parser.add_argument("--producer-evidence", choices=validator.PRODUCER_EVIDENCE_LEVELS, default=None, help="Evidence class for exact-byte producer provenance; separate from runtime state evidence.")
+    parser.add_argument("--producer-verified-by", default=None, help="Source for producer provenance; runtime sources must carry validation-fixture-production:v1.")
     parser.add_argument("--limitation", action="append", default=[])
     parser.add_argument("--used-by", action="append", default=[])
     parser.add_argument("--replace", action="store_true")
@@ -222,6 +234,10 @@ def main(argv: list[str] | None = None) -> int:
                 "--verified-by is required with --evidence runtime; name the experiment record "
                 "that established the properties on the exact target"
             )
+        if args.producer_verified_by and args.producer_evidence is None:
+            raise validator.FixtureDeclarationError("--producer-verified-by requires --producer-evidence")
+        if args.producer_evidence in ("runtime", "reported") and not args.producer_verified_by:
+            raise validator.FixtureDeclarationError(f"--producer-verified-by is required with --producer-evidence {args.producer_evidence}")
 
         document = json.loads(args.declaration.read_text(encoding="utf-8"))
         entry = build_entry(args, save)
@@ -267,8 +283,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  role {entry['role']}: usable")
     else:
         print(f"  role {entry['role']}: NOT usable yet — {status['reason']}")
-        print("  next: run the fixture on the exact target, record the experiment, then re-run")
-        print(f"        this script with --replace --evidence runtime --verified-by <doc>")
+        print("  next: establish whichever evidence axis the reason names, then re-run")
+        print("        runtime state uses --evidence runtime --verified-by <doc>;")
+        print("        exact-byte production uses --producer-evidence runtime --producer-verified-by <doc>")
     return 0
 
 

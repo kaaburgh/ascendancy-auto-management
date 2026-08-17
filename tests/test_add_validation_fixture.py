@@ -139,6 +139,11 @@ class AddValidationFixtureTests(unittest.TestCase):
                 "size": validator.CANONICAL_TARGET_SIZE,
                 "sha256": validator.CANONICAL_TARGET_SHA256,
             },
+            "retail_fixture": {
+                "id": validator.CANONICAL_RETAIL_FIXTURE_ID,
+                "manifest_sha256": validator.CANONICAL_RETAIL_FIXTURE_MANIFEST_SHA256,
+                "verified_files": validator.CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES,
+            },
             "fixture": {
                 "size": self.save.stat().st_size,
                 "sha256": validator.sha256_file(self.save),
@@ -272,13 +277,22 @@ class AddValidationFixtureTests(unittest.TestCase):
             0,
         )
 
-    def test_runtime_promotion_rejects_reported_producer_provenance(self):
+    def test_runtime_promotion_accepts_reported_producer_provenance_as_unusable(self):
         self.assertEqual(self.run_adder(
             "--storage", "operator-supplied", "--evidence", "runtime",
             "--verified-by", self.runtime_source_relative,
             "--producer-evidence", "reported",
             "--producer-verified-by", "tools/v1-validation-state-manifest.json",
-        ), 1)
+        ), 0)
+        entry = next(item for item in self.declared() if item["id"] == "resume-en-multi-planet")
+        self.assertEqual(entry["runtime_properties"]["evidence"], "runtime")
+        self.assertEqual(entry["producer_provenance"]["evidence"], "reported")
+        checked = validator.check_declaration(
+            json.loads(self.declaration.read_text(encoding="utf-8"))
+        )
+        status = next(item for item in checked if item["id"] == "resume-en-multi-planet")["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("producer provenance is 'reported'", status["reason"])
 
     def test_runtime_promotion_rejects_properties_not_observed_by_record(self):
         self.assertEqual(

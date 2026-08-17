@@ -130,6 +130,18 @@ def _file_spans(
     return spans
 
 
+def validate_output_path(target: pathlib.Path, output: pathlib.Path | None) -> None:
+    """Reject an output that would overwrite the immutable target input."""
+    if output is None:
+        return
+    target_path = target.expanduser().resolve(strict=True)
+    output_path = output.expanduser().resolve(strict=False)
+    if output_path == target_path:
+        raise CapacityInventoryError(
+            f"output path aliases immutable target input: {target_path}"
+        )
+
+
 def build_inventory(
     image: le_image.LEImage,
     *,
@@ -244,7 +256,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("target", type=pathlib.Path)
     parser.add_argument("--output", type=pathlib.Path)
     parser.add_argument("--minimum-zero-run", type=int, default=DEFAULT_MIN_ZERO_RUN)
-    parser.add_argument("--expected-sha256", default=CANONICAL_SHA256)
     parser.add_argument("--objdump")
     return parser.parse_args(argv)
 
@@ -252,10 +263,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
+        validate_output_path(args.target, args.output)
         image = le_image.load(args.target)
         inventory = build_inventory(
             image,
-            expected_sha256=args.expected_sha256,
+            expected_sha256=CANONICAL_SHA256,
             minimum_zero_run=args.minimum_zero_run,
             objdump=args.objdump,
         )

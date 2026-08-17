@@ -64,7 +64,7 @@ Review-correction Actions run `31663966280` validated head `dc4e4ef87376323e1af7
 - the real-target job still reports `564/613` reference-only, `450/525` constant-only, and `66/116` structural EN candidates as cross-locale corroborated under the stricter address-mapping rule;
 - the aggregate product/locale diff tuples are unchanged.
 
-This is target-byte **static** validation only. RE1 does not claim that the game executed or that any candidate's runtime semantics were confirmed.
+This is target-byte **static** validation only. RE1 does not claim that the game executed or that any candidate's runtime semantics were confirmed. The current repo-backed exact-target reproduction path is the manual `workflow_dispatch` workflow `.github/workflows/cf2-re1-real-target.yml` with suite `re1` (or `all`); it is intentionally not a pull-request/push gate because `archive.org` availability is not a CI correctness signal.
 
 ## Established observations
 

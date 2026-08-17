@@ -113,7 +113,7 @@ All four agree on state displacement `0x5a`, M scan code `0x32`, and render reso
 - cross-build state/key/resource invariant drift;
 - optional retail COB hash or bounded semantic-marker drift.
 
-Focused unit tests cover wildcard parsing, zero/ambiguous match rejection, signed rel32 decoding, bounded strings, and user-facing marker validation. `.github/workflows/re2-static.yml` regenerates the map on the four publisher-distributed pinned real targets in a clean GitHub Actions checkout.
+Focused unit tests cover wildcard parsing, zero/ambiguous match rejection, signed rel32 decoding, bounded strings, and user-facing marker validation. `.github/workflows/re2-static.yml` regenerates the map on the four publisher-distributed pinned real targets in a clean GitHub Actions checkout; it is intentionally `workflow_dispatch`-only so `archive.org` availability cannot gate pull requests or pushes.
 
 The exploratory exact-target run reproduced:
 

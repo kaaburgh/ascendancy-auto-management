@@ -109,7 +109,7 @@ Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/
 - **Load layout.** LE format level 0, little-endian, CPU `0x02` (80386), 4096-byte pages, all page-map entries plain "legal" pages, no debug info. Exactly two objects per image: object 1 code at base `0x10000` (flags `0x2045`), object 2 data (flags `0x2043`) at `0x90000` for the Antagonizer and `0x80000` for the bug patch. Open Watcom's absolute enumerated-page `page_off @ +0x80` is `0x18000` for the Antagonizer pair and `0x17600` for the patch pair; enumerated page data ends exactly at EOF in all four targets. The old ~11 KB trailing-region claim was a parser artifact from treating `impmod_off @ +0x70` as the page base.
 - **Build toolchain.** Watcom C/C++32 under the Rational DOS/4G extender. Corrected `ANTAG_EN` VAs are Watcom runtime banner `0x783b6` and `RATIONAL DOS/4G` `0x9563c`.
 - **Headless static analysis.** A dependency-light cloud pipeline exists using the standard library plus GNU `objdump`. With corrected reconstructed objects, `ANTAG_EN` yields 144696 decoded instructions, 1326 candidate regions, 7472 direct in-object call sites, and 4259 call-graph edges.
-- **Conservative differential.** English Antagonizer ↔ patch: **72 exact / 613 reference-only / 525 constant-only / 116 / 87 structural**. International: **72 / 611 / 520 / 123 / 93**. The earlier post-layout-correction `685 strict` and `683 strict` aggregates were too permissive because they masked changed in-image references; they split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. Structural and constant-only counts are unchanged.
+- **Conservative differential.** English Antagonizer ↔ patch: **72 exact / 613 reference-only / 525 constant-only / 116 / 87 structural**. International: **72 / 611 / 520 constant-only / 123 / 93 structural**. The earlier post-layout-correction `685 strict` and `683 strict` aggregates were too permissive because they masked changed in-image references; they split exactly into `72 exact + 613 reference-only` and `72 exact + 611 reference-only`. Structural and constant-only counts are unchanged.
 - **Artifact provenance.** `le_disasm` inventory JSON is schema-versioned and records the source hash, reconstructed-object hash, parser-layout identity, and signature model. `le_diff` rejects legacy/unversioned/pre-`+0x80` inventories rather than silently comparing them.
 - **Clean-checkout validation.** GitHub Actions run `31534837880` validated PR head `67631baa78aada001103b58659364c8908e538db` via merge-ref `d0f0342f24274a9afd2575555324acf16eed4961`: 205 unit tests passed, all four pinned targets were fetched/re-verified, all eight reconstructed-object hashes matched, and the repository `le_disasm.py`/`le_diff.py` pipeline finished `CF2 real-target regression: PASS`.
 
@@ -156,7 +156,7 @@ Cloud-feasibility tasks are intentionally near the front so later work is not un
 
 The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone. X1 is `Open`/`CLOUD` but remains unselectable until its M1 dependency is completed.
 
-**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE5 are complete. **A1 and A2 are now selectable as CLOUD**; each still owns only its documented architecture decision and must not opportunistically absorb later implementation work.
+**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE5 are complete. **A1 is the active CLOUD architecture investigation:** its two-layer representation direction is selected, but it remains incomplete until a reuse-safe sidecar identity/lifetime contract is established. **A2 remains separately selectable as CLOUD** and owns only its patch/integration mechanism decision.
 
 RE4 runtime-confirmed the existing per-planet Managed state. RE5 now closes the player automation-gate handoff with orthogonal evidence: the established Managed intervention chain plus a separate read-only Manual override witness with two normally progressing exact-target PASS runs. The earlier process-wide marker remains a documented perturbing negative experiment and is not load-bearing for completion.
 
@@ -851,23 +851,28 @@ For the pinned M1 target, the compatibility handoff is established: preserve the
 
 ## A1 — Design the M1 per-planet profile state representation
 
-- **Status:** Open
+- **Status:** Investigation first — representation split selected; reuse-safe sidecar identity/lifetime remains open.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / state
 - **Origin:** High-level step 6
 - **Depends on:** RE4, RE5
-- **Goal:** Choose the least invasive representation for `Manual`, `Agricultural`, and `Industrial` during the current game session.
+- **Goal:** Finish the least-invasive current-session representation for `Manual`, `Agricultural`, and `Industrial` by closing the remaining reuse-safe sidecar identity/lifetime contract.
 
-### Candidate directions to evaluate
+### Selected direction and evidence boundary
 
-Examples, not prescriptions:
+The bounded architecture slice in [`docs/re/m1-profile-state-representation.md`](./docs/re/m1-profile-state-representation.md) selects a two-layer representation on the exact canonical target:
 
-- extend/reuse unused values or bits in an existing confirmed state field;
-- keep original manual/automated state untouched and maintain a mod-owned side table keyed by a stable planet identity/index;
-- another representation justified by established object lifetime and memory behavior.
+- preserve `planet_record+0x5a` strictly in its established original binary domain: `0x00000000` for Manual and `0xffffffff` for Managed;
+- carry the Agricultural-vs-Industrial distinction in mod-owned session sidecar state;
+- treat `+0x5a` only as the compatibility mirror for the original target behavior, while preserving the established owner-specific gate and the separate override condition;
+- fail closed on stale/invalid sidecar identity, with an observed Manual mirror invalidating stale automated identity and a later Managed mirror without a fresh valid sidecar selection falling back to Agricultural.
 
-Save-game format changes should be avoided for M1 unless evidence shows they are necessary.
+This direction is an architecture conclusion from the supported RE2–RE5 evidence, not a new runtime claim. Existing evidence establishes a `0x7b` planet-record stride and runtime pointer/selection relationships, but **does not establish an array base/count, a derivable stable slot index, or pointer lifetime/reuse safety**. A raw pointer or hypothetical slot index is therefore not yet an accepted finished sidecar key.
+
+A1 remains investigatory until it establishes one reuse-safe identity/lifetime contract: an evidence-backed epoch/generation boundary, immutable or reuse-detecting record identity, or another equivalent mechanism that prevents stale profile transfer if a record address is reused. If a slot-based key remains desirable, A1 must first establish the array/indexing relationship instead of inferring it from stride alone. If no bounded fail-closed contract can be established, A1 must revisit the sidecar direction rather than delegating an invented lifecycle to A2/UI2.
+
+Save-game format changes remain out of M1 unless evidence shows they are necessary.
 
 ### Decision criteria
 
@@ -881,13 +886,19 @@ Save-game format changes should be avoided for M1 unless evidence shows they are
 
 ### Deliverables
 
-- an ADR/design note under `docs/re/` or `docs/`;
-- explicit invariants and lifecycle rules;
-- update downstream task assumptions if the chosen design differs from this roadmap.
+- [x] architecture/design note under [`docs/re/m1-profile-state-representation.md`](./docs/re/m1-profile-state-representation.md);
+- [x] selected two-layer representation, compatibility fallback, and explicit state invariants/lifecycle failure modes;
+- [x] downstream assumptions updated so A2/UI2/V1 do not reinterpret `+0x5a`, invent slot stability, or lose the owner/override qualification;
+- [ ] evidence-backed reuse-safe sidecar identity/lifetime contract, including any array/indexing evidence required by the chosen key.
 
 ### Acceptance criteria
 
-The implementation tasks no longer need to invent where profile identity lives or how it maps to the game's original automation boolean/state.
+A1 completes only when **both** stages are satisfied:
+
+1. **Representation split — met:** implementation tasks no longer need to invent where Agricultural-vs-Industrial profile identity lives or how automated profiles map to the game's original `Manual`/`Managed` compatibility field.
+2. **Identity/lifecycle — open:** implementation tasks no longer need to invent a reuse-safe planet key, epoch/reset rule, or stale-entry invalidation boundary for the intended current-session lifetime.
+
+Until criterion 2 is met, A1 remains `Investigation first`; downstream tasks that depend on A1 must not treat the selected representation direction alone as satisfying the dependency.
 
 ---
 

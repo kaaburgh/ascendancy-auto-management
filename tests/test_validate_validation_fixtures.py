@@ -60,6 +60,8 @@ def write_synthetic_source(
     producer_artifact_status: str = "passed",
     producer_exact_match: bool | None = None,
     producer_harness_hash: str | None = None,
+    producer_artifact_include_retail_fixture: bool = True,
+    producer_artifact_retail_fixture: dict | None = None,
     materialize_current_artifact: bool = True,
     current_artifact_status: str = "passed",
     current_artifact_properties: dict | None = None,
@@ -243,6 +245,15 @@ def write_synthetic_source(
                 "output_size": entry["size"],
             },
         }
+        if producer_artifact_include_retail_fixture:
+            artifact["retail_fixture"] = copy.deepcopy(
+                producer_artifact_retail_fixture
+                or {
+                    "id": fixtures.CANONICAL_RETAIL_FIXTURE_ID,
+                    "manifest_sha256": fixtures.CANONICAL_RETAIL_FIXTURE_MANIFEST_SHA256,
+                    "verified_files": fixtures.CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES,
+                }
+            )
         if materialize_production_artifact:
             artifact_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             artifact_sha = fixtures.sha256_file(artifact_path)
@@ -432,6 +443,30 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
         status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
         self.assertFalse(status["satisfied"])
         self.assertIn("source_snapshot SHA-256", status["reason"])
+
+    def test_producer_run_artifact_requires_canonical_retail_fixture_identity(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self, entry, producer_artifact_include_retail_fixture=False
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("retail fixture identity", status["reason"])
+
+    def test_producer_run_artifact_retail_fixture_identity_must_match(self):
+        entry, _ = multi_planet_fixture()
+        entry["runtime_properties"]["source"] = write_synthetic_source(
+            self,
+            entry,
+            producer_artifact_retail_fixture={
+                "id": fixtures.CANONICAL_RETAIL_FIXTURE_ID,
+                "manifest_sha256": "0" * 64,
+                "verified_files": fixtures.CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES,
+            },
+        )
+        status = fixtures.check_declaration(document_with(entry))[0]["_role_status"]
+        self.assertFalse(status["satisfied"])
+        self.assertIn("canonical runtime fixture", status["reason"])
 
     def test_source_outside_experiments_does_not_satisfy_a_role(self):
         entry, _ = multi_planet_fixture()

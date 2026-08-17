@@ -583,6 +583,16 @@ def check_production_run_artifact(
     if target.get("sha256") != CANONICAL_TARGET_SHA256 or target.get("size") != CANONICAL_TARGET_SIZE:
         return "producer run artifact target identity does not match canonical ANTAG.EXE"
 
+    retail_fixture = artifact.get("retail_fixture")
+    if not isinstance(retail_fixture, dict):
+        return "producer run artifact has no canonical retail fixture identity"
+    if (
+        retail_fixture.get("id") != CANONICAL_RETAIL_FIXTURE_ID
+        or retail_fixture.get("manifest_sha256") != CANONICAL_RETAIL_FIXTURE_MANIFEST_SHA256
+        or retail_fixture.get("verified_files") != CANONICAL_RETAIL_FIXTURE_VERIFIED_FILES
+    ):
+        return "producer run artifact retail fixture identity does not match the canonical runtime fixture"
+
     produced = artifact.get("fixture")
     if not isinstance(produced, dict):
         return "producer run artifact has no produced fixture identity"

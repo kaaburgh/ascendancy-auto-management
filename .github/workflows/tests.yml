@@ -13,8 +13,8 @@ concurrency:
 
 # Automatic CI intentionally avoids standalone external-artifact availability
 # checks and real-target regressions that require live archive.org downloads.
-# The repository acquisition/verification tools remain available for explicit
-# local or operator-driven reproduction with pinned inputs.
+# Exact-target clean-checkout regressions remain available only through the
+# manual cf2-re1-real-target.yml and re2-static.yml workflows.
 jobs:
   unit:
     name: Unit tests

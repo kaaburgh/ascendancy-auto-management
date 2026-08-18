@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 import unittest
@@ -206,6 +207,30 @@ def write_synthetic_source(
         harness_snapshot_path = Path(fixtures.ROOT) / harness_snapshot_relative
         harness_snapshot_path.write_bytes(harness_path.read_bytes())
         case.addCleanup(harness_snapshot_path.unlink, missing_ok=True)
+        producer_snapshot_dir = Path(fixtures.ROOT) / "docs/experiments/_synthetic_producer_sources"
+        producer_snapshot_dir.mkdir(parents=True, exist_ok=True)
+        case.addCleanup(shutil.rmtree, producer_snapshot_dir, ignore_errors=True)
+        producer_dependency_names = (
+            "run_t3_multi_planet_fixture.py",
+            "run_re4_runtime_state.py",
+            "run_re5_runtime_turn_path.py",
+            "run_re5_override_witness.py",
+            "le_image.py",
+        )
+        producer_source_snapshots = {}
+        producer_dependency_hashes = {}
+        primary_snapshot = producer_snapshot_dir / "run_t3_target_written_fixture.py"
+        primary_snapshot.write_bytes(harness_path.read_bytes())
+        producer_source_snapshots[primary_snapshot.name] = str(
+            primary_snapshot.relative_to(fixtures.ROOT)
+        )
+        for index, name in enumerate(producer_dependency_names):
+            snapshot = producer_snapshot_dir / name
+            snapshot.write_text(
+                f"# synthetic producer dependency {index}: {name}\n", encoding="utf-8"
+            )
+            producer_source_snapshots[name] = str(snapshot.relative_to(fixtures.ROOT))
+            producer_dependency_hashes[name] = fixtures.sha256_file(snapshot)
         artifact_relative = "docs/experiments/_synthetic_producer_run.json"
         artifact_path = Path(fixtures.ROOT) / artifact_relative
         exact_match = target_written_exact_bytes if producer_exact_match is None else producer_exact_match
@@ -228,6 +253,8 @@ def write_synthetic_source(
                 "source": harness_relative,
                 "source_sha256": harness_sha,
                 "source_snapshot": harness_snapshot_relative,
+                "dependencies": producer_dependency_hashes,
+                "source_snapshots": producer_source_snapshots,
             },
             "execution": {
                 "ordinary_game_method": "synthetic ordinary-game save",

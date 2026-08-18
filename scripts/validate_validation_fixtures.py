@@ -657,6 +657,51 @@ def check_production_run_artifact(
     if sha256_file(snapshot_resolved) != harness_sha256:
         return "producer run artifact harness source_snapshot SHA-256 does not match source_sha256"
 
+    dependencies = harness.get("dependencies")
+    required_dependencies = {
+        "run_t3_multi_planet_fixture.py",
+        "run_re4_runtime_state.py",
+        "run_re5_runtime_turn_path.py",
+        "run_re5_override_witness.py",
+        "le_image.py",
+    }
+    if not isinstance(dependencies, dict) or set(dependencies) != required_dependencies:
+        return "producer run artifact harness does not pin the complete T3 producer dependency set"
+    for name, digest in dependencies.items():
+        if not _valid_sha256(digest):
+            return f"producer run artifact harness dependency {name!r} has no valid SHA-256"
+
+    source_snapshots = harness.get("source_snapshots")
+    required_snapshot_names = {"run_t3_target_written_fixture.py", *required_dependencies}
+    if not isinstance(source_snapshots, dict) or set(source_snapshots) != required_snapshot_names:
+        return "producer run artifact harness does not pin the complete producer source snapshot set"
+    for name, snapshot_value in source_snapshots.items():
+        if not isinstance(snapshot_value, str) or not snapshot_value.strip():
+            return f"producer run artifact harness snapshot {name!r} has no path"
+        dependency_snapshot = Path(snapshot_value)
+        if dependency_snapshot.is_absolute():
+            return f"producer run artifact harness snapshot {name!r} must be repository-relative"
+        dependency_resolved = (ROOT / dependency_snapshot).resolve()
+        try:
+            dependency_relative = dependency_resolved.relative_to(ROOT.resolve())
+        except ValueError:
+            return f"producer run artifact harness snapshot {name!r} escapes the repository"
+        if dependency_relative.parts[:2] != EXPERIMENT_RECORD_PREFIX:
+            return f"producer run artifact harness snapshot {name!r} must live under docs/experiments/"
+        if dependency_resolved.name != name or not dependency_resolved.is_file():
+            return f"producer run artifact harness snapshot {name!r} does not resolve to the named source file"
+        expected_digest = (
+            harness_sha256
+            if name == "run_t3_target_written_fixture.py"
+            else dependencies[name]
+        )
+        actual_digest = sha256_file(dependency_resolved)
+        if actual_digest != expected_digest:
+            return (
+                f"producer run artifact harness snapshot {name!r} sha256 {actual_digest} "
+                f"does not match pinned {expected_digest}"
+            )
+
     execution = artifact.get("execution")
     if not isinstance(execution, dict):
         return "producer run artifact has no execution record"

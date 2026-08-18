@@ -63,7 +63,11 @@ The workflow uploaded only the 2.5 KiB derived inventory JSON as the short-lived
 
 ## Reproducible exact-target path
 
-[`../../.github/workflows/a2-real-target.yml`](../../.github/workflows/a2-real-target.yml) binds the evidence job to the workflow itself plus every material repository input to this result: the Stage 1 producer, acquisition tool/manifest, LE parser, and disassembler. It performs:
+[`../../.github/workflows/a2-real-target.yml`](../../.github/workflows/a2-real-target.yml) is intentionally **manual `workflow_dispatch` only**. Exact-target acquisition depends on live `archive.org` availability and is evidence generation, not a PR correctness gate; ordinary automatic CI remains network-independent.
+
+The workflow binds the detached evidence to the exact checkout and material analysis inputs. Before upload it adds `detached_evidence_provenance` containing the full Git commit SHA plus SHA-256 values for the workflow, Stage 1 producer, acquisition tool and manifest, LE parser, and disassembler. This lets a detached JSON artifact identify the analysis model that produced it even after those repository files change.
+
+The evidence path performs:
 
 ```sh
 objdump --version
@@ -73,7 +77,7 @@ python scripts/generate_a2_capacity_inventory.py \
   --output artifacts/a2-stage1-capacity-inventory.json
 ```
 
-The workflow prints a compact candidate summary and uploads only the derived JSON.
+The workflow then binds detached provenance, prints a compact candidate summary and uploads only the derived JSON.
 
 ## Next experiment
 

@@ -4,6 +4,7 @@
 - Evidence class: **runtime**
 - Blind-RE provenance: **clean**
 - Date: 2026-08-15
+- Acceptance decision reconciled: 2026-08-18 (issue #38)
 - Supported target: `ANTAG.EXE`, SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`, 610863 bytes
 - Fixture id: `resume-en-operator-multi-planet-2026-08-14`
 - Fixture: operator-supplied `resume.gam`, SHA-256 `d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1`, 133721 bytes
@@ -15,9 +16,11 @@
 
 ## Question and boundary
 
-Current `main` already pins this exact operator-supplied `resume.gam` as T3's `m1-multi-planet` candidate, but deliberately leaves its role properties `unverified`. The T3 question is therefore bounded: can the exact canonical target load these exact bytes, and does a coherent runtime observation establish enough player-owned planets plus an empty current-action state for V1 steps 2–4?
+The repository pins this exact operator-supplied `resume.gam` as T3's `m1-multi-planet` candidate. The bounded runtime question is: can the exact canonical target load these exact bytes, and does a coherent runtime observation establish enough player-owned planets plus an empty current-action state for V1 steps 2–4?
 
-The maintainer-reported campaign provenance is preserved separately in [`V1-validation-state-handoff.md`](./V1-validation-state-handoff.md). This experiment does **not** reconstruct the save's historical authoring timeline. It establishes canonical-target load compatibility and the role-critical current runtime properties below. The declaration's `produced_by_target_sha256` identifies the claimed producer target, but the claim remains `producer_provenance: reported`; this runtime observation is not producer evidence for the exact save bytes.
+The maintainer-reported campaign provenance is preserved separately in [`V1-validation-state-handoff.md`](./V1-validation-state-handoff.md). This experiment does **not** reconstruct the save's historical authoring timeline. It establishes canonical-target load compatibility and the role-critical current runtime properties below. The declaration's `produced_by_target_sha256` identifies the reported producer target, while `producer_provenance.evidence` remains `reported`; this runtime observation is not historical producer evidence for the exact save bytes.
+
+The 2026-08-18 maintainer decision recorded in `ROADMAP.md` / issue #38 makes that distinction non-blocking for this specific role: T3 requires exact payload identity plus independent canonical-target current-state qualification, but does not require a later save operation to reproduce the historical payload byte-for-byte.
 
 ## Method
 
@@ -100,16 +103,20 @@ T3 also had to remove the historical `Xerxes I` assumption from the reusable run
 - the renderer oracle for row 1 used region `(280, 214, 100, 8)` and reproduced the pinned Managed RGB SHA-256 `66df0c5f9a6774156363abc9cd878ec683b64aabd54c4d781387236cd1fff160`;
 - RE5 `manual-control` selected the same `Corpuscle I`, passed over a 7-second window, preserved `slot=ffff/action=ff/Managed=0`, and observed stardate `390 -> 395` (`delta +5`).
 
-The RE4 review experiment preserved one useful negative result: using the 145-pixel **click-center** stride for the renderer oracle sampled the wrong row. Exact-target measurement established separate geometries: click centers are `y=125 + row*145`, while the `Self-Managed` text regions are `y=73 + row*141`. The final harness models these independently. Focused RE5 artifact aggregation also now rejects mixed planet identities instead of composing six individually valid scenarios from different planets.
+The RE4 review experiment preserved one useful negative result: using the 145-pixel **click-center** stride for the renderer oracle sampled the wrong row. Exact-target measurement established separate geometries: click centers are `y=125 + row*145`, while the `Self-Managed` text regions are `y=73 + row*141`. The final harness models these independently. Focused RE5 artifact aggregation also rejects mixed planet identities instead of composing six individually valid scenarios from different planets.
 
 ## Superseded branch experiments
 
-Before rebasing onto the current maintainer handoff, an earlier branch revision treated companion `02.SAV` as the T3 input and exercised a fresh target-written-save path. Current `main` made the intended evidence boundary explicit: T3 must qualify the already declared operator `resume.gam` with SHA-256 `d2b8df5d…`. Those earlier derived-save runs therefore do not support this completion claim and are not promoted into the final fixture declaration. They remain useful only as review history for why the final T3 path was narrowed to the stable current-main fixture identity.
+Before rebasing onto the current maintainer handoff, an earlier branch revision treated companion `02.SAV` as the T3 input and exercised a fresh target-written-save path. Current supported state intentionally qualifies the already declared operator `resume.gam` with SHA-256 `d2b8df5d…`. Those earlier derived-save runs do not replace or rebind the fixture declaration. They remain useful review history only.
 
-## Producer-provenance follow-up
+## Producer-provenance follow-up and interpretation
 
-Codex review correctly separated two claims that this first runtime qualifier had conflated: observing the exact operator bytes on canonical `ANTAG.EXE` is not proof that canonical `ANTAG.EXE` originally wrote those bytes. A follow-up ordinary-save probe is recorded in [`T3-producer-provenance-probe.md`](./T3-producer-provenance-probe.md). The canonical target loaded the companion `02.SAV` and wrote a derived `01.SAV`, but the result was not byte-identical to either operator file and no exact `resume.gam` representation was reproduced. Producer provenance therefore remains reported, not runtime.
+Review correctly separated two claims that this first runtime qualifier had conflated: observing the exact operator bytes on canonical `ANTAG.EXE` is not proof that canonical `ANTAG.EXE` originally wrote those bytes. A follow-up ordinary-save probe is recorded in [`T3-producer-provenance-probe.md`](./T3-producer-provenance-probe.md). The canonical target loaded the companion `02.SAV` and wrote a derived `01.SAV`, but the result was not byte-identical to either operator file and no exact `resume.gam` representation was reproduced. Producer provenance therefore remains reported, not runtime.
+
+That negative result is now interpreted narrowly. It establishes that a later ordinary re-save did not reproduce the historical payload; it does **not** establish that the operator files came from a different executable or were edited. Exact-byte historical reproduction is no longer a T3/V1 fixture acceptance gate. The generic producer-evidence machinery remains available for experiments that actually need that stronger claim.
 
 ## Conclusion
 
-The declaration `resume-en-operator-multi-planet-2026-08-14` can keep its **current-state** properties at `runtime` without changing its fixture id or bytes: T3 really observed player id `0`, the three player-owned `Corpuscle` planets, and their empty current-action state on the canonical target. It may **not** yet satisfy role `m1-multi-planet`, because exact-byte canonical-target production remains unproven. V1 stays blocked on that producer-provenance gate until the exact bytes are independently proven target-written or a separately target-written fixture is qualified under a new id.
+The declaration `resume-en-operator-multi-planet-2026-08-14` satisfies role `m1-multi-planet` under the reconciled T3 contract without changing its fixture id, bytes, or evidence labels. T3 directly observed player id `0`, the three player-owned `Corpuscle` planets, and their empty current-action state on the exact canonical target; the detached runtime artifact binds those observations to exact `resume.gam` `d2b8df5d…`. Historical authorship remains an explicit maintainer report rather than being relabeled as runtime evidence.
+
+T3 is therefore complete. V1 may use this fixture once its independent implementation dependencies are ready; this result does not itself validate Manual/Agricultural/Industrial feature behavior.

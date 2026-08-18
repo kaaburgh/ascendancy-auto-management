@@ -2,29 +2,36 @@
 
 - Roadmap item: **T3 — Supply a multi-planet save fixture for M1 validation**
 - Tracking issue: **#34 — T3: prepare target-written replacement fixture experiment**
-- Evidence state: **experiment contract only; not yet run**
+- Status: **Superseded for T3 completion by the 2026-08-18 maintainer acceptance decision in issue #38; retained as an optional stronger-provenance experiment**
+- Evidence state: **experiment contract only; not run**
 - Intended evidence class after execution: **runtime**
 - Blind-RE provenance: **clean**
 - Canonical target: `ANTAG.EXE`, SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`, 610863 bytes
 
-## Question
+## Supersession note
+
+This experiment was prepared while T3 required exact-byte canonical-target producer provenance. On 2026-08-18 the maintainer narrowed the T3 acceptance contract: for the existing hash-pinned operator fixture, reported ordinary-play canonical-Antagonizer provenance is sufficient when paired with the already-established detached canonical-target current-state runtime qualification. A later Save Game operation need not reproduce the historical bytes exactly.
+
+Accordingly, this experiment is no longer required to complete T3 or unblock V1's fixture dependency. It remains a valid optional experiment if the project later wants stronger historical/producer provenance for its own sake. The negative producer probe and this unexecuted contract are preserved rather than deleted.
+
+## Original question
 
 The current operator multi-planet fixture has passed current-state runtime qualification, but its exact-byte producer provenance remains only reported. The first ordinary-save producer probe was negative: canonical `ANTAG.EXE` loaded the operator state and wrote a new save, but those bytes did not match either operator file.
 
 Can T3 instead create a **new, stable fixture whose exact bytes are demonstrably written by canonical `ANTAG.EXE` through ordinary play**, then independently re-run the existing current-state qualifier against those same exact bytes?
 
-This follows the second completion path already allowed by `ROADMAP.md`; it does not reinterpret the negative producer probe as positive evidence.
+This was the second completion path allowed by the earlier T3 contract; under the 2026-08-18 decision it is an optional stronger-evidence path rather than a milestone gate.
 
 ## Evidence boundary
 
-The experiment must use the verified retail runtime and exact canonical target. Operator/source inputs are immutable evidence: any run that can write saves executes only in an isolated verified working copy. No proprietary executable or save payload is committed to git.
+If this experiment is run, it must use the verified retail runtime and exact canonical target. Operator/source inputs are immutable evidence: any run that can write saves executes only in an isolated verified working copy. No proprietary executable or save payload is committed to git.
 
-A successful producer result and a successful current-state result are separate evidence axes:
+A successful producer result and a successful current-state result remain separate evidence axes for this optional experiment:
 
 1. **Producer axis:** canonical `ANTAG.EXE` writes a save through an ordinary in-game save path. The exact resulting bytes are hash-pinned under a new fixture id, and the detached producer record binds those bytes to the canonical target and the committed harness/configuration identities.
-2. **Current-state axis:** those exact target-written bytes are passed unchanged to `scripts/run_t3_multi_planet_fixture.py`, which independently establishes the role-critical current runtime properties.
+2. **Current-state axis:** those exact bytes are passed unchanged to `scripts/run_t3_multi_planet_fixture.py`, which independently establishes the role-critical current runtime properties.
 
-The role remains unusable if either axis is missing, malformed, stale, refers to different bytes, or fails its semantic oracle.
+If the experiment is used to make an exact-byte producer claim, that claim remains invalid if either axis is missing, malformed, stale, refers to different bytes, or fails its semantic oracle. Superseding this experiment as a T3 requirement does not weaken the generic producer-evidence contract for claims that opt into it.
 
 ## Bounded method
 
@@ -35,7 +42,7 @@ The role remains unusable if either axis is missing, malformed, stale, refers to
 5. After the target is stopped, hash the target-written payload and preserve only safe metadata in the detached producer record. Do not copy the proprietary payload into the repository.
 6. Assign a **new fixture id** to that exact hash. Do not reuse `resume-en-operator-multi-planet-2026-08-14`, because its bytes and provenance history are different.
 7. Run `scripts/run_t3_multi_planet_fixture.py` against the exact target-written payload. The qualifier must receive the new bytes as immutable candidate input and must still execute against a fresh isolated copy of the verified runtime tree.
-8. Promote the new fixture to role `m1-multi-planet` only if both the producer artifact and the independent current-state artifact bind the same fixture SHA-256 and canonical target SHA-256 and both validators pass.
+8. Promote any exact-byte producer claim only if both the producer artifact and the independent current-state artifact bind the same fixture SHA-256 and canonical target SHA-256 and both validators pass.
 
 ## Producer success oracle
 
@@ -53,9 +60,9 @@ Failure to establish any condition is a negative/inconclusive producer result, n
 
 ## Current-state success oracle
 
-The second phase uses the existing T3 qualifier rather than a producer-specific shortcut. The exact target-written bytes must load successfully on canonical `ANTAG.EXE` and independently satisfy the qualifier's existing M1 role contract, including at least two current-player-owned planets and at least one player-owned planet with an empty current action at load. The candidate bytes must remain unchanged by the qualification run.
+The second phase uses the existing T3 qualifier rather than a producer-specific shortcut. The exact target-written bytes must load successfully on canonical `ANTAG.EXE` and independently satisfy the qualifier's existing M1 role properties, including at least two current-player-owned planets and at least one player-owned planet with an empty current action at load. The candidate bytes must remain unchanged by the qualification run.
 
-A producer PASS without this current-state PASS creates a correctly proven target-written save that is **not** a valid `m1-multi-planet` fixture. A current-state PASS on bytes other than the producer-bound hash does not satisfy producer provenance.
+A producer PASS without this current-state PASS creates a correctly proven target-written save that is **not** useful as an M1 multi-planet fixture. A current-state PASS on bytes other than the producer-bound hash does not satisfy an exact-byte producer claim.
 
 ## Detached evidence requirements
 
@@ -80,8 +87,6 @@ Fail closed when no save is written, multiple candidate save outputs are created
 
 Do not claim that `resume.gam` is automatically materialized unless a bounded run directly observes that behavior. The previous producer probe explicitly did not observe it.
 
-## Acceptance for the preparation slice
+## Current disposition
 
-This document only defines the next reproducible experiment and its evidence boundary. It does **not** claim that a new target-written fixture exists, that T3 is complete, or that V1 is unblocked.
-
-The implementation/execution slice that follows should automate the producer path as far as practical, emit the detached producer artifact, then feed the exact resulting bytes into the already-established current-state qualifier without weakening either validator.
+No execution is required for T3 or V1 fixture readiness. If a future roadmap item explicitly opts into exact-byte canonical-target production evidence, this contract may be reused after reconciling it with the then-current producer schema and harness. Until then it is preserved history, not current work.

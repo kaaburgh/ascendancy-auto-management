@@ -117,7 +117,7 @@ Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/
 
 Full detail in [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md) and the repo-safe handoff under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/).
 
-- `scripts/generate_t2_static_bundle.py` fail-closes on the exact four CF1/T1 filenames, sizes and SHA-256 values, regenerates canonical layouts/strings/`le_disasm` v2 inventories into ignored `artifacts/`, and writes compact reviewable summaries with stable digests under `docs/re/static-analysis/t2/`.
+- `scripts/generate_t2_static_bundle.py` fail-closes on the exact four CF1/T1 filenames, sizes and SHA-256 values, regenerates canonical layouts/strings/`le_disasm` v2 inventories into ignored `artifacts/`, and writes compact reviewable summaries with stable digests under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/).
 - The canonical English summaries reproduce CF2's corrected headline metrics: `ANTAG_EN` 144696 instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162.
 - Open Watcom `wdump` 2.0 beta independently agrees with `le_image.py info --json` on all four pinned targets: 24 shared LE header fields, both object records and every emitted page-map row, with **zero disagreements** (126 + 126 + 121 + 121 = 494 page rows). In particular it independently confirms `page_off = 0x18000` for both Antagonizer builds and `0x17600` for both patch builds.
 - T2 does not establish semantic function identity. Candidate starts remain linear-sweep/direct-call analysis regions and the full target strings/disassembly stay out of git.
@@ -156,11 +156,11 @@ Cloud-feasibility tasks are intentionally near the front so later work is not un
 
 The product critical path above remains inside the blind-RE gate through M1. The separate research follow-up is `M1 → X1`; X1 is intentionally post-M1 and is not a prerequisite for completing the product milestone. X1 is `Open`/`CLOUD` but remains unselectable until its M1 dependency is completed.
 
-**Current front of the path:** CF1–CF4, T0–T2 and RE1–RE5 are complete. **A1 is the active CLOUD architecture investigation:** its two-layer representation direction is selected, but it remains incomplete until a reuse-safe sidecar identity/lifetime contract is established. **A2 remains separately selectable as CLOUD** and owns only its patch/integration mechanism decision.
+**Current front of the path:** CF1–CF4, T0–T3 and RE1–RE5 are complete. **A1 is the active CLOUD architecture investigation:** its two-layer representation direction is selected, but it remains incomplete until a reuse-safe sidecar identity/lifetime contract is established. **A2 remains separately selectable as CLOUD** and owns only its patch/integration mechanism decision.
 
 RE4 runtime-confirmed the existing per-planet Managed state. RE5 now closes the player automation-gate handoff with orthogonal evidence: the established Managed intervention chain plus a separate read-only Manual override witness with two normally progressing exact-target PASS runs. The earlier process-wide marker remains a documented perturbing negative experiment and is not load-bearing for completion.
 
-**T3 has completed current-state runtime qualification but remains open on exact-byte producer provenance.** It still runs in parallel to the RE/A/P/UI path and blocks nothing else on it, but V1 cannot consume the operator fixture until that provenance gate is satisfied.
+**T3 is completed and verified:** the exact operator multi-planet fixture is hash-pinned and independently current-state qualified on canonical `ANTAG.EXE`; the 2026-08-18 maintainer decision accepts reported ordinary-play canonical-target authorship without requiring byte-for-byte reproduction by a later save operation. V1 may consume the fixture once its independent implementation dependencies are ready.
 
 ---
 
@@ -314,7 +314,7 @@ Future CF2 pipeline code changes must continue to satisfy the same workflow; thi
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / DOS runtime
-- **Origin:** High-level steps 2–5
+- **Origin:** High-level step 2–5
 - **Depends on:** CF1 (complete)
 - **Gates:** RE4, RE5, P2, V1
 - **Question:** Can the target DOS game, or at minimum the required state-tracing/debugging experiments, execute reproducibly inside Codex or Claude cloud?
@@ -591,29 +591,37 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ## T3 — Supply a multi-planet save fixture for M1 validation
 
-- **Status:** Investigation first — current-state runtime qualification is complete, but exact-byte canonical-target producer provenance remains open after review.
-- **Execution:** **CLOUD** — the maintainer-supplied candidate short-circuited acquisition; exact-target current-state qualification runs through the established CF3/CF4 DOSBox/Xvfb path, and producer provenance now has its own fail-closed experiment contract.
+- **Status:** **Completed and verified** — exact fixture identity and canonical-target current-state runtime evidence are established; the 2026-08-18 maintainer decision in issue #38 accepts reported ordinary-play canonical-target authorship for this operator fixture without requiring byte-for-byte reproduction by a later save operation.
+- **Execution:** **CLOUD** — the maintainer-supplied candidate short-circuited acquisition and exact-target current-state qualification runs through the established CF3/CF4 DOSBox/Xvfb path.
 - **Priority:** High
 - **Category:** Target baseline / validation fixtures
 - **Origin:** Fixture limitation found while investigating the RE5 Manual record bracket
 - **Depends on:** T1 (complete)
-- **Question:** Which saved game lets V1 demonstrate two player-owned planets holding different automation profiles at the same time **with independently established canonical-target production provenance**?
+- **Question:** Which saved game lets V1 demonstrate two player-owned planets holding different automation profiles at the same time with sufficient identity, provenance, and canonical-target current-state evidence?
 
-### Established current-state evidence
+### Outcome
 
 The historical committed `fixtures/saves/resume.gam` remains unchanged and remains the fixture of record for completed RE4/RE5 evidence; it still has exactly one player-owned planet, `Xerxes I`.
 
-The distinct operator-supplied fixture `resume-en-operator-multi-planet-2026-08-14` has exact identity `d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1`, 133721 bytes. T3's runtime qualifier proves on canonical `ANTAG.EXE` that it loads with current player id `0`, exactly three player-owned planets (`Corpuscle I`, `Corpuscle II`, `Corpuscle III`), and all three in the internal empty-current-action state. Those **current-state** properties remain `runtime` evidence.
+The distinct operator-supplied fixture `resume-en-operator-multi-planet-2026-08-14` has exact identity `d2b8df5d57ac3151d0ba09533f5f0644785bb0911a25470b7ef7e541d6bbeac1`, 133721 bytes. T3's detached runtime qualifier proves on canonical `ANTAG.EXE` that these exact bytes load with current player id `0`, exactly three player-owned planets (`Corpuscle I`, `Corpuscle II`, `Corpuscle III`), and all three in the internal empty-current-action state. Those current-state properties are `runtime` evidence.
+
+The maintainer reports creating the state through ordinary play using canonical `ANTAG.EXE`, with companion `02.SAV` as the explicit/manual save and `resume.gam` as the resume/autosave representation. The exact operator pair is hash-pinned by `tools/v1-validation-state-manifest.json`; the two 133721-byte files differ in only 15 bytes, all at or before offset `0x72`, and are byte-identical from `0x73` through EOF. No semantics are inferred from those differing prefix bytes.
 
 The reusable RE4/RE5 paths are parameterized for the fixture while preserving historical defaults. On `Corpuscle I`, row 1, the complete RE4 `Manual -> Managed -> Manual` transition and renderer oracle passed; RE5 `manual-control` passed with stardate `390 -> 395`.
 
-### Producer-provenance gap found by review
+The bounded producer probe remains a useful negative result rather than a blocker. Starting from exact operator `02.SAV`, canonical `ANTAG.EXE` wrote ordinary `01.SAV` SHA-256 `6b2eaaa6fa1198b49d8749d3c5457e5938723527d02f0cc9e63f5e84ff608bee`. It differed from `02.SAV` in 942 bytes and from operator `resume.gam` in 953 bytes, with differences extending to `0x1ef38`; loading the slot did not automatically materialize `resume.gam`. This establishes that the later `Load -> Save Game` replay is not byte-stable. It does **not** establish that the historical operator files were produced by another executable or edited externally. See [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md).
 
-The V1/M1 fixture contract also requires the save to have been written by canonical `ANTAG.EXE` through ordinary play. T3's first runtime qualifier only proved that the exact operator bytes **load** on the canonical target; `produced_by_target_sha256` came from maintainer-reported provenance. Treating that string as evidence would let a save written by another build or edited externally become role-usable merely because canonical Antagonizer can load it.
+### 2026-08-18 acceptance decision
 
-`scripts/validate_validation_fixtures.py` now treats current-state observations and producer provenance as independent axes. `m1-multi-planet` has `requires_runtime_canonical_target_production: true`: positive producer evidence must be a runtime experiment with a machine-readable `validation-fixture-production:v1` block binding the exact fixture bytes to canonical `ANTAG.EXE` and asserting `target_written_exact_bytes: true` for an ordinary-game method.
+For `m1-multi-planet`, exact-byte runtime reproduction of the historical save write is no longer an acceptance requirement. The role now keeps these load-bearing gates:
 
-The first bounded producer probe is a useful negative result. Starting from exact operator `02.SAV`, canonical `ANTAG.EXE` wrote ordinary `01.SAV` SHA-256 `6b2eaaa6fa1198b49d8749d3c5457e5938723527d02f0cc9e63f5e84ff608bee`. It differed from `02.SAV` in 942 bytes and from operator `resume.gam` in 953 bytes, with differences extending to `0x1ef38`; loading the slot did not automatically materialize `resume.gam`. See [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md) and its detached [`T3-producer-provenance-probe.json`](./docs/experiments/T3-producer-provenance-probe.json) runtime record. This does not establish exact-byte production.
+- exact fixture size/SHA-256 identity;
+- `produced_by_target_sha256` pinned to canonical `ANTAG.EXE`;
+- maintainer-reported ordinary-play canonical-target authorship retained explicitly as `producer_provenance.evidence: reported` rather than promoted to runtime evidence;
+- independent `runtime` current-state evidence on the exact canonical target;
+- the detached, hash-bound T3 current-state artifact (`requires_detached_runtime_observation_artifact: true`).
+
+`requires_runtime_canonical_target_production` is `false` for `m1-multi-planet`. The generic exact-byte producer-evidence machinery remains in `scripts/validate_validation_fixtures.py` for future roles or experiments that explicitly opt into that stronger requirement.
 
 ### Work
 
@@ -621,9 +629,9 @@ The first bounded producer probe is a useful negative result. Starting from exac
 2. [x] Declare it under a stable fixture id.
 3. [x] Verify its role-critical **current-state** runtime properties on the exact target.
 4. [x] Parameterise reusable runtime selection paths without retargeting completed RE4/RE5 evidence.
-5. [x] Separate producer provenance from current-state runtime evidence and fail-close the M1 role when producer provenance is only reported.
-6. [x] Run a bounded ordinary-save producer probe and preserve the negative result.
-7. [ ] Establish runtime evidence that canonical `ANTAG.EXE` wrote exact `d2b8df5d…` bytes, **or** create a separately target-written stable fixture under a new id and re-run the T3 current-state qualifier on it.
+5. [x] Separate producer provenance from current-state runtime evidence.
+6. [x] Run a bounded ordinary-save producer probe and preserve the negative byte-instability result.
+7. [x] Record the maintainer decision that later exact-byte reproduction is not required for this T3 role, while retaining the producer report and the generic stronger producer-evidence machinery.
 
 ### Deliverables
 
@@ -632,13 +640,13 @@ The first bounded producer probe is a useful negative result. Starting from exac
 - [x] detached current-state runtime artifact and human record;
 - [x] `validation-fixture-observations:v1` block matching the current-state declaration;
 - [x] parameterized RE4/RE5 selection paths with historical defaults preserved;
-- [x] independent producer-provenance gate in `scripts/validate_validation_fixtures.py`;
-- [x] negative producer experiment record;
-- [ ] positive `validation-fixture-production:v1` evidence for exact operator bytes, or a newly qualified target-written fixture.
+- [x] negative producer experiment record preserved with its scope interpreted narrowly;
+- [x] role contract updated so reported historical producer provenance is metadata rather than an exact-byte reproduction blocker for `m1-multi-planet`;
+- [x] stronger target-written replacement experiment retained as optional/superseded-for-T3 research rather than deleted.
 
 ### Acceptance criteria
 
-**Not yet met.** The current operator fixture must continue to fail `scripts/validate_validation_fixtures.py --require-role m1-multi-planet` while `producer_provenance.evidence` is only `reported`. T3 completes only when a fixture with the required current-state runtime properties also has runtime evidence that canonical `ANTAG.EXE` wrote those exact bytes through ordinary play. T3 does not execute V1 or validate not-yet-implemented profile behavior.
+**Met.** `scripts/validate_validation_fixtures.py --require-role m1-multi-planet` accepts the declared fixture based on its exact identity, canonical producer declaration, and detached canonical-target current-state runtime evidence while historical producer provenance remains explicitly `reported`. T3 does not execute V1 or validate not-yet-implemented profile behavior.
 
 ---
 
@@ -1104,14 +1112,14 @@ The patch/build output contains the full intended M1 behavior and passes all clo
 
 - **Status:** Investigation first
 - **Execution:** **CLOUD** — set by CF4: use `scripts/run_cf4_ui_validation.py` with a checked-in action file and a retail tree verified by `tools/retail-runtime-manifest.json`; see [`docs/experiments/CF4-cloud-ui-validation.md`](./docs/experiments/CF4-cloud-ui-validation.md).
-- **Validation state:** T3 has runtime-qualified the current state of `resume-en-operator-multi-planet-2026-08-14`, but exact-byte producer provenance is still `reported`. `scripts/validate_validation_fixtures.py --require-role m1-multi-planet` must therefore fail until positive canonical-target production evidence is recorded, or a separately target-written fixture is qualified under a new id. The operator pair remains pinned by [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json); current-state observations are in [`docs/experiments/T3-multi-planet-save-fixture.md`](./docs/experiments/T3-multi-planet-save-fixture.md), and the negative producer probe is in [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md).
+- **Validation state:** T3 is completed and `resume-en-operator-multi-planet-2026-08-14` satisfies role `m1-multi-planet` under the 2026-08-18 acceptance decision. Exact `resume.gam` `d2b8df5d…` has detached canonical-target current-state runtime evidence for three player-owned `Corpuscle` planets; historical producer provenance remains `reported` metadata. The operator pair remains pinned by [`tools/v1-validation-state-manifest.json`](./tools/v1-validation-state-manifest.json), current-state observations are in [`docs/experiments/T3-multi-planet-save-fixture.md`](./docs/experiments/T3-multi-planet-save-fixture.md), and the negative byte-instability producer probe remains in [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md).
 - **Priority:** Critical
 - **Category:** End-to-end validation
 - **Origin:** Milestone exit criteria
 - **Depends on:** UI2, CF4, T3
 - **Goal:** Establish runtime evidence that Manual / Agricultural / Industrial selection works correctly for multiple planets in a real running game session.
 
-Steps 2–4 below require a save with at least two player-owned planets whose exact bytes are also proven canonical-target-written. The committed RE4/RE5 `resume.gam` still has exactly one planet. T3 has a three-planet operator candidate with verified current-state properties, but the M1 role remains fail-closed on producer provenance, so V1 is still blocked by T3 as well as its other dependencies.
+Steps 2–4 below require at least two player-owned planets. The historical RE4/RE5 `resume.gam` still has exactly one; the T3 operator fixture supplies three and is role-usable. V1 remains blocked by its other incomplete implementation dependencies, not by T3 fixture provenance.
 
 ### Required scenario
 

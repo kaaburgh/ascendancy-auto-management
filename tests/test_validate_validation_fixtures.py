@@ -278,6 +278,9 @@ def write_synthetic_source(
 def document_with(entry) -> dict:
     document = copy.deepcopy(DECLARATION)
     document["fixtures"] = [entry]
+    # Synthetic producer-contract tests intentionally opt back into the strict
+    # exact-byte producer requirement. The committed T3 role no longer does.
+    document["role_requirements"]["m1-multi-planet"][fixtures.PRODUCTION_REQUIREMENT_KEY] = True
     return document
 
 
@@ -397,11 +400,11 @@ class ValidationFixtureDeclarationTests(unittest.TestCase):
         self.assertFalse(status["satisfied"])
         self.assertIn("canonical runtime fixture", status["reason"])
 
-    def test_committed_multi_planet_fixture_stays_unusable_with_reported_producer(self):
+    def test_committed_multi_planet_fixture_is_usable_with_reported_producer(self):
         declared = fixtures.check_declaration(copy.deepcopy(DECLARATION))
         entry = next(item for item in declared if item["id"] == "resume-en-operator-multi-planet-2026-08-14")
-        self.assertFalse(entry["_role_status"]["satisfied"])
-        self.assertIn("producer provenance is 'reported'", entry["_role_status"]["reason"])
+        self.assertTrue(entry["_role_status"]["satisfied"])
+        self.assertEqual(entry["producer_provenance"]["evidence"], "reported")
 
     def test_runtime_producer_evidence_requires_exact_byte_proof(self):
         entry, _ = multi_planet_fixture()

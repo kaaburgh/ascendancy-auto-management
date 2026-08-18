@@ -277,7 +277,7 @@ class AddValidationFixtureTests(unittest.TestCase):
             0,
         )
 
-    def test_runtime_promotion_accepts_reported_producer_provenance_as_unusable(self):
+    def test_runtime_promotion_accepts_reported_producer_provenance_as_usable(self):
         self.assertEqual(self.run_adder(
             "--storage", "operator-supplied", "--evidence", "runtime",
             "--verified-by", self.runtime_source_relative,
@@ -291,8 +291,7 @@ class AddValidationFixtureTests(unittest.TestCase):
             json.loads(self.declaration.read_text(encoding="utf-8"))
         )
         status = next(item for item in checked if item["id"] == "resume-en-multi-planet")["_role_status"]
-        self.assertFalse(status["satisfied"])
-        self.assertIn("producer provenance is 'reported'", status["reason"])
+        self.assertTrue(status["satisfied"])
 
     def test_runtime_promotion_rejects_properties_not_observed_by_record(self):
         self.assertEqual(

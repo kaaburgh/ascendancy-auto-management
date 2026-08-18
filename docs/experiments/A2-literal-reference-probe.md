@@ -4,7 +4,7 @@ Date: 2026-08-18
 Roadmap item: A2  
 Issue: #30  
 Blind-RE provenance: **clean**  
-Evidence class in this slice: **synthetic/tooling** only.
+Evidence class in this slice: **synthetic/tooling** until an exact-target run completes.
 
 ## Question
 
@@ -51,7 +51,9 @@ These tests establish the probe's behavior only. They do not establish anything 
 
 ## Exact-target execution path
 
-[`../../.github/workflows/a2-literal-reference-probe.yml`](../../.github/workflows/a2-literal-reference-probe.yml) is manual `workflow_dispatch` evidence generation. It fetches only the hash-pinned canonical Antagonizer executable, runs the repository probe, binds the detached JSON to the checkout plus all material producer/parser/acquisition inputs, prints only compact counts, and uploads only the derived JSON. It does not upload target bytes.
+[`../../.github/workflows/a2-literal-reference-probe.yml`](../../.github/workflows/a2-literal-reference-probe.yml) is the exact-target evidence generator. It supports both manual `workflow_dispatch` and pull-request execution when any material producer/parser/acquisition input changes. The pull-request path exists so an exact PR head can produce reviewable target evidence without relying on an operator-side dispatch capability.
+
+The workflow fetches only the hash-pinned canonical Antagonizer executable, runs the repository probe, binds the detached JSON to the checkout plus all material producer/parser/acquisition inputs, prints only compact counts, and uploads only the derived JSON. It does not upload target bytes.
 
 The evidence command is:
 
@@ -62,8 +64,16 @@ python scripts/probe_a2_literal_references.py \
   --output artifacts/a2-literal-reference-probe.json
 ```
 
+The pull-request trigger covers all repository inputs that can materially change the evidence:
+
+- `.github/workflows/a2-literal-reference-probe.yml`;
+- `scripts/probe_a2_literal_references.py`;
+- `tools/fetch_free_targets.py`;
+- `tools/free-target-sources.json`;
+- `tools/le_image.py`.
+
 ## Status impact
 
-This PR prepares the independent static follow-up but does not execute it on the canonical target, so it adds no new target-specific finding and does not change A2 planning state. A2 remains `Investigation first`; mechanism A remains unselected and both Stage 1 ranges remain non-reusable.
+Adding exact-head PR execution changes only the evidence delivery path; it does not itself establish a target result or change A2 planning state. A2 remains `Investigation first`; mechanism A remains unselected and both Stage 1 ranges remain non-reusable until an exact-target artifact is actually produced and interpreted.
 
-The next evidence-producing action is to run the manual exact-target probe. Any hits should be investigated as possible consumers. If the exact-target scan has no useful hits, that negative result still does not establish reusable capacity; the roadmap's bounded runtime observation remains desirable where practical, otherwise A2 should proceed to the already-defined Stage 2 target-neutral LE-growth control rather than promote a cave by absence-of-evidence.
+When the exact-target scan runs, any hits must be investigated as possible consumers. If it has no useful hits, that negative result still does not establish reusable capacity; the roadmap's bounded runtime observation remains desirable where practical, otherwise A2 should proceed to the already-defined Stage 2 target-neutral LE-growth control rather than promote a cave by absence-of-evidence.

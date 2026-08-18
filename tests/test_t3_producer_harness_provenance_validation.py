@@ -26,18 +26,17 @@ class T3ProducerHarnessProvenanceValidationTests(unittest.TestCase):
         self.method = "synthetic ordinary-game save"
         self.artifact_path = self.evidence_dir / "producer-run.json"
 
-        source_names = [
-            "run_t3_target_written_fixture.py",
-            "run_t3_multi_planet_fixture.py",
-            "run_re4_runtime_state.py",
-            "run_re5_runtime_turn_path.py",
-            "run_re5_override_witness.py",
-            "le_image.py",
-        ]
+        source_paths = {
+            "run_t3_target_written_fixture.py": self.root / "scripts/run_t3_target_written_fixture.py",
+            "run_t3_multi_planet_fixture.py": self.root / "scripts/run_t3_multi_planet_fixture.py",
+            "run_re4_runtime_state.py": self.root / "scripts/run_re4_runtime_state.py",
+            "run_re5_runtime_turn_path.py": self.root / "scripts/run_re5_runtime_turn_path.py",
+            "run_re5_override_witness.py": self.root / "scripts/run_re5_override_witness.py",
+            "le_image.py": self.root / "tools/le_image.py",
+        }
         snapshots = {}
         hashes = {}
-        for name in source_names:
-            source = self.root / "scripts" / name
+        for name, source in source_paths.items():
             data = source.read_bytes()
             snapshot = self.evidence_dir / name
             snapshot.write_bytes(data)

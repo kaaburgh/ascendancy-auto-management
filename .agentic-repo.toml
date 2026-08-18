@@ -5,6 +5,7 @@ profiles = [
   "blind-research",
   "proprietary-target",
   "native-binary-patching",
+  "unattended-agent-cycle",
 ]
 
 [project]

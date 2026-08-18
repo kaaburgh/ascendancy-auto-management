@@ -920,13 +920,23 @@ Until criterion 2 is met, A1 remains `Investigation first`; downstream tasks tha
 
 ## A2 — Select the patch/integration mechanism
 
-- **Status:** Investigation first
+- **Status:** Investigation first — Stage 1 exact-target capacity inventory complete; reusable mapped capacity remains unestablished.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / patching
 - **Origin:** High-level step 5
 - **Depends on:** T1, T2, RE4, RE5
 - **Goal:** Choose the safest practical mechanism for modifying the canonical target and define how it is built, installed, removed, and version-gated.
+
+### Current evidence and next experiment
+
+The bounded decision experiment is recorded in [`docs/experiments/A2-patch-mechanism-decision.md`](./docs/experiments/A2-patch-mechanism-decision.md), with the Stage 1 producer/result in [`docs/experiments/A2-stage1-capacity-inventory.md`](./docs/experiments/A2-stage1-capacity-inventory.md).
+
+Stage 1 has now run on canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` (`static`, clean blind-RE provenance). It found 43 zero/padding candidate regions at the 16-byte threshold, 42 fully file-backed. The largest file-backed leads are object-2 VA `0x96c10` / 6206 bytes and `0x988dc` / 3052 bytes. Under the producer's GNU-objdump linear-sweep model, none of the 43 candidates has an incoming direct call/branch target.
+
+This establishes **zero reusable bytes so far**. Zero/padding content and absence of incoming direct control flow do not establish semantic inactivity: data references, indirect/runtime-computed access, initialization, scratch use, sentinel semantics, or other consumers remain possible. Every candidate therefore remains `reusable: false`; mechanism A (reuse existing mapped capacity) is not yet selected.
+
+**Next bounded experiment:** independently investigate `0x96c10` and `0x988dc` with evidence that does not reuse the zero-run/direct-control-flow derivation as its oracle. Prefer structural/raw-reference analysis and bounded runtime read/write observation where practical. If neither range can be defensibly established reusable, proceed to the Stage 2 target-neutral LE-growth/loader control defined by the A2 decision experiment rather than forcing a code-cave conclusion.
 
 ### Evaluate based on established target facts
 

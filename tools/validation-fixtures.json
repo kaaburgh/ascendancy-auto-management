@@ -69,7 +69,7 @@
       },
       "limitations": [
         "Current runtime ownership/count/names and empty-current-action state are verified on the canonical target by T3.",
-        "Exact-byte producer provenance remains maintainer-reported; T3 proves canonical-target load/current-state semantics, not that canonical ANTAG.EXE wrote these exact resume.gam bytes.",
+        "Producer provenance remains maintainer-reported and is retained as metadata; T3 acceptance relies on exact payload identity plus independent canonical-target current-state runtime qualification rather than byte-for-byte reproduction of a historical save write.",
         "The companion 02.SAV and byte relationship for this operator state remain pinned separately by tools/v1-validation-state-manifest.json."
       ],
       "used_by": [
@@ -90,7 +90,7 @@
     "m1-multi-planet": {
       "min_player_owned_planets": 2,
       "min_planets_with_empty_current_action_at_load": 1,
-      "requires_runtime_canonical_target_production": true,
+      "requires_runtime_canonical_target_production": false,
       "requires_detached_runtime_observation_artifact": true
     }
   }

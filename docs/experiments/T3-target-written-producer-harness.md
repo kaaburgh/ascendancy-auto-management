@@ -9,9 +9,7 @@
 
 ## Purpose
 
-`script/run_t3_target_written_fixture.py` is intentionally not a claim that a replacement fixture exists. It implements the producer-side safety and evidence boundary defined by [`T3-target-written-replacement-fixture.md`](./T3-target-written-replacement-fixture.md): a future bounded run may load a qualified seed state, drive only ordinary XTEST UI input, require one unambiguous numbered save output, preserve the exact target-written bytes at an operator path outside the repository, and emit a detached producer record without embedding the proprietary payload.
-
-The executable path is `scripts/run_t3_target_written_fixture.py`.
+`scripts/run_t3_target_written_fixture.py` is intentionally not a claim that a replacement fixture exists. It implements the producer-side safety and evidence boundary defined by [`T3-target-written-replacement-fixture.md`](./T3-target-written-replacement-fixture.md): a future bounded run may load a qualified seed state, drive only ordinary XTEST UI input, require one unambiguous numbered save output, preserve the exact target-written bytes at an operator path outside the repository, and emit a detached producer record without embedding the proprietary payload.
 
 ## Fail-closed boundaries
 
@@ -26,9 +24,13 @@ The harness requires all of the following before a positive record can be emitte
 - exactly one numbered save is observed after the ordinary UI sequence, and it must be the declared output slot;
 - the output becomes stable before the scenario deadline and is non-empty;
 - the operator output path is outside both the repository and the immutable source game tree and must not already exist;
-- the detached JSON artifact and exact harness source snapshot live under `docs/experiments/`.
+- the detached JSON artifact and exact harness source snapshot live under `docs/experiments/`;
+- detached outputs may not alias the action scenario, retail fixture manifest, or seed save, so publishing evidence cannot destroy an immutable experiment input;
+- the producer preserves the complete material Python source closure used by execution: the top-level producer plus `run_t3_multi_planet_fixture.py`, `run_re4_runtime_state.py`, `run_re5_runtime_turn_path.py`, `run_re5_override_witness.py`, and `le_image.py`, each hash-pinned and copied to durable source snapshots.
 
-The producer artifact uses schema `ascendancy.validation-fixture-producer/v1` and scenario contract `validation-fixture/canonical-target-exact-byte-producer/v1`, matching the existing consumer in `scripts/validate_validation_fixtures.py`. It records canonical target/retail identities, DOSBox identity, material runtime configuration, action-scenario path and SHA-256, exact harness source SHA-256/snapshot, bounded termination, no diagnostic guest writes, unchanged source inputs, and the exact output hash/size.
+The producer artifact uses schema `ascendancy.validation-fixture-producer/v1` and scenario contract `validation-fixture/canonical-target-exact-byte-producer/v1`, matching the existing consumer in `scripts/validate_validation_fixtures.py`. It records canonical target/retail identities, DOSBox identity, material runtime configuration, action-scenario path and SHA-256, the exact top-level producer SHA-256/snapshot, dependency SHA-256s and source snapshots for the complete material harness closure, bounded termination, no diagnostic guest writes, unchanged source inputs, and the exact output hash/size.
+
+The existing production-artifact validator still consumes the stable top-level `harness.source`, `harness.source_sha256`, and `harness.source_snapshot` fields. The additional `harness.dependencies` and `harness.source_snapshots` fields preserve the helper closure needed to audit the exact run rather than relying on whichever helper revisions happen to be present later.
 
 ## Scenario still required
 
@@ -38,7 +40,7 @@ A later bounded slice must independently reacquire and preserve the ordinary Sav
 
 ## Validation scope
 
-Synthetic unit coverage exercises action-schema rejection, runtime bounding, pointer bounds, output ambiguity/wrong-slot handling, operator-path immutability, overwrite rejection, and the producer artifact identity shape. Those tests establish harness behavior only. They do not establish that a target save was written or that any produced bytes satisfy `m1-multi-planet`.
+Synthetic unit coverage exercises action-schema rejection, runtime bounding, pointer bounds, output ambiguity/wrong-slot handling, operator-path immutability, overwrite rejection, detached-output/input alias rejection, preservation of the complete harness source closure, and the producer artifact identity shape. Those tests establish harness behavior only. They do not establish that a target save was written or that any produced bytes satisfy `m1-multi-planet`.
 
 ## Remaining T3 gate
 

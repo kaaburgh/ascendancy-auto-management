@@ -2,20 +2,13 @@ name: A2 literal-reference probe
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - .github/workflows/a2-literal-reference-probe.yml
-      - scripts/probe_a2_literal_references.py
-      - tools/fetch_free_targets.py
-      - tools/free-target-sources.json
-      - tools/le_image.py
 
 jobs:
   a2-literal-reference-probe:
     name: A2 literal-reference exact-target probe
     runs-on: ubuntu-latest
     env:
-      A2_CHECKOUT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      A2_CHECKOUT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:

@@ -51,9 +51,9 @@ These tests establish the probe's behavior only. They do not establish anything 
 
 ## Exact-target execution path
 
-[`../../.github/workflows/a2-literal-reference-probe.yml`](../../.github/workflows/a2-literal-reference-probe.yml) is the exact-target evidence generator. It supports both manual `workflow_dispatch` and pull-request execution when any material producer/parser/acquisition input changes. The pull-request path exists so an exact PR head can produce reviewable target evidence without relying on an operator-side dispatch capability.
+[`../../.github/workflows/a2-literal-reference-probe.yml`](../../.github/workflows/a2-literal-reference-probe.yml) is the exact-target evidence generator. It is intentionally **manual `workflow_dispatch` only**. Canonical-target acquisition depends on remote `archive.org` availability, so a transient remote 5xx/timeout must not become an ordinary PR correctness gate.
 
-On pull-request events the workflow explicitly checks out `github.event.pull_request.head.sha` rather than GitHub's synthetic merge ref, and records that same head SHA in the detached provenance. Manual dispatch records and checks out `github.sha`. This keeps target evidence bound to the exact revision whose repository inputs produced it.
+Dispatch the workflow on the exact branch/ref whose repository inputs are being evaluated. The workflow checks out `github.sha` for that dispatch and records the same SHA in detached provenance. The result is therefore bound to the exact revision that actually ran; it is not automatically inherited by later heads.
 
 The workflow fetches only the hash-pinned canonical Antagonizer executable, runs the repository probe, binds the detached JSON to the checkout plus all material producer/parser/acquisition inputs, prints only compact counts, and uploads only the derived JSON. It does not upload target bytes.
 
@@ -66,7 +66,7 @@ python scripts/probe_a2_literal_references.py \
   --output artifacts/a2-literal-reference-probe.json
 ```
 
-The pull-request trigger covers all repository inputs that can materially change the evidence:
+Material repository inputs pinned in detached provenance are:
 
 - `.github/workflows/a2-literal-reference-probe.yml`;
 - `scripts/probe_a2_literal_references.py`;
@@ -74,8 +74,12 @@ The pull-request trigger covers all repository inputs that can materially change
 - `tools/free-target-sources.json`;
 - `tools/le_image.py`.
 
+## Historical exact-target result
+
+PR #44 head `8c6ea2536eaf6c924fdf8a6143be7c20648a7fce` produced a successful exact-head run before the automatic PR trigger was removed. That run observed 1983 raw literal hits in total: 1162 landing in candidate `0x96c10` and 821 landing in candidate `0x988dc`. Both candidates remained `reusable: false`.
+
+That result is evidence for the named historical head only. Removing the automatic trigger does not rebind it to a later commit. It also does not promote the raw hits to semantic-reference proof.
+
 ## Status impact
 
-Adding exact-head PR execution changes only the evidence delivery path; it does not itself establish a target result or change A2 planning state. A2 remains `Investigation first`; mechanism A remains unselected and both Stage 1 ranges remain non-reusable until an exact-target artifact is actually produced and interpreted.
-
-When the exact-target scan runs, any hits must be investigated as possible consumers. If it has no useful hits, that negative result still does not establish reusable capacity; the roadmap's bounded runtime observation remains desirable where practical, otherwise A2 should proceed to the already-defined Stage 2 target-neutral LE-growth control rather than promote a cave by absence-of-evidence.
+The exact-target result provides no basis for promoting either Stage 1 zero range to reusable capacity. A2 remains `Investigation first`; mechanism A remains unselected. The roadmap's bounded runtime observation remains the next stronger evidence step where practical. If neither range can be defensibly established reusable, A2 should proceed to the already-prepared Stage 2 target-neutral LE-growth control rather than promote a cave by absence-of-evidence.

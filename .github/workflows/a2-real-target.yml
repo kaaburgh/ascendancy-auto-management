@@ -1,14 +1,6 @@
 name: A2 real-target Stage 1 inventory
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/a2-real-target.yml"
-      - "scripts/generate_a2_capacity_inventory.py"
-      - "tools/fetch_free_targets.py"
-      - "tools/free-target-sources.json"
-      - "tools/le_image.py"
-      - "tools/le_disasm.py"
   workflow_dispatch:
 
 jobs:
@@ -29,6 +21,39 @@ jobs:
           python scripts/generate_a2_capacity_inventory.py
           binaries/ANTAG_EN.EXE
           --output artifacts/a2-stage1-capacity-inventory.json
+      - name: Bind detached evidence provenance
+        env:
+          A2_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          artifact = Path("artifacts/a2-stage1-capacity-inventory.json")
+          data = json.loads(artifact.read_text(encoding="utf-8"))
+          material_inputs = [
+              ".github/workflows/a2-real-target.yml",
+              "scripts/generate_a2_capacity_inventory.py",
+              "tools/fetch_free_targets.py",
+              "tools/free-target-sources.json",
+              "tools/le_image.py",
+              "tools/le_disasm.py",
+          ]
+          data["detached_evidence_provenance"] = {
+              "schema": "a2-stage1-detached-provenance:v1",
+              "checkout_sha": os.environ["A2_CHECKOUT_SHA"],
+              "material_input_sha256": {
+                  path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                  for path in material_inputs
+              },
+          }
+          artifact.write_text(
+              json.dumps(data, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
       - name: Print compact review summary
         run: |
           python - <<'PY'
@@ -44,6 +69,7 @@ jobs:
 
           print("A2 Stage 1 exact-target summary")
           print(f"target_sha256={data['target']['sha256']}")
+          print(f"checkout_sha={data['detached_evidence_provenance']['checkout_sha']}")
           print(f"candidate_zero_regions={len(candidates)}")
           print(f"fully_file_backed_regions={len(fully)}")
           print(f"regions_with_incoming_direct_control_flow={len(with_refs)}")

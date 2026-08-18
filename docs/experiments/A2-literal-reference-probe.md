@@ -53,6 +53,8 @@ These tests establish the probe's behavior only. They do not establish anything 
 
 [`../../.github/workflows/a2-literal-reference-probe.yml`](../../.github/workflows/a2-literal-reference-probe.yml) is the exact-target evidence generator. It supports both manual `workflow_dispatch` and pull-request execution when any material producer/parser/acquisition input changes. The pull-request path exists so an exact PR head can produce reviewable target evidence without relying on an operator-side dispatch capability.
 
+On pull-request events the workflow explicitly checks out `github.event.pull_request.head.sha` rather than GitHub's synthetic merge ref, and records that same head SHA in the detached provenance. Manual dispatch records and checks out `github.sha`. This keeps target evidence bound to the exact revision whose repository inputs produced it.
+
 The workflow fetches only the hash-pinned canonical Antagonizer executable, runs the repository probe, binds the detached JSON to the checkout plus all material producer/parser/acquisition inputs, prints only compact counts, and uploads only the derived JSON. It does not upload target bytes.
 
 The evidence command is:

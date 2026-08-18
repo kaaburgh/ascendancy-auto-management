@@ -14,8 +14,12 @@ jobs:
   a2-literal-reference-probe:
     name: A2 literal-reference exact-target probe
     runs-on: ubuntu-latest
+    env:
+      A2_CHECKOUT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.A2_CHECKOUT_SHA }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -27,8 +31,6 @@ jobs:
           binaries/ANTAG_EN.EXE
           --output artifacts/a2-literal-reference-probe.json
       - name: Bind detached evidence provenance
-        env:
-          A2_CHECKOUT_SHA: ${{ github.sha }}
         run: |
           python - <<'PY'
           import hashlib

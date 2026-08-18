@@ -30,7 +30,7 @@ The harness requires all of the following before a positive record can be emitte
 
 The producer artifact uses schema `ascendancy.validation-fixture-producer/v1` and scenario contract `validation-fixture/canonical-target-exact-byte-producer/v1`, matching the existing consumer in `scripts/validate_validation_fixtures.py`. It records canonical target/retail identities, DOSBox identity, material runtime configuration, action-scenario path and SHA-256, the exact top-level producer SHA-256/snapshot, dependency SHA-256s and source snapshots for the complete material harness closure, bounded termination, no diagnostic guest writes, unchanged source inputs, and the exact output hash/size.
 
-The existing production-artifact validator still consumes the stable top-level `harness.source`, `harness.source_sha256`, and `harness.source_snapshot` fields. The additional `harness.dependencies` and `harness.source_snapshots` fields preserve the helper closure needed to audit the exact run rather than relying on whichever helper revisions happen to be present later.
+The production-artifact validator now treats the harness closure as role-critical provenance rather than optional audit metadata. It requires exactly the producer dependency set above, requires source snapshots for the top-level producer and every dependency, confines those snapshots to `docs/experiments/`, verifies that each snapshot resolves to the named source filename, and checks every snapshot SHA-256 against the digest pinned in the detached artifact. Missing, stale, additional, or fabricated dependency provenance therefore fails closed before producer evidence can satisfy the fixture role.
 
 ## Scenario still required
 
@@ -40,7 +40,7 @@ A later bounded slice must independently reacquire and preserve the ordinary Sav
 
 ## Validation scope
 
-Synthetic unit coverage exercises action-schema rejection, runtime bounding, pointer bounds, output ambiguity/wrong-slot handling, operator-path immutability, overwrite rejection, detached-output/input alias rejection, preservation of the complete harness source closure, and the producer artifact identity shape. Those tests establish harness behavior only. They do not establish that a target save was written or that any produced bytes satisfy `m1-multi-planet`.
+Synthetic unit coverage exercises action-schema rejection, runtime bounding, pointer bounds, output ambiguity/wrong-slot handling, operator-path immutability, overwrite rejection, detached-output/input alias rejection, preservation of the complete harness source closure, the producer artifact identity shape, and consumer rejection of missing or tampered helper provenance. Those tests establish harness and consumer behavior only. They do not establish that a target save was written or that any produced bytes satisfy `m1-multi-planet`.
 
 ## Remaining T3 gate
 

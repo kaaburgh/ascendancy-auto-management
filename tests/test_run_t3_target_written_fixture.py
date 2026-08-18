@@ -118,8 +118,55 @@ class PathSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(producer.ProducerError, "refusing to overwrite"):
                 producer.validate_operator_output_path(output, game)
 
+    def test_rejects_artifact_aliasing_action_scenario(self) -> None:
+        scenario = ROOT / "docs" / "experiments" / "_synthetic-actions.json"
+        snapshot = ROOT / "docs" / "experiments" / "_synthetic-harness.py"
+        with self.assertRaisesRegex(producer.ProducerError, "aliases immutable action scenario"):
+            producer.validate_detached_output_paths(
+                artifact=scenario,
+                snapshot=snapshot,
+                scenario=scenario,
+                fixture_manifest=ROOT / "tools" / "retail-runtime-fixture.json",
+                seed_save=Path("/tmp/operator-seed.sav"),
+            )
+
+    def test_rejects_artifact_aliasing_fixture_manifest(self) -> None:
+        manifest = ROOT / "docs" / "experiments" / "_synthetic-manifest.json"
+        snapshot = ROOT / "docs" / "experiments" / "_synthetic-harness.py"
+        with self.assertRaisesRegex(producer.ProducerError, "aliases immutable fixture manifest"):
+            producer.validate_detached_output_paths(
+                artifact=manifest,
+                snapshot=snapshot,
+                scenario=ROOT / "tools" / "_synthetic-actions.json",
+                fixture_manifest=manifest,
+                seed_save=Path("/tmp/operator-seed.sav"),
+            )
+
 
 class ArtifactTests(unittest.TestCase):
+    def test_preserves_complete_material_harness_source_closure(self) -> None:
+        experiments = ROOT / "docs" / "experiments"
+        with tempfile.TemporaryDirectory(dir=experiments) as td:
+            snapshot = Path(td) / "producer.py"
+            harness = producer.preserve_harness_snapshot(snapshot)
+            expected_dependencies = {
+                "run_t3_multi_planet_fixture.py",
+                "run_re4_runtime_state.py",
+                "run_re5_runtime_turn_path.py",
+                "run_re5_override_witness.py",
+                "le_image.py",
+            }
+            self.assertEqual(set(harness["dependencies"]), expected_dependencies)
+            self.assertEqual(
+                set(harness["source_snapshots"]),
+                {"run_t3_target_written_fixture.py", *expected_dependencies},
+            )
+            for name, relative in harness["source_snapshots"].items():
+                path = ROOT / relative
+                self.assertTrue(path.is_file(), name)
+                expected = harness["source_sha256"] if name == "run_t3_target_written_fixture.py" else harness["dependencies"][name]
+                self.assertEqual(producer.sha256_file(path), expected)
+
     def test_builds_validator_compatible_identity_shape(self) -> None:
         scenario = {
             "name": "save-one",
@@ -148,8 +195,16 @@ class ArtifactTests(unittest.TestCase):
                 },
                 scenario=scenario,
                 scenario_path=scenario_path,
-                harness_sha256="c" * 64,
-                snapshot_relative="docs/experiments/T3-target-written-producer-harness.py",
+                harness={
+                    "source": "scripts/run_t3_target_written_fixture.py",
+                    "source_sha256": "c" * 64,
+                    "source_snapshot": "docs/experiments/T3-target-written-producer-harness.py",
+                    "dependencies": {"run_t3_multi_planet_fixture.py": "d" * 64},
+                    "source_snapshots": {
+                        "run_t3_target_written_fixture.py": "docs/experiments/T3-target-written-producer-harness.py",
+                        "run_t3_multi_planet_fixture.py": "docs/experiments/T3-target-written-producer-harness-deps/run_t3_multi_planet_fixture.py",
+                    },
+                },
             )
         finally:
             producer.sha256_file = original_sha
@@ -163,6 +218,7 @@ class ArtifactTests(unittest.TestCase):
         self.assertFalse(artifact["execution"]["diagnostic_guest_code_writes"])
         self.assertFalse(artifact["execution"]["diagnostic_guest_data_writes"])
         self.assertFalse(artifact["execution"]["source_inputs_modified"])
+        self.assertIn("run_t3_multi_planet_fixture.py", artifact["harness"]["dependencies"])
 
 
 if __name__ == "__main__":

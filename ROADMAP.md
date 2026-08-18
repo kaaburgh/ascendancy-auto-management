@@ -477,7 +477,7 @@ Canonical M1 production target:
 
 Canonical comparison baseline:
 
-- `bugpatch-en` / `PATCH_EN.EXE` (publisher `PATCH.EXE`, documented version 1.6.5 English);
+- `bugpatch-en` / `PATCH_EN.EXE` (publisher `PATCH.EXE`, documented version 1.6.5);
 - SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`;
 - 587451 bytes.
 
@@ -613,7 +613,7 @@ The V1/M1 fixture contract also requires the save to have been written by canoni
 
 `scripts/validate_validation_fixtures.py` now treats current-state observations and producer provenance as independent axes. `m1-multi-planet` has `requires_runtime_canonical_target_production: true`: positive producer evidence must be a runtime experiment with a machine-readable `validation-fixture-production:v1` block binding the exact fixture bytes to canonical `ANTAG.EXE` and asserting `target_written_exact_bytes: true` for an ordinary-game method.
 
-The first bounded producer probe is a useful negative result. Starting from exact operator `02.SAV`, canonical `ANTAG_EN.EXE` wrote ordinary `01.SAV` SHA-256 `6b2eaaa6fa1198b49d8749d3c5457e5938723527d02f0cc9e63f5e84ff608bee`. It differed from `02.SAV` in 942 bytes and from operator `resume.gam` in 953 bytes, with differences extending to `0x1ef38`; loading the slot did not automatically materialize `resume.gam`. See [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md) and its detached [`T3-producer-provenance-probe.json`](./docs/experiments/T3-producer-provenance-probe.json) runtime record. This does not establish exact-byte production.
+The first bounded producer probe is a useful negative result. Starting from exact operator `02.SAV`, canonical `ANTAG.EXE` wrote ordinary `01.SAV` SHA-256 `6b2eaaa6fa1198b49d8749d3c5457e5938723527d02f0cc9e63f5e84ff608bee`. It differed from `02.SAV` in 942 bytes and from operator `resume.gam` in 953 bytes, with differences extending to `0x1ef38`; loading the slot did not automatically materialize `resume.gam`. See [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md) and its detached [`T3-producer-provenance-probe.json`](./docs/experiments/T3-producer-provenance-probe.json) runtime record. This does not establish exact-byte production.
 
 ### Work
 
@@ -623,7 +623,7 @@ The first bounded producer probe is a useful negative result. Starting from exac
 4. [x] Parameterise reusable runtime selection paths without retargeting completed RE4/RE5 evidence.
 5. [x] Separate producer provenance from current-state runtime evidence and fail-close the M1 role when producer provenance is only reported.
 6. [x] Run a bounded ordinary-save producer probe and preserve the negative result.
-7. [ ] Establish runtime evidence that canonical `ANTAG_EN.EXE` wrote exact `d2b8df5d…` bytes, **or** create a separately target-written stable fixture under a new id and re-run the T3 current-state qualifier on it.
+7. [ ] Establish runtime evidence that canonical `ANTAG.EXE` wrote exact `d2b8df5d…` bytes, **or** create a separately target-written stable fixture under a new id and re-run the T3 current-state qualifier on it.
 
 ### Deliverables
 
@@ -638,7 +638,7 @@ The first bounded producer probe is a useful negative result. Starting from exac
 
 ### Acceptance criteria
 
-**Not yet met.** The current operator fixture must continue to fail `scripts/validate_validation_fixtures.py --require-role m1-multi-planet` while `producer_provenance.evidence` is only `reported`. T3 completes only when a fixture with the required current-state runtime properties also has runtime evidence that canonical `ANTAG_EN.EXE` wrote those exact bytes through ordinary play. T3 does not execute V1 or validate not-yet-implemented profile behavior.
+**Not yet met.** The current operator fixture must continue to fail `scripts/validate_validation_fixtures.py --require-role m1-multi-planet` while `producer_provenance.evidence` is only `reported`. T3 completes only when a fixture with the required current-state runtime properties also has runtime evidence that canonical `ANTAG.EXE` wrote those exact bytes through ordinary play. T3 does not execute V1 or validate not-yet-implemented profile behavior.
 
 ---
 

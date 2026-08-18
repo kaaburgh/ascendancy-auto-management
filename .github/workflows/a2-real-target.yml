@@ -1,0 +1,65 @@
+name: A2 real-target Stage 1 inventory
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/a2-real-target.yml"
+      - "scripts/generate_a2_capacity_inventory.py"
+      - "tools/fetch_free_targets.py"
+      - "tools/free-target-sources.json"
+      - "tools/le_image.py"
+      - "tools/le_disasm.py"
+  workflow_dispatch:
+
+jobs:
+  a2-stage1-real-target:
+    name: A2 Stage 1 real-target inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check binutils is available
+        run: objdump --version
+      - name: Fetch and verify canonical Antagonizer target
+        run: python tools/fetch_free_targets.py antagonizer-en
+      - name: Generate exact-target Stage 1 inventory
+        run: >-
+          python scripts/generate_a2_capacity_inventory.py
+          binaries/ANTAG_EN.EXE
+          --output artifacts/a2-stage1-capacity-inventory.json
+      - name: Print compact review summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("artifacts/a2-stage1-capacity-inventory.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          candidates = data["candidate_zero_regions"]
+          fully = [c for c in candidates if c["fully_file_backed"]]
+          fully_sorted = sorted(fully, key=lambda c: (-c["size"], c["address"]))
+          with_refs = [c for c in candidates if c["incoming_direct_control_flow"]]
+
+          print("A2 Stage 1 exact-target summary")
+          print(f"target_sha256={data['target']['sha256']}")
+          print(f"candidate_zero_regions={len(candidates)}")
+          print(f"fully_file_backed_regions={len(fully)}")
+          print(f"regions_with_incoming_direct_control_flow={len(with_refs)}")
+          print(f"direct_control_flow_reference_count={data['direct_control_flow_reference_count']}")
+          print("largest_fully_file_backed_regions:")
+          for candidate in fully_sorted[:10]:
+              print(
+                  f"  address=0x{candidate['address']:x} size={candidate['size']} "
+                  f"object={candidate['object']} incoming_direct_cf="
+                  f"{len(candidate['incoming_direct_control_flow'])} reusable={candidate['reusable']}"
+              )
+          PY
+      - name: Upload derived inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2-stage1-capacity-inventory
+          path: artifacts/a2-stage1-capacity-inventory.json
+          if-no-files-found: error
+          retention-days: 7

@@ -15,7 +15,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import tempfile
 import time
 from typing import Any
@@ -156,6 +155,27 @@ def validate_snapshot_path(path: Path) -> Path:
     return resolved
 
 
+def validate_detached_output_paths(
+    *, artifact: Path, snapshot: Path, scenario: Path, fixture_manifest: Path, seed_save: Path
+) -> None:
+    """Reject detached outputs that could replace immutable experiment inputs."""
+    immutable = {
+        "action scenario": scenario.expanduser().resolve(),
+        "fixture manifest": fixture_manifest.expanduser().resolve(),
+        "seed save": seed_save.expanduser().resolve(),
+    }
+    outputs = {
+        "producer artifact": artifact.expanduser().resolve(strict=False),
+        "harness source snapshot": snapshot.expanduser().resolve(strict=False),
+    }
+    if outputs["producer artifact"] == outputs["harness source snapshot"]:
+        raise ProducerError("artifact and harness snapshot paths must differ")
+    for output_label, output_path in outputs.items():
+        for input_label, input_path in immutable.items():
+            if output_path == input_path:
+                raise ProducerError(f"{output_label} path aliases immutable {input_label}")
+
+
 def execute_steps(inp: re4.XInput, steps: list[dict[str, Any]], deadline: float) -> None:
     for i, step in enumerate(steps):
         if time.monotonic() >= deadline:
@@ -213,31 +233,71 @@ def wait_for_output(mount: Path, output_slot: int, deadline: float) -> tuple[str
     raise ProducerError(f"timed out waiting for stable {expected}")
 
 
-def preserve_harness_snapshot(snapshot: Path) -> tuple[str, str]:
-    source = Path(__file__).resolve()
-    data = source.read_bytes()
-    digest = sha256_bytes(data)
-    snapshot.parent.mkdir(parents=True, exist_ok=True)
-    if snapshot.exists() and snapshot.read_bytes() != data:
-        raise ProducerError("harness source snapshot exists with different bytes")
-    if not snapshot.exists():
-        fd, temp_name = tempfile.mkstemp(prefix=f".{snapshot.name}.", suffix=".part", dir=snapshot.parent)
-        temp = Path(temp_name)
+def harness_source_paths() -> dict[str, Path]:
+    """Return the complete source closure whose code participates in producer execution."""
+    sources = {"run_t3_target_written_fixture.py": Path(__file__).resolve()}
+    for name, source in t3.harness_source_paths().items():
+        sources.setdefault(name, source)
+    return sources
+
+
+def _preserve_source_snapshot(destination: Path, data: bytes) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists() and destination.read_bytes() != data:
+        raise ProducerError(
+            f"harness source snapshot {destination} exists with different bytes; use a fresh evidence path"
+        )
+    if destination.exists():
+        return
+    fd, temp_name = tempfile.mkstemp(prefix=f".{destination.name}.", suffix=".part", dir=destination.parent)
+    temp = Path(temp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp, destination)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def preserve_harness_snapshot(snapshot: Path) -> dict[str, Any]:
+    """Preserve the top-level producer and every material imported helper source."""
+    sources = harness_source_paths()
+    primary_name = "run_t3_target_written_fixture.py"
+    dependency_dir = snapshot.with_name(snapshot.stem + "-deps")
+    if dependency_dir.exists() and not dependency_dir.is_dir():
+        raise ProducerError("harness dependency snapshot path exists but is not a directory")
+
+    hashes: dict[str, str] = {}
+    snapshots: dict[str, str] = {}
+    for name, source in sources.items():
+        data = source.read_bytes()
+        digest = sha256_bytes(data)
+        destination = snapshot if name == primary_name else dependency_dir / name
+        _preserve_source_snapshot(destination, data)
         try:
-            with os.fdopen(fd, "wb") as handle:
-                handle.write(data)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temp, snapshot)
-        finally:
-            temp.unlink(missing_ok=True)
-    return digest, snapshot.relative_to(ROOT.resolve()).as_posix()
+            relative = destination.resolve().relative_to(ROOT.resolve())
+        except ValueError as exc:
+            raise ProducerError("harness source snapshot escaped repository evidence tree") from exc
+        hashes[name] = digest
+        snapshots[name] = relative.as_posix()
+
+    return {
+        "source": "scripts/run_t3_target_written_fixture.py",
+        "source_sha256": hashes[primary_name],
+        "source_snapshot": snapshots[primary_name],
+        "dependencies": {
+            name: digest for name, digest in hashes.items() if name != primary_name
+        },
+        "source_snapshots": snapshots,
+    }
 
 
 def build_artifact(
     *, fixture_id: str, output_name: str, payload: bytes, retail_fixture: dict[str, Any],
     dosbox_identity: dict[str, Any], scenario: dict[str, Any], scenario_path: Path,
-    harness_sha256: str, snapshot_relative: str,
+    harness: dict[str, Any],
 ) -> dict[str, Any]:
     digest = sha256_bytes(payload)
     return {
@@ -273,11 +333,7 @@ def build_artifact(
                 "max_runtime_seconds": scenario["max_runtime_seconds"],
             },
         },
-        "harness": {
-            "source": "scripts/run_t3_target_written_fixture.py",
-            "source_sha256": harness_sha256,
-            "source_snapshot": snapshot_relative,
-        },
+        "harness": harness,
         "execution": {
             "ordinary_game_method": scenario["ordinary_game_method"],
             "diagnostic_guest_code_writes": False,
@@ -316,8 +372,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     output_save = validate_operator_output_path(args.output_save, root)
     artifact_path = validate_artifact_path(args.artifact)
     snapshot_path = validate_snapshot_path(args.harness_snapshot)
-    if artifact_path == snapshot_path:
-        raise ProducerError("artifact and harness snapshot paths must differ")
+    validate_detached_output_paths(
+        artifact=artifact_path,
+        snapshot=snapshot_path,
+        scenario=scenario_path,
+        fixture_manifest=manifest,
+        seed_save=seed_path,
+    )
 
     retail_fixture = re4.verify_fixture(root, manifest)
     files = re4._casefold_file_map(root)
@@ -346,7 +407,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if output_save.read_bytes() != payload:
         raise ProducerError("operator output copy does not match target-written bytes")
 
-    harness_sha256, snapshot_relative = preserve_harness_snapshot(snapshot_path)
+    harness = preserve_harness_snapshot(snapshot_path)
     artifact = build_artifact(
         fixture_id=args.fixture_id,
         output_name=output_name,
@@ -355,8 +416,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         dosbox_identity=dosbox_identity,
         scenario=scenario,
         scenario_path=scenario_path,
-        harness_sha256=harness_sha256,
-        snapshot_relative=snapshot_relative,
+        harness=harness,
     )
     t3.write_json_atomic(artifact_path, artifact)
     return artifact

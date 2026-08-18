@@ -1,0 +1,78 @@
+name: A2 literal-reference probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  a2-literal-reference-probe:
+    name: A2 literal-reference exact-target probe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch and verify canonical Antagonizer target
+        run: python tools/fetch_free_targets.py antagonizer-en
+      - name: Run independent literal-reference probe
+        run: >-
+          python scripts/probe_a2_literal_references.py
+          binaries/ANTAG_EN.EXE
+          --output artifacts/a2-literal-reference-probe.json
+      - name: Bind detached evidence provenance
+        env:
+          A2_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          artifact = Path("artifacts/a2-literal-reference-probe.json")
+          data = json.loads(artifact.read_text(encoding="utf-8"))
+          material_inputs = [
+              ".github/workflows/a2-literal-reference-probe.yml",
+              "scripts/probe_a2_literal_references.py",
+              "tools/fetch_free_targets.py",
+              "tools/free-target-sources.json",
+              "tools/le_image.py",
+          ]
+          data["detached_evidence_provenance"] = {
+              "schema": "a2-literal-reference-detached-provenance:v1",
+              "checkout_sha": os.environ["A2_CHECKOUT_SHA"],
+              "material_input_sha256": {
+                  path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                  for path in material_inputs
+              },
+          }
+          artifact.write_text(
+              json.dumps(data, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Print compact review summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("artifacts/a2-literal-reference-probe.json").read_text(encoding="utf-8"))
+          print("A2 literal-reference exact-target summary")
+          print(f"target_sha256={data['target']['sha256']}")
+          print(f"checkout_sha={data['detached_evidence_provenance']['checkout_sha']}")
+          print(f"literal_reference_count={data['literal_reference_count']}")
+          for candidate in data["candidates"]:
+              print(
+                  f"candidate={candidate['id']} address=0x{candidate['address']:x} "
+                  f"size={candidate['size']} literal_reference_count={candidate['literal_reference_count']} "
+                  f"reusable={candidate['reusable']}"
+              )
+          PY
+      - name: Upload derived probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2-literal-reference-probe
+          path: artifacts/a2-literal-reference-probe.json
+          if-no-files-found: error
+          retention-days: 7

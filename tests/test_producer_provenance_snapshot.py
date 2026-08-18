@@ -21,12 +21,30 @@ class ProducerProvenanceSnapshotTests(unittest.TestCase):
         (self.root / "scripts").mkdir()
         (self.root / "docs" / "experiments").mkdir(parents=True)
 
-        self.harness_source = "scripts/producer.py"
-        self.harness_snapshot = "docs/experiments/producer.py"
+        self.harness_source = "scripts/run_t3_target_written_fixture.py"
+        self.harness_snapshot = "docs/experiments/run_t3_target_written_fixture.py"
         source_bytes = b"# exact executed producer harness\n"
         (self.root / self.harness_source).write_bytes(source_bytes)
         (self.root / self.harness_snapshot).write_bytes(source_bytes)
         self.harness_sha = hashlib.sha256(source_bytes).hexdigest()
+
+        dependency_names = (
+            "run_t3_multi_planet_fixture.py",
+            "run_re4_runtime_state.py",
+            "run_re5_runtime_turn_path.py",
+            "run_re5_override_witness.py",
+            "le_image.py",
+        )
+        self.dependency_hashes = {}
+        self.source_snapshots = {
+            "run_t3_target_written_fixture.py": self.harness_snapshot,
+        }
+        for index, name in enumerate(dependency_names):
+            data = f"# exact executed dependency {index}: {name}\n".encode()
+            snapshot = self.root / "docs" / "experiments" / name
+            snapshot.write_bytes(data)
+            self.dependency_hashes[name] = hashlib.sha256(data).hexdigest()
+            self.source_snapshots[name] = snapshot.relative_to(self.root).as_posix()
 
         self.fixture = {
             "size": 23,
@@ -39,6 +57,8 @@ class ProducerProvenanceSnapshotTests(unittest.TestCase):
             "source": self.harness_source,
             "source_sha256": self.harness_sha,
             "source_snapshot": self.harness_snapshot,
+            "dependencies": dict(self.dependency_hashes),
+            "source_snapshots": dict(self.source_snapshots),
         }
         harness.update(harness_overrides)
         return {

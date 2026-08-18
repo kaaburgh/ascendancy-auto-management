@@ -477,7 +477,7 @@ Canonical M1 production target:
 
 Canonical comparison baseline:
 
-- `bugpatch-en` / `PATCH_EN.EXE` (publisher `PATCH.EXE`, documented version 1.6.5);
+- `bugpatch-en` / `PATCH_EN.EXE` (publisher `PATCH.EXE`, documented version 1.6.5 English);
 - SHA-256 `7c944866875e0eb9030d9de1b2ac54a240981a51b892015fd0d2009ab0b62b1b`;
 - 587451 bytes.
 
@@ -613,7 +613,7 @@ The V1/M1 fixture contract also requires the save to have been written by canoni
 
 `scripts/validate_validation_fixtures.py` now treats current-state observations and producer provenance as independent axes. `m1-multi-planet` has `requires_runtime_canonical_target_production: true`: positive producer evidence must be a runtime experiment with a machine-readable `validation-fixture-production:v1` block binding the exact fixture bytes to canonical `ANTAG.EXE` and asserting `target_written_exact_bytes: true` for an ordinary-game method.
 
-The first bounded producer probe is a useful negative result. Starting from exact operator `02.SAV`, canonical `ANTAG.EXE` wrote ordinary `01.SAV` SHA-256 `6b2eaaa6fa1198b49d8749d3c5457e5938723527d02f0cc9e63f5e84ff608bee`. It differed from `02.SAV` in 942 bytes and from operator `resume.gam` in 953 bytes, with differences extending to `0x1ef38`; loading the slot did not automatically materialize `resume.gam`. See [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md) and its detached [`T3-producer-provenance-probe.json`](./docs/experiments/T3-producer-provenance-probe.json) runtime record. This does not establish exact-byte production.
+The first bounded producer probe is a useful negative result. Starting from exact operator `02.SAV`, canonical `ANTAG_EN.EXE` wrote ordinary `01.SAV` SHA-256 `6b2eaaa6fa1198b49d8749d3c5457e5938723527d02f0cc9e63f5e84ff608bee`. It differed from `02.SAV` in 942 bytes and from operator `resume.gam` in 953 bytes, with differences extending to `0x1ef38`; loading the slot did not automatically materialize `resume.gam`. See [`docs/experiments/T3-producer-provenance-probe.md`](./docs/experiments/T3-producer-provenance-probe.md) and its detached [`T3-producer-provenance-probe.json`](./docs/experiments/T3-producer-provenance-probe.json) runtime record. This does not establish exact-byte production.
 
 ### Work
 
@@ -623,7 +623,7 @@ The first bounded producer probe is a useful negative result. Starting from exac
 4. [x] Parameterise reusable runtime selection paths without retargeting completed RE4/RE5 evidence.
 5. [x] Separate producer provenance from current-state runtime evidence and fail-close the M1 role when producer provenance is only reported.
 6. [x] Run a bounded ordinary-save producer probe and preserve the negative result.
-7. [ ] Establish runtime evidence that canonical `ANTAG.EXE` wrote exact `d2b8df5d…` bytes, **or** create a separately target-written stable fixture under a new id and re-run the T3 current-state qualifier on it.
+7. [ ] Establish runtime evidence that canonical `ANTAG_EN.EXE` wrote exact `d2b8df5d…` bytes, **or** create a separately target-written stable fixture under a new id and re-run the T3 current-state qualifier on it.
 
 ### Deliverables
 
@@ -638,7 +638,7 @@ The first bounded producer probe is a useful negative result. Starting from exac
 
 ### Acceptance criteria
 
-**Not yet met.** The current operator fixture must continue to fail `scripts/validate_validation_fixtures.py --require-role m1-multi-planet` while `producer_provenance.evidence` is only `reported`. T3 completes only when a fixture with the required current-state runtime properties also has runtime evidence that canonical `ANTAG.EXE` wrote those exact bytes through ordinary play. T3 does not execute V1 or validate not-yet-implemented profile behavior.
+**Not yet met.** The current operator fixture must continue to fail `scripts/validate_validation_fixtures.py --require-role m1-multi-planet` while `producer_provenance.evidence` is only `reported`. T3 completes only when a fixture with the required current-state runtime properties also has runtime evidence that canonical `ANTAG_EN.EXE` wrote those exact bytes through ordinary play. T3 does not execute V1 or validate not-yet-implemented profile behavior.
 
 ---
 
@@ -912,13 +912,23 @@ Until criterion 2 is met, A1 remains `Investigation first`; downstream tasks tha
 
 ## A2 — Select the patch/integration mechanism
 
-- **Status:** Investigation first
+- **Status:** Investigation first — Stage 1 exact-target capacity inventory complete; reusable mapped capacity remains unestablished.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / patching
 - **Origin:** High-level step 5
 - **Depends on:** T1, T2, RE4, RE5
 - **Goal:** Choose the safest practical mechanism for modifying the canonical target and define how it is built, installed, removed, and version-gated.
+
+### Current evidence and next experiment
+
+The bounded decision experiment is recorded in [`docs/experiments/A2-patch-mechanism-decision.md`](./docs/experiments/A2-patch-mechanism-decision.md), with the Stage 1 producer/result in [`docs/experiments/A2-stage1-capacity-inventory.md`](./docs/experiments/A2-stage1-capacity-inventory.md).
+
+Stage 1 has now run on canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` (`static`, clean blind-RE provenance). It found 43 zero/padding candidate regions at the 16-byte threshold, 42 fully file-backed. The largest file-backed leads are object-2 VA `0x96c10` / 6206 bytes and `0x988dc` / 3052 bytes. Under the producer's GNU-objdump linear-sweep model, none of the 43 candidates has an incoming direct call/branch target.
+
+This establishes **zero reusable bytes so far**. Zero/padding content and absence of incoming direct control flow do not establish semantic inactivity: data references, indirect/runtime-computed access, initialization, scratch use, sentinel semantics, or other consumers remain possible. Every candidate therefore remains `reusable: false`; mechanism A (reuse existing mapped capacity) is not yet selected.
+
+**Next bounded experiment:** independently investigate `0x96c10` and `0x988dc` with evidence that does not reuse the zero-run/direct-control-flow derivation as its oracle. Prefer structural/raw-reference analysis and bounded runtime read/write observation where practical. If neither range can be defensibly established reusable, proceed to the Stage 2 target-neutral LE-growth/loader control defined by the A2 decision experiment rather than forcing a code-cave conclusion.
 
 ### Evaluate based on established target facts
 

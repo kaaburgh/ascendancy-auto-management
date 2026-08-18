@@ -126,6 +126,32 @@ class AddValidationFixtureTests(unittest.TestCase):
         )
         self.producer_harness_snapshot.write_bytes(self.producer_harness.read_bytes())
         self.addCleanup(self.producer_harness_snapshot.unlink, missing_ok=True)
+        producer_snapshot_dir = (
+            Path(validator.ROOT) / "docs/experiments/_synthetic_add_fixture_producer_sources"
+        )
+        producer_snapshot_dir.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(shutil.rmtree, producer_snapshot_dir, ignore_errors=True)
+        producer_dependency_names = (
+            "run_t3_multi_planet_fixture.py",
+            "run_re4_runtime_state.py",
+            "run_re5_runtime_turn_path.py",
+            "run_re5_override_witness.py",
+            "le_image.py",
+        )
+        producer_source_snapshots = {}
+        producer_dependency_hashes = {}
+        primary_snapshot = producer_snapshot_dir / "run_t3_target_written_fixture.py"
+        primary_snapshot.write_bytes(self.producer_harness.read_bytes())
+        producer_source_snapshots[primary_snapshot.name] = str(
+            primary_snapshot.relative_to(validator.ROOT)
+        )
+        for index, name in enumerate(producer_dependency_names):
+            snapshot = producer_snapshot_dir / name
+            snapshot.write_text(
+                f"# synthetic add producer dependency {index}: {name}\n", encoding="utf-8"
+            )
+            producer_source_snapshots[name] = str(snapshot.relative_to(validator.ROOT))
+            producer_dependency_hashes[name] = validator.sha256_file(snapshot)
         self.producer_artifact_relative = "docs/experiments/_synthetic_add_fixture_producer.json"
         self.producer_artifact = Path(validator.ROOT) / self.producer_artifact_relative
         producer_artifact = {
@@ -162,6 +188,8 @@ class AddValidationFixtureTests(unittest.TestCase):
                 "source": self.producer_harness_relative,
                 "source_sha256": validator.sha256_file(self.producer_harness),
                 "source_snapshot": self.producer_harness_snapshot_relative,
+                "dependencies": producer_dependency_hashes,
+                "source_snapshots": producer_source_snapshots,
             },
             "execution": {
                 "ordinary_game_method": "synthetic ordinary-game save",

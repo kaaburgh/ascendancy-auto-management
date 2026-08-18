@@ -3,7 +3,7 @@
 
 Project: **Ascendancy Auto-Management** (`closed-source game mod / native binary patching`)
 
-Profiles compiled into this contract: core, reverse-engineering, blind-research, proprietary-target, native-binary-patching.
+Profiles compiled into this contract: core, reverse-engineering, blind-research, proprietary-target, native-binary-patching, unattended-agent-cycle.
 
 Read this file before planning or changing the repository. The live roadmap is [`ROADMAP.md`](./ROADMAP.md). For operational details read [`docs/agent-playbook.md`](./docs/agent-playbook.md); for roadmap changes read [`docs/roadmap-authoring.md`](./docs/roadmap-authoring.md).
 
@@ -113,6 +113,10 @@ Before changing machine code or files, verify target identity and expected bytes
 Do not choose a hook/trampoline ABI solely from compiler-family fingerprints or a presumed default calling convention. When the boundary is internal or otherwise undocumented, establish the relevant register/stack/cleanup behavior from real target call sites or equivalent direct evidence before interpreting arguments or emitting adapter code.
 
 Keep DLL entry work minimal, respect loader lock, reentrancy/threading and hook lifecycle, and preserve original semantics except for the intended change. On-disk changes require backup, post-write verification, and automatic restore; prefer reversible runtime mechanisms where materially safer.
+
+## Unattended agent cycles
+
+When `unattended-agent-cycle` is selected, every unattended scheduled run must read and follow [`docs/agent-cycle-run.md`](./docs/agent-cycle-run.md) before selecting work, writing commits, requesting review, or reporting a verdict. Treat the committed cycle contract as immutable for the duration of that run; changes to the contract are ordinary roadmap work reviewed in a separate cycle.
 
 # Ascendancy project-local agent policy
 

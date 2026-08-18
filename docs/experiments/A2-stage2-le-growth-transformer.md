@@ -1,4 +1,4 @@
-# A2 Stage 2 — synthetic LE growth transformer preparation
+# A2 Stage 2 preparation — synthetic LE growth transformer
 
 Date: 2026-08-18  
 Roadmap item: A2  
@@ -6,9 +6,15 @@ Issue: #30
 Blind-RE provenance: **clean**  
 Evidence class in this slice: **synthetic/tooling** only.
 
+## Sequencing boundary
+
+This PR prepares a Stage 2 control primitive **without advancing A2 to the Stage 2 evidence step**. The authoritative roadmap still requires the independent Stage 1 investigation of `0x96c10` and `0x988dc` first. Preparing target-neutral tooling in parallel does not establish that either Stage 1 range is unusable and does not satisfy the condition for proceeding to the independent-reader/runtime Stage 2 control.
+
+The next evidence-producing A2 action therefore remains the roadmap's independent investigation of the two Stage 1 ranges. Only if neither range can be defensibly established reusable should the project execute the Stage 2 independent-reader/runtime control using this prepared transformer. Mechanism A and mechanism B both remain unselected.
+
 ## Question
 
-A2 Stage 1 has not established any existing mapped target bytes as reusable. The previously defined fallback is a target-neutral LE-growth control before mechanism B can be considered. What is the smallest fail-closed transformation primitive worth validating before adding independent-reader and DOS runtime oracles?
+A2 Stage 1 has not established any existing mapped target bytes as reusable. If the Stage 1 range investigation ultimately fails to establish reusable capacity, the predefined fallback is a target-neutral LE-growth control before mechanism B can be considered. What is the smallest fail-closed transformation primitive worth preparing now, without changing that sequencing decision?
 
 ## Bounded implementation
 
@@ -25,7 +31,7 @@ The canonical Ascendancy target SHA-256 `8d91e89e978a4e39970f30b790c9c55adde5907
 
 ## Why the subset is intentionally narrow
 
-A generic LE writer would have to account for loader/fixup tables, nonresident/debug data, short final physical pages, non-sequential physical maps and possibly other structures not yet covered by an independent writer oracle. Stage 2 is an information-gain experiment, so the first primitive fails closed instead of silently moving or rewriting structures whose semantics are not yet independently validated.
+A generic LE writer would have to account for loader/fixup tables, nonresident/debug data, short final physical pages, non-sequential physical maps and possibly other structures not yet covered by an independent writer oracle. This preparation is intended to make a later Stage 2 information-gain experiment cheap and bounded if Stage 1 does not produce reusable capacity, so the primitive fails closed instead of silently moving or rewriting structures whose semantics are not yet independently validated.
 
 The page-map insertion uses existing zero slack before enumerated page data rather than moving the data-page base. The new logical entry may point to a newly appended physical page while later logical entries retain their original physical-page numbers. This allows the control to grow a non-final logical object while preserving the bytes of later objects.
 
@@ -47,17 +53,17 @@ These checks use the existing repository parser as an **internal structural cons
 
 ## Evidence boundary and remaining Stage 2 work
 
-This preparation slice does **not** complete Stage 2. In particular it has not established either of the two required independent capability claims:
+This preparation slice does **not** complete or start the evidence-producing Stage 2 fallback. In particular it has not established either of the two required independent capability claims:
 
 - an independent generic LE reader such as Open Watcom `wdump` agrees that the transformed layout is structurally valid;
 - a redistributable/runnable LE control executes under the cloud DOS runtime and directly observes the appended mapped payload through a predeclared semantic oracle.
 
 A deliberately malformed transformed image also still needs an independent-reader/runtime failure oracle rather than merely rejection by the same parser used during construction.
 
-No target-specific facts are added by this slice. It must not be cited as evidence that canonical `ANTAG_EN.EXE` accepts an added page or that mechanism B is selected.
+No target-specific facts are added by this slice. It must not be cited as evidence that canonical `ANTAG_EN.EXE` accepts an added page, that the Stage 1 ranges are unusable, or that mechanism B is selected.
 
 ## Status impact
 
-A2 remains `Investigation first`. Mechanism A remains unselected because Stage 1 capacity is not independently proven reusable. Mechanism B remains unselected because this slice prepares only the target-neutral transformation primitive; independent `wdump` inspection and cloud runtime execution are still required before Stage 2 can support the decision rule in [`A2-patch-mechanism-decision.md`](./A2-patch-mechanism-decision.md).
+A2 remains `Investigation first`. Mechanism A remains unselected because Stage 1 capacity is not independently proven reusable. Mechanism B remains unselected because this slice only prepares a target-neutral transformation primitive.
 
-The next bounded Stage 2 action is to pair this transformer with a runnable redistributable/synthetic LE control, inspect the transformed image with an independent generic LE implementation, and run it under the existing cloud DOS runtime with an oracle that directly distinguishes access/execution of the appended page.
+The **next A2 evidence action remains Stage 1**: independently investigate `0x96c10` and `0x988dc` under the roadmap contract. If neither can be defensibly established reusable, the subsequent Stage 2 action is to pair this prepared transformer with a runnable redistributable/synthetic LE control, inspect the transformed image with an independent generic LE implementation, and run it under the existing cloud DOS runtime with an oracle that directly distinguishes access/execution of the appended page.

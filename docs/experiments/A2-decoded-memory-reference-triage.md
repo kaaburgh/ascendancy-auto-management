@@ -18,7 +18,7 @@ Can a decoded-instruction pass cheaply rank that noisy result by retaining only 
 - linear virtual address;
 - object-2-relative offset.
 
-Immediates that are not memory operands are excluded. The probe is pinned to canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`, verifies the candidate/object relationship, and refuses an output path that aliases the immutable target.
+Immediates that are not memory operands are excluded. The probe is pinned to canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00`, verifies the candidate/object relationship, and refuses an output path that aliases the immutable target. Because GNU objdump decoder/rendering semantics are material to the derived result, the machine-readable artifact also records the first line of `objdump --version` as `method.decoder_tool_identity`; failure to obtain that identity fails closed before evidence is emitted.
 
 ## Evidence boundary
 
@@ -37,9 +37,9 @@ regardless of the result.
 
 ## Synthetic validation
 
-[`../../tests/test_probe_a2_decoded_memory_references.py`](../../tests/test_probe_a2_decoded_memory_references.py) covers segment-qualified absolute memory operands, exclusion of ordinary immediates and register-relative small displacements, both candidate address interpretations, candidate boundaries, and output/input alias rejection.
+[`../../tests/test_probe_a2_decoded_memory_references.py`](../../tests/test_probe_a2_decoded_memory_references.py) covers segment-qualified absolute memory operands, exclusion of ordinary immediates and register-relative small displacements, both candidate address interpretations, candidate boundaries, output/input alias rejection, and capture of a stable machine-readable GNU objdump identity.
 
-These tests establish parser/classifier behavior only.
+These tests establish parser/classifier and provenance-contract behavior only.
 
 ## Exact-target evidence path
 
@@ -54,7 +54,7 @@ python scripts/probe_a2_decoded_memory_references.py \
   --output artifacts/a2-decoded-memory-references.json
 ```
 
-The workflow checks out and verifies the exact event SHA, records hashes for the workflow, probe, target fetcher, acquisition manifest and LE parser, and uploads only derived JSON.
+The workflow checks out and verifies the exact event SHA, records hashes for the workflow, probe, target fetcher, acquisition manifest and LE parser, and uploads only derived JSON. The derived JSON itself records the GNU objdump tool identity so artifacts produced from the same checkout/target but materially different binutils versions remain distinguishable.
 
 ## Status impact
 

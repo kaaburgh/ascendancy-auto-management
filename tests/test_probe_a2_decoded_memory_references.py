@@ -43,4 +43,13 @@ class DecodedMemoryReferenceProbeTests(unittest.TestCase):
             with self.assertRaises(probe.DecodedReferenceProbeError):
                 probe.validate_output_path(target,target)
 
+    def test_objdump_identity_is_machine_readable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake=pathlib.Path(tmp)/"objdump"
+            fake.write_text("#!/bin/sh\necho 'GNU objdump (GNU Binutils) 2.42'\n",encoding="utf-8")
+            fake.chmod(0o755)
+            resolved,identity=probe.resolve_objdump_identity(objdump=str(fake))
+            self.assertEqual(pathlib.Path(resolved),fake)
+            self.assertEqual(identity,"GNU objdump (GNU Binutils) 2.42")
+
 if __name__ == "__main__": unittest.main()

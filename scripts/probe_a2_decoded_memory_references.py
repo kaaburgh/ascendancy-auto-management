@@ -47,9 +47,17 @@ def parse_objdump_memory_operands(text: str) -> list[dict]:
         if lits: rows.append({"instruction_address":int(m.group("address"),16),"mnemonic":mnemonic,"absolute_memory_literals":lits})
     return rows
 
-def run_objdump(code_bytes: bytes, base_address: int, *, objdump: str="objdump") -> str:
+def resolve_objdump_identity(*, objdump: str="objdump") -> tuple[str, str]:
     resolved=shutil.which(objdump)
     if resolved is None: raise DecodedReferenceProbeError(f"GNU objdump not found: {objdump}")
+    cp=subprocess.run([resolved,"--version"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    if cp.returncode != 0: raise DecodedReferenceProbeError(f"objdump --version failed with exit {cp.returncode}: {(cp.stderr or cp.stdout).strip()}")
+    identity=(cp.stdout or cp.stderr).splitlines()[0].strip()
+    if not identity: raise DecodedReferenceProbeError("objdump --version produced no tool identity")
+    return resolved,identity
+
+def run_objdump(code_bytes: bytes, base_address: int, *, objdump: str="objdump") -> str:
+    resolved,_=resolve_objdump_identity(objdump=objdump)
     with tempfile.TemporaryDirectory(prefix="a2-decoded-ref-") as tmp:
         path=pathlib.Path(tmp)/"object1.bin"; path.write_bytes(code_bytes)
         cp=subprocess.run([resolved,"-D","-b","binary","-m","i386","-M","intel",f"--adjust-vma=0x{base_address:x}",str(path)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
@@ -82,6 +90,7 @@ def build_probe(image: le_image.LEImage, *, expected_sha256: str, objdump: str="
         if obj is None or not (obj.base_address <= c["address"] and c["address"]+c["size"] <= obj.end_address): raise DecodedReferenceProbeError(f"candidate {c['id']!r} is outside declared object")
     code=objects.get(1)
     if code is None: raise DecodedReferenceProbeError("canonical code object 1 is missing")
+    _,objdump_identity=resolve_objdump_identity(objdump=objdump)
     rows=parse_objdump_memory_operands(run_objdump(image.object_bytes(1),code.base_address,objdump=objdump))
     if not rows: raise DecodedReferenceProbeError("objdump produced no decoded absolute-memory operands")
     hits=classify_references(rows,cs,bases); by=[]
@@ -89,7 +98,7 @@ def build_probe(image: le_image.LEImage, *, expected_sha256: str, objdump: str="
         ch=[h for h in hits if h["candidate"]==c["id"]]; addrs=sorted({h["instruction_address"] for h in ch})
         by.append({**c,"object_offset":c["address"]-bases[c["object"]],"decoded_memory_reference_count":len(ch),"unique_instruction_count":len(addrs),"instruction_addresses":addrs,"decoded_memory_references":ch,"reusable":False,"reuse_evidence":"not established"})
     producer=pathlib.Path(__file__).resolve()
-    return {"schema":SCHEMA,"target":{"name":image.name,"sha256":image.sha256,"file_size":image.size},"producer":{"path":"scripts/probe_a2_decoded_memory_references.py","sha256":hashlib.sha256(producer.read_bytes()).hexdigest()},"method":{"source_object":1,"decoder":"GNU objdump -D -b binary -m i386 -M intel","interpretations":["linear-va","target-object-relative"],"evidence_boundary":"decoded absolute-memory operands are investigation leads; linear sweep can decode embedded data and this probe does not exclude computed/indirect access, differently represented relocations, runtime initialization, scratch use, sentinel semantics, or other consumers","relationship_to_prior_probe":"complements the all-byte raw-u32 scan by requiring an objdump-decoded absolute memory operand; it is not independent validation of objdump itself"},"decoded_memory_operand_row_count":len(rows),"decoded_memory_reference_count":len(hits),"candidates":by}
+    return {"schema":SCHEMA,"target":{"name":image.name,"sha256":image.sha256,"file_size":image.size},"producer":{"path":"scripts/probe_a2_decoded_memory_references.py","sha256":hashlib.sha256(producer.read_bytes()).hexdigest()},"method":{"source_object":1,"decoder":"GNU objdump -D -b binary -m i386 -M intel","decoder_tool_identity":objdump_identity,"interpretations":["linear-va","target-object-relative"],"evidence_boundary":"decoded absolute-memory operands are investigation leads; linear sweep can decode embedded data and this probe does not exclude computed/indirect access, differently represented relocations, runtime initialization, scratch use, sentinel semantics, or other consumers","relationship_to_prior_probe":"complements the all-byte raw-u32 scan by requiring an objdump-decoded absolute memory operand; it is not independent validation of objdump itself"},"decoded_memory_operand_row_count":len(rows),"decoded_memory_reference_count":len(hits),"candidates":by}
 
 def parse_args(argv=None):
     p=argparse.ArgumentParser(description=__doc__); p.add_argument("target",type=pathlib.Path); p.add_argument("--output",type=pathlib.Path); p.add_argument("--objdump",default="objdump"); return p.parse_args(argv)

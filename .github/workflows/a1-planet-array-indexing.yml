@@ -1,0 +1,73 @@
+name: A1 planet-array indexing probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  a1-planet-array-indexing:
+    name: A1 exact-target planet-array indexing probe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check binutils is available
+        run: objdump --version
+      - name: Fetch and verify canonical Antagonizer target
+        run: python tools/fetch_free_targets.py antagonizer-en
+      - name: Run bounded indexing probe
+        run: >-
+          python scripts/probe_a1_planet_array_indexing.py
+          binaries/ANTAG_EN.EXE
+          --output artifacts/a1-planet-array-indexing.json
+      - name: Bind detached evidence provenance
+        env:
+          A1_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          artifact = Path("artifacts/a1-planet-array-indexing.json")
+          data = json.loads(artifact.read_text(encoding="utf-8"))
+          inputs = [
+              ".github/workflows/a1-planet-array-indexing.yml",
+              "scripts/probe_a1_planet_array_indexing.py",
+              "tools/fetch_free_targets.py",
+              "tools/free-target-sources.json",
+              "tools/le_image.py",
+          ]
+          data["detached_evidence_provenance"] = {
+              "schema": "a1-planet-array-indexing-detached-provenance:v1",
+              "checkout_sha": os.environ["A1_CHECKOUT_SHA"],
+              "material_input_sha256": {
+                  path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                  for path in inputs
+              },
+          }
+          artifact.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Print bounded summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("artifacts/a1-planet-array-indexing.json").read_text())
+          print("A1 exact-target planet-array indexing probe")
+          print(f"target_sha256={data['target']['sha256']}")
+          print(f"checkout_sha={data['detached_evidence_provenance']['checkout_sha']}")
+          for label, window in data["windows"].items():
+              print(f"{label}: stride_hits={len(window['stride_0x7b_hits'])} data_operands={len(window['data_object_absolute_operands'])}")
+          print(f"shared_data_operands={data['relationship']['shared_data_object_operands']}")
+          print("slot_indexing=unestablished")
+          PY
+      - name: Upload derived probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: a1-planet-array-indexing
+          path: artifacts/a1-planet-array-indexing.json
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,34 @@
+name: A1 managed-field writer inventory
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-target-writer-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check binutils
+        run: objdump --version
+      - name: Fetch canonical free target
+        run: python tools/fetch_free_targets.py antagonizer-en
+      - name: Inventory direct decoded managed-field references
+        run: |
+          python scripts/probe_a1_managed_field_writers.py \
+            binaries/ANTAG_EN.EXE \
+            --checkout-sha "${{ github.sha }}" \
+            --output artifacts/a1-managed-field-writer-inventory.json
+      - name: Upload derived evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: a1-managed-field-writer-inventory-${{ github.sha }}
+          path: artifacts/a1-managed-field-writer-inventory.json
+          if-no-files-found: error

@@ -1,0 +1,125 @@
+name: A1 exact-target static evidence bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  a1-static-evidence:
+    name: A1 exact-target static evidence bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check binutils is available
+        run: objdump --version
+      - name: Fetch and verify canonical Antagonizer target
+        run: python tools/fetch_free_targets.py antagonizer-en
+      - name: Run bounded planet-array indexing probe
+        run: >-
+          python scripts/probe_a1_planet_array_indexing.py
+          binaries/ANTAG_EN.EXE
+          --output artifacts/a1-planet-array-indexing.json
+      - name: Run bounded managed-field writer inventory
+        run: >-
+          python scripts/probe_a1_managed_field_writers.py
+          binaries/ANTAG_EN.EXE
+          --checkout-sha "${{ github.sha }}"
+          --output artifacts/a1-managed-field-writer-inventory.json
+      - name: Bind detached bundle provenance
+        env:
+          A1_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def digest(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          checkout_sha = os.environ["A1_CHECKOUT_SHA"]
+          inputs = [
+              ".github/workflows/a1-static-evidence-bundle.yml",
+              "scripts/probe_a1_planet_array_indexing.py",
+              "scripts/probe_a1_managed_field_writers.py",
+              "tools/fetch_free_targets.py",
+              "tools/free-target-sources.json",
+              "tools/le_image.py",
+          ]
+          material = {path: digest(path) for path in inputs}
+          outputs = [
+              "artifacts/a1-planet-array-indexing.json",
+              "artifacts/a1-managed-field-writer-inventory.json",
+          ]
+
+          for path in outputs:
+              artifact = Path(path)
+              data = json.loads(artifact.read_text(encoding="utf-8"))
+              data["detached_bundle_provenance"] = {
+                  "schema": "ascendancy.a1-static-evidence-bundle-provenance/v1",
+                  "checkout_sha": checkout_sha,
+                  "material_input_sha256": material,
+              }
+              artifact.write_text(
+                  json.dumps(data, indent=2, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+
+          manifest = {
+              "schema": "ascendancy.a1-static-evidence-bundle/v1",
+              "checkout_sha": checkout_sha,
+              "target_sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+              "material_input_sha256": material,
+              "artifacts": {
+                  path: digest(path)
+                  for path in outputs
+              },
+              "claim_boundary": {
+                  "array_base_established": False,
+                  "slot_indexing_established": False,
+                  "complete_writer_inventory_established": False,
+                  "lossless_manual_transition_invalidation_boundary_established": False,
+              },
+          }
+          Path("artifacts/a1-static-evidence-bundle.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Print bounded summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          indexing = json.loads(Path("artifacts/a1-planet-array-indexing.json").read_text())
+          writers = json.loads(Path("artifacts/a1-managed-field-writer-inventory.json").read_text())
+          print("A1 exact-target static evidence bundle")
+          print(f"checkout_sha={indexing['detached_bundle_provenance']['checkout_sha']}")
+          print(f"target_sha256={indexing['target']['sha256']}")
+          print(f"shared_data_operands={indexing['relationship']['shared_data_object_operands']}")
+          print(f"direct_decoded_references={writers['analysis']['direct_decoded_reference_count']}")
+          print(f"potential_writes={writers['analysis']['potential_write_count']}")
+          print("array_base=unestablished")
+          print("slot_indexing=unestablished")
+          print("complete_writer_inventory=unestablished")
+          print("lossless_manual_transition_invalidation_boundary=unestablished")
+          PY
+      - name: Upload derived evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: a1-static-evidence-bundle-${{ github.sha }}
+          path: |
+            artifacts/a1-planet-array-indexing.json
+            artifacts/a1-managed-field-writer-inventory.json
+            artifacts/a1-static-evidence-bundle.json
+          if-no-files-found: error
+          retention-days: 7

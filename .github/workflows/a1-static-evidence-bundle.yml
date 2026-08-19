@@ -2,6 +2,7 @@ name: A1 exact-target static evidence bundle
 
 on:
   workflow_dispatch:
+  create:
 
 permissions:
   contents: read
@@ -9,6 +10,11 @@ permissions:
 jobs:
   a1-static-evidence:
     name: A1 exact-target static evidence bundle
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'create' &&
+       github.event.ref_type == 'branch' &&
+       startsWith(github.event.ref, 'evidence/a1-static-evidence-bundle/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +23,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Check exact checkout binding
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
       - name: Check binutils is available
         run: objdump --version
       - name: Fetch and verify canonical Antagonizer target

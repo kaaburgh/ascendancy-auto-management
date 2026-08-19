@@ -2,6 +2,7 @@
 
 Roadmap item: **A1 — Design the M1 per-planet profile state representation**  
 Tracking issue: **#26**  
+Process-enablement issue: **#51**  
 Evidence class after execution: **static**  
 Blind-RE provenance: **clean**
 
@@ -12,17 +13,20 @@ A1 currently has two independent exact-target static probes prepared on `main`:
 - `scripts/probe_a1_planet_array_indexing.py` investigates the still-unestablished array/indexing relationship needed before a slot-based sidecar key can be considered;
 - `scripts/probe_a1_managed_field_writers.py` inventories direct decoded `planet_record+0x5a` references as bounded leads for the still-unestablished lossless Manual-transition invalidation boundary.
 
-Both probes are intentionally conservative and both remain useful independently. This bundle adds **orchestration only**: one manual exact-target run fetches the canonical free target once, executes both repository probes on the same checkout/target identity, and uploads their derived JSON together with one hash-bound bundle manifest.
+Both probes are intentionally conservative and both remain useful independently. This bundle adds **orchestration only**: one exact-target run fetches the canonical free target once, executes both repository probes on the same checkout/target identity, and uploads their derived JSON together with one hash-bound bundle manifest.
 
 It does not change either probe's analysis model, claim boundary, or roadmap sequencing.
 
 ## Execution
 
-Use the manual GitHub Actions workflow:
+Use `.github/workflows/a1-static-evidence-bundle.yml` through either supported evidence-only trigger:
 
-`.github/workflows/a1-static-evidence-bundle.yml`
+1. **Manual GitHub Actions dispatch.** Run the `workflow_dispatch` action on the exact repository revision to investigate.
+2. **Dedicated evidence branch.** Create a new branch whose name starts with `evidence/a1-static-evidence-bundle/` at the exact commit to investigate. The GitHub `create` event starts the bundle only for that branch namespace. Use a fresh suffix for each run rather than moving an old evidence branch.
 
-The workflow is `workflow_dispatch` only. It checks out the dispatched SHA, verifies GNU `objdump` availability, fetches canonical `antagonizer-en` through the existing fail-closed acquisition path, then runs:
+The evidence-branch path exists so unattended environments that can create Git refs but cannot call `workflow_dispatch` can still run the already-defined cloud experiment. It is **not** ordinary PR correctness CI: creating or updating a normal feature/PR branch does not run the exact-target acquisition job.
+
+For either trigger, the workflow checks out `${{ github.sha }}` and independently verifies `git rev-parse HEAD` equals that SHA before target acquisition. It then verifies GNU `objdump` availability, fetches canonical `antagonizer-en` through the existing fail-closed acquisition path, and runs:
 
 ```sh
 python scripts/probe_a1_planet_array_indexing.py \

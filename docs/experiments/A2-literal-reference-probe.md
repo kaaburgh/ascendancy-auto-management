@@ -4,7 +4,7 @@ Date: 2026-08-18
 Roadmap item: A2  
 Issue: #30  
 Blind-RE provenance: **clean**  
-Evidence class in this slice: **synthetic/tooling** only.
+Evidence class in this slice: **synthetic/tooling** until an exact-target run completes.
 
 ## Question
 
@@ -51,7 +51,11 @@ These tests establish the probe's behavior only. They do not establish anything 
 
 ## Exact-target execution path
 
-[`../../.github/workflows/a2-literal-reference-probe.yml`](../../.github/workflows/a2-literal-reference-probe.yml) is manual `workflow_dispatch` evidence generation. It fetches only the hash-pinned canonical Antagonizer executable, runs the repository probe, binds the detached JSON to the checkout plus all material producer/parser/acquisition inputs, prints only compact counts, and uploads only the derived JSON. It does not upload target bytes.
+[`../../.github/workflows/a2-literal-reference-probe.yml`](../../.github/workflows/a2-literal-reference-probe.yml) is the exact-target evidence generator. It is intentionally **manual `workflow_dispatch` only**. Canonical-target acquisition depends on remote `archive.org` availability, so a transient remote 5xx/timeout must not become an ordinary PR correctness gate.
+
+Dispatch the workflow on the exact branch/ref whose repository inputs are being evaluated. The workflow checks out `github.sha` for that dispatch and records the same SHA in detached provenance. The result is therefore bound to the exact revision that actually ran; it is not automatically inherited by later heads.
+
+The workflow fetches only the hash-pinned canonical Antagonizer executable, runs the repository probe, binds the detached JSON to the checkout plus all material producer/parser/acquisition inputs, prints only compact counts, and uploads only the derived JSON. It does not upload target bytes.
 
 The evidence command is:
 
@@ -62,8 +66,20 @@ python scripts/probe_a2_literal_references.py \
   --output artifacts/a2-literal-reference-probe.json
 ```
 
+Material repository inputs pinned in detached provenance are:
+
+- `.github/workflows/a2-literal-reference-probe.yml`;
+- `scripts/probe_a2_literal_references.py`;
+- `tools/fetch_free_targets.py`;
+- `tools/free-target-sources.json`;
+- `tools/le_image.py`.
+
+## Historical exact-target result
+
+PR #44 head `8c6ea2536eaf6c924fdf8a6143be7c20648a7fce` produced a successful exact-head run before the automatic PR trigger was removed. That run observed 1983 raw literal hits in total: 1162 landing in candidate `0x96c10` and 821 landing in candidate `0x988dc`. Both candidates remained `reusable: false`.
+
+That result is evidence for the named historical head only. Removing the automatic trigger does not rebind it to a later commit. It also does not promote the raw hits to semantic-reference proof.
+
 ## Status impact
 
-This PR prepares the independent static follow-up but does not execute it on the canonical target, so it adds no new target-specific finding and does not change A2 planning state. A2 remains `Investigation first`; mechanism A remains unselected and both Stage 1 ranges remain non-reusable.
-
-The next evidence-producing action is to run the manual exact-target probe. Any hits should be investigated as possible consumers. If the exact-target scan has no useful hits, that negative result still does not establish reusable capacity; the roadmap's bounded runtime observation remains desirable where practical, otherwise A2 should proceed to the already-defined Stage 2 target-neutral LE-growth control rather than promote a cave by absence-of-evidence.
+The exact-target result provides no basis for promoting either Stage 1 zero range to reusable capacity. A2 remains `Investigation first`; mechanism A remains unselected. The roadmap's bounded runtime observation remains the next stronger evidence step where practical. If neither range can be defensibly established reusable, A2 should proceed to the already-prepared Stage 2 target-neutral LE-growth control rather than promote a cave by absence-of-evidence.

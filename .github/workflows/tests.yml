@@ -38,6 +38,9 @@ jobs:
   cf3-debugger:
     name: CF3 debugger capability
     runs-on: ubuntu-latest
+    # Hosted-runner/package-manager stalls must fail closed instead of leaving
+    # the whole PR merge gate in progress indefinitely.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

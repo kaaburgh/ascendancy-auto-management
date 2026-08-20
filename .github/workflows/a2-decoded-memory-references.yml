@@ -1,0 +1,72 @@
+name: A2 decoded memory references
+
+on:
+  workflow_dispatch:
+  create:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'create' &&
+       github.event.ref_type == 'branch' &&
+       startsWith(github.event.ref, 'evidence/a2-decoded-memory-references/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Check GNU objdump
+        run: objdump --version
+      - name: Fetch canonical target
+        run: python tools/fetch_free_targets.py antagonizer-en
+      - name: Probe decoded memory references
+        run: |
+          python scripts/probe_a2_decoded_memory_references.py \
+            binaries/ANTAG_EN.EXE \
+            --output artifacts/a2-decoded-memory-references.json
+      - name: Bind detached provenance
+        env:
+          CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          output = pathlib.Path("artifacts/a2-decoded-memory-references.json")
+          data = json.loads(output.read_text(encoding="utf-8"))
+          material = [
+              ".github/workflows/a2-decoded-memory-references.yml",
+              "scripts/probe_a2_decoded_memory_references.py",
+              "tools/fetch_free_targets.py",
+              "tools/free-target-sources.json",
+              "tools/le_image.py",
+          ]
+          data["run_provenance"] = {
+              "checkout_sha": os.environ["CHECKOUT_SHA"],
+              "material_inputs": {path: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest() for path in material},
+          }
+          output.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Print compact result
+        run: |
+          python - <<'PY'
+          import json
+          data = json.load(open("artifacts/a2-decoded-memory-references.json"))
+          print("decoded memory references:", data["decoded_memory_reference_count"])
+          for candidate in data["candidates"]:
+              print(candidate["id"], "references=", candidate["decoded_memory_reference_count"], "instructions=", candidate["unique_instruction_count"], "reusable=", candidate["reusable"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a2-decoded-memory-references
+          path: artifacts/a2-decoded-memory-references.json

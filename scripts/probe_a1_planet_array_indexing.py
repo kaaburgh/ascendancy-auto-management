@@ -275,21 +275,28 @@ def collect_census(instructions: list[dict[str, Any]], initializer_entry: int) -
                 }
             )
 
-    if not callers:
-        raise ProbeError("no direct decoded caller reaches the re-established initializer entry")
     for value, refs in globals_by_value.items():
         if not refs:
             raise ProbeError(f"no decoded references found for supported global 0x{value:x}")
     if not stride_contexts:
         raise ProbeError("no decoded 0x7b arithmetic/control-flow triage occurrences found")
 
+    negative_findings = []
+    if not callers:
+        negative_findings.append(
+            "No direct decoded call targets the re-established initializer entry; this census does not infer "
+            "an indirect caller, fall-through relationship, or construction/reset seam from that absence."
+        )
+
     return {
         "initializer_direct_callers": callers,
+        "initializer_direct_callers_observed": bool(callers),
         "selected_globals": {
             f"0x{value:x}": {"reference_count": len(refs), "references": refs}
             for value, refs in globals_by_value.items()
         },
         "stride_0x7b_contexts": stride_contexts,
+        "negative_findings": negative_findings,
         "identity_contract_established": False,
     }
 

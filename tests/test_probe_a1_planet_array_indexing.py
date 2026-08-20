@@ -71,9 +71,21 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(0x22421, initializer["zero_write"])
         census = probe.collect_census(instructions, initializer["entry"])
         self.assertEqual([0x23000], [item["call_site"] for item in census["initializer_direct_callers"]])
+        self.assertTrue(census["initializer_direct_callers_observed"])
+        self.assertEqual([], census["negative_findings"])
         self.assertEqual(1, census["selected_globals"]["0x43660"]["reference_count"])
         self.assertEqual(1, census["selected_globals"]["0x43664"]["reference_count"])
         self.assertEqual([0x23010], [item["address"] for item in census["stride_0x7b_contexts"]])
+        self.assertFalse(census["identity_contract_established"])
+
+    def test_no_direct_initializer_caller_is_preserved_as_negative_evidence(self) -> None:
+        instructions = probe.parse_disassembly(CENSUS_SAMPLE.replace(" 23000: e8 fb f3 ff ff        call   22400\n", ""))
+        initializer = probe.reestablish_initializer(instructions)
+        census = probe.collect_census(instructions, initializer["entry"])
+        self.assertEqual([], census["initializer_direct_callers"])
+        self.assertFalse(census["initializer_direct_callers_observed"])
+        self.assertEqual(1, len(census["negative_findings"]))
+        self.assertIn("No direct decoded call", census["negative_findings"][0])
         self.assertFalse(census["identity_contract_established"])
 
     def test_direct_call_target_accepts_objdump_with_or_without_0x_prefix(self) -> None:

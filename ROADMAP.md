@@ -274,7 +274,7 @@ Limits that downstream work must retain:
 - candidate starts are direct-call-derived regions, not verified functions; indirect-only callees are folded into preceding spans;
 - 11 EN / 12 INTL structural Antagonizer-only spans exceed 2000 bytes, so the structural count is not a changed-function count;
 - reference-only differences mix benign relocation with possible callee/global/table retargets;
-- constant-only differences mix DS-relative layout movement with genuine thresholds/flags and are the largest unresolved English bucket;
+- constant-only differences mix DS-relative layout movement with genuine thresholds/biases/flags and are the largest unresolved English bucket;
 - structural matched-byte fraction ignores both unresolved middle buckets;
 - despite T1's strong direct-lineage evidence, whole-image differences may still contain unrelated bug-fix/configuration drift and need cross-locale or semantic corroboration.
 
@@ -553,7 +553,7 @@ T2 now provides a fail-closed, repo-safe handoff rather than an interactive RE d
 
 - `scripts/generate_t2_static_bundle.py` verifies all four pinned filenames, sizes and SHA-256 values before analysis;
 - the canonical English pair gets full `le_image` layouts, string inventories and `le_disasm` v2 inventories under ignored `artifacts/t2-static-analysis/`, while compact summaries and stable digests are committed under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/);
-- `ANTAG_EN` reproduces 144696 decoded instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162;
+- `ANTAG_EN` reproduces 144696 instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162;
 - Open Watcom `wdump` independently matched `le_image.py info --json` on 24 shared LE header fields, both objects and every page row for all four pinned targets: 494 page rows total, zero disagreements;
 - no target executables, raw disassembly, or bulk target strings are committed, and no candidate is promoted to a semantic function identity.
 
@@ -889,6 +889,12 @@ This direction is an architecture conclusion from the supported RE2–RE5 eviden
 A1 remains investigatory until it establishes one reuse-safe identity/lifetime contract: an evidence-backed epoch/generation boundary, immutable or reuse-detecting record identity, or another equivalent mechanism that prevents stale profile transfer if a record address is reused. If a slot-based key remains desirable, A1 must first establish the array/indexing relationship instead of inferring it from stride alone. If no bounded fail-closed contract can be established, A1 must revisit the sidecar direction rather than delegating an invented lifecycle to A2/UI2.
 
 Save-game format changes remain out of M1 unless evidence shows they are necessary.
+
+### Current evidence and next experiment
+
+The remaining A1 identity/lifetime work is now concretely sequenced by [`docs/experiments/A1-sidecar-identity-lifetime-next-probe.md`](./docs/experiments/A1-sidecar-identity-lifetime-next-probe.md). That bounded probe pins the existing exact-target anchors, keeps reuse-safe identity separate from Manual-transition invalidation, and defines a fail-closed static producer/caller census without promoting pointer, slot, or name stability to fact.
+
+**Next bounded experiment:** implement and run that exact-target census, re-establishing its anchors from byte/instruction invariants and emitting only compact derived metadata for direct callers of the initializer-shaped `+0x5a = 0` routine, references to `DS:0x43660` / `DS:0x43664`, and `0x7b` arithmetic/control-flow triage. Review the result only into the probe's three stated outcomes: a reuse-safe construction/reset seam, a stable indexed population plus generation/reset boundary, or a durable negative result that narrows the follow-up to a bounded runtime lifetime experiment. This experiment does not by itself complete A1, and the separate lossless Manual-transition invalidation requirement remains open.
 
 ### Decision criteria
 

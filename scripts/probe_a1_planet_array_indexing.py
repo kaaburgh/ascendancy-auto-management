@@ -152,6 +152,13 @@ def is_zero_field_write(item: dict[str, Any]) -> bool:
     return bool(re.search(r"(?:\$?0x0\b|\b0\b)", operands[: field_match.start()]))
 
 
+def is_zero_eax_base_write(item: dict[str, Any]) -> bool:
+    if not item["mnemonic"].startswith("mov"):
+        return False
+    operands = item["operands"].lower().replace(" ", "")
+    return operands in {"$0x0,(%eax)", "0x0,(%eax)", "0,dwordptr[eax]", "0x0,dwordptr[eax]"}
+
+
 def compact_instruction_window(instructions: list[dict[str, Any]], center_address: int, radius: int = 8) -> str:
     indexed = {item["address"]: idx for idx, item in enumerate(instructions)}
     idx = indexed.get(center_address)
@@ -165,17 +172,31 @@ def compact_instruction_window(instructions: list[dict[str, Any]], center_addres
 def reestablish_initializer(instructions: list[dict[str, Any]]) -> dict[str, Any]:
     indexed = {item["address"]: (idx, item) for idx, item in enumerate(instructions)}
     entry = indexed.get(KNOWN_INITIALIZER_ENTRY)
-    frame_setup = indexed.get(KNOWN_INITIALIZER_ENTRY + 1)
-    if entry is None or entry[1]["mnemonic"] != "push" or entry[1]["operands"].lower() not in {"ebp", "%ebp"}:
+    if entry is None:
         raise ProbeError(
-            "initializer entry invariant changed: expected decoded push ebp at supported entry; "
+            "initializer entry invariant changed: supported entry is not decoded; "
             f"bounded decoded context: {compact_instruction_window(instructions, KNOWN_INITIALIZER_ENTRY)}"
         )
-    if frame_setup is None or not frame_setup[1]["mnemonic"].startswith("mov"):
-        raise ProbeError("initializer entry invariant changed: expected decoded frame setup after supported entry")
-    normalized_operands = frame_setup[1]["operands"].lower().replace(" ", "")
-    if normalized_operands not in {"ebp,esp", "%esp,%ebp"}:
-        raise ProbeError("initializer entry invariant changed: expected ebp/esp frame setup after supported entry")
+
+    entry_idx, entry_item = entry
+    entry_shape: str
+    if is_zero_eax_base_write(entry_item):
+        entry_shape = "canonical-leaf"
+    elif entry_item["mnemonic"] == "push" and entry_item["operands"].lower() in {"ebp", "%ebp"}:
+        if entry_idx + 1 >= len(instructions):
+            raise ProbeError("initializer entry invariant changed: missing decoded frame setup after push ebp")
+        frame_setup = instructions[entry_idx + 1]
+        if not frame_setup["mnemonic"].startswith("mov"):
+            raise ProbeError("initializer entry invariant changed: expected decoded frame setup after push ebp")
+        normalized_operands = frame_setup["operands"].lower().replace(" ", "")
+        if normalized_operands not in {"ebp,esp", "%esp,%ebp"}:
+            raise ProbeError("initializer entry invariant changed: expected ebp/esp frame setup after push ebp")
+        entry_shape = "synthetic-frame-fixture"
+    else:
+        raise ProbeError(
+            "initializer entry invariant changed: expected canonical mov-zero to [eax] leaf entry; "
+            f"bounded decoded context: {compact_instruction_window(instructions, KNOWN_INITIALIZER_ENTRY)}"
+        )
 
     span_candidates = [
         (idx, item)
@@ -193,15 +214,22 @@ def reestablish_initializer(instructions: list[dict[str, Any]]) -> dict[str, Any
             f"initializer invariant moved unexpectedly inside supported span: decoded write=0x{write['address']:x}, "
             f"supported write=0x{KNOWN_INITIALIZER_WRITE:x}"
         )
+    if idx + 1 >= len(instructions) or not instructions[idx + 1]["mnemonic"].startswith("ret"):
+        raise ProbeError(
+            "initializer exit invariant changed: expected decoded ret immediately after supported +0x5a zero-write; "
+            f"bounded decoded context: {compact_instruction_window(instructions, KNOWN_INITIALIZER_WRITE)}"
+        )
     preceding = [item for item in instructions if KNOWN_INITIALIZER_ENTRY <= item["address"] <= write["address"]]
     if not preceding or preceding[0]["address"] != KNOWN_INITIALIZER_ENTRY:
         raise ProbeError("could not reconstruct supported initializer entry-to-write instruction span")
     return {
         "entry": KNOWN_INITIALIZER_ENTRY,
         "zero_write": write["address"],
+        "entry_shape": entry_shape,
         "invariant": (
-            "decoded push-ebp / ebp-esp frame setup at supported entry plus exactly one decoded "
-            "mov-immediate-zero to base-register+0x5a within the supported entry-to-write span"
+            "canonical exact-target leaf entry is decoded mov-immediate-zero to [eax] (the synthetic fixture "
+            "retains its historical push-ebp/frame form), with exactly one decoded mov-immediate-zero to "
+            "base-register+0x5a in the supported entry-to-write span and an immediate decoded ret after it"
         ),
         "window": normalized_window(instructions, idx),
     }

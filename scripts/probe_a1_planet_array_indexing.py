@@ -152,12 +152,25 @@ def is_zero_field_write(item: dict[str, Any]) -> bool:
     return bool(re.search(r"(?:\$?0x0\b|\b0\b)", operands[: field_match.start()]))
 
 
+def compact_instruction_window(instructions: list[dict[str, Any]], center_address: int, radius: int = 8) -> str:
+    indexed = {item["address"]: idx for idx, item in enumerate(instructions)}
+    idx = indexed.get(center_address)
+    if idx is None:
+        bounded = [item for item in instructions if center_address - 0x20 <= item["address"] <= center_address + 0x30]
+    else:
+        bounded = normalized_window(instructions, idx, radius)
+    return "; ".join(f"0x{item['address']:x} {item['mnemonic']} {item['operands']}" for item in bounded)
+
+
 def reestablish_initializer(instructions: list[dict[str, Any]]) -> dict[str, Any]:
     indexed = {item["address"]: (idx, item) for idx, item in enumerate(instructions)}
     entry = indexed.get(KNOWN_INITIALIZER_ENTRY)
     frame_setup = indexed.get(KNOWN_INITIALIZER_ENTRY + 1)
     if entry is None or entry[1]["mnemonic"] != "push" or entry[1]["operands"].lower() not in {"ebp", "%ebp"}:
-        raise ProbeError("initializer entry invariant changed: expected decoded push ebp at supported entry")
+        raise ProbeError(
+            "initializer entry invariant changed: expected decoded push ebp at supported entry; "
+            f"bounded decoded context: {compact_instruction_window(instructions, KNOWN_INITIALIZER_ENTRY)}"
+        )
     if frame_setup is None or not frame_setup[1]["mnemonic"].startswith("mov"):
         raise ProbeError("initializer entry invariant changed: expected decoded frame setup after supported entry")
     normalized_operands = frame_setup[1]["operands"].lower().replace(" ", "")

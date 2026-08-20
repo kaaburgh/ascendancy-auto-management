@@ -21,6 +21,19 @@ SAMPLE = """
  3bf8c: 8b 15 30 20 09 00     mov    edx,DWORD PTR ds:0x92030
 """
 
+CENSUS_SAMPLE = """
+ 223f8: 90                    nop
+ 22400: 55                    push   ebp
+ 22401: 89 e5                 mov    ebp,esp
+ 2241e: 90                    nop
+ 22421: c7 40 5a 00 00 00 00 movl   $0x0,0x5a(%eax)
+ 22428: c3                    ret
+ 23000: e8 fb f3 ff ff        call   22400
+ 23005: a1 60 36 04 00        mov    eax,ds:0x43660
+ 2300a: 8b 15 64 36 04 00     mov    edx,DWORD PTR ds:0x43664
+ 23010: 69 c9 7b 00 00 00     imul   ecx,ecx,0x7b
+"""
+
 
 class ProbeTests(unittest.TestCase):
     def test_parser_and_shared_operand_remain_leads_only(self) -> None:
@@ -50,6 +63,33 @@ class ProbeTests(unittest.TestCase):
         self.assertIsNone(summary["array_base"])
         self.assertIsNone(summary["array_count"])
         self.assertIsNone(summary["slot_indexing"])
+
+    def test_reestablishs_initializer_and_collects_bounded_census(self) -> None:
+        instructions = probe.parse_disassembly(CENSUS_SAMPLE)
+        initializer = probe.reestablish_initializer(instructions)
+        self.assertEqual(0x22400, initializer["entry"])
+        self.assertEqual(0x22421, initializer["zero_write"])
+        census = probe.collect_census(instructions, initializer["entry"])
+        self.assertEqual([0x23000], [item["call_site"] for item in census["initializer_direct_callers"]])
+        self.assertEqual(1, census["selected_globals"]["0x43660"]["reference_count"])
+        self.assertEqual(1, census["selected_globals"]["0x43664"]["reference_count"])
+        self.assertEqual([0x23010], [item["address"] for item in census["stride_0x7b_contexts"]])
+        self.assertFalse(census["identity_contract_established"])
+
+    def test_initializer_ambiguity_fails_closed(self) -> None:
+        instructions = probe.parse_disassembly(
+            CENSUS_SAMPLE + "\n 24000: c7 40 5a 00 00 00 00 movl $0x0,0x5a(%eax)\n"
+        )
+        with self.assertRaises(probe.ProbeError):
+            probe.reestablish_initializer(instructions)
+
+    def test_census_missing_supported_global_fails_closed(self) -> None:
+        instructions = probe.parse_disassembly(
+            CENSUS_SAMPLE.replace(" 2300a: 8b 15 64 36 04 00     mov    edx,DWORD PTR ds:0x43664\n", "")
+        )
+        initializer = probe.reestablish_initializer(instructions)
+        with self.assertRaises(probe.ProbeError):
+            probe.collect_census(instructions, initializer["entry"])
 
     def test_unparseable_disassembly_fails_closed(self) -> None:
         with self.assertRaises(probe.ProbeError):

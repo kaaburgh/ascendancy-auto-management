@@ -3,6 +3,14 @@ name: A1 exact-target static evidence bundle
 on:
   workflow_dispatch:
   create:
+  pull_request:
+    paths:
+      - ".github/workflows/a1-static-evidence-bundle.yml"
+      - "scripts/probe_a1_planet_array_indexing.py"
+      - "scripts/probe_a1_managed_field_writers.py"
+      - "tools/fetch_free_targets.py"
+      - "tools/free-target-sources.json"
+      - "tools/le_image.py"
 
 permissions:
   contents: read
@@ -14,19 +22,21 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'create' &&
        github.event.ref_type == 'branch' &&
-       startsWith(github.event.ref, 'evidence/a1-static-evidence-bundle/'))
+       startsWith(github.event.ref, 'evidence/a1-static-evidence-bundle/')) ||
+      (github.event_name == 'pull_request' &&
+       startsWith(github.head_ref, 'evidence/a1-static-evidence-bundle/'))
     runs-on: ubuntu-latest
+    env:
+      A1_CHECKOUT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.A1_CHECKOUT_SHA }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Check exact checkout binding
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+        run: test "$(git rev-parse HEAD)" = "$A1_CHECKOUT_SHA"
       - name: Check binutils is available
         run: objdump --version
       - name: Fetch and verify canonical Antagonizer target
@@ -35,16 +45,15 @@ jobs:
         run: >-
           python scripts/probe_a1_planet_array_indexing.py
           binaries/ANTAG_EN.EXE
+          --checkout-sha "$A1_CHECKOUT_SHA"
           --output artifacts/a1-planet-array-indexing.json
       - name: Run bounded managed-field writer inventory
         run: >-
           python scripts/probe_a1_managed_field_writers.py
           binaries/ANTAG_EN.EXE
-          --checkout-sha "${{ github.sha }}"
+          --checkout-sha "$A1_CHECKOUT_SHA"
           --output artifacts/a1-managed-field-writer-inventory.json
       - name: Bind detached bundle provenance
-        env:
-          A1_CHECKOUT_SHA: ${{ github.sha }}
         run: |
           python - <<'PY'
           import hashlib
@@ -126,7 +135,7 @@ jobs:
       - name: Upload derived evidence bundle
         uses: actions/upload-artifact@v4
         with:
-          name: a1-static-evidence-bundle-${{ github.sha }}
+          name: a1-static-evidence-bundle-${{ env.A1_CHECKOUT_SHA }}
           path: |
             artifacts/a1-planet-array-indexing.json
             artifacts/a1-managed-field-writer-inventory.json

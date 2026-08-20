@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Collect bounded static leads for A1 planet-array indexing.
+"""Collect bounded static evidence for A1 planet identity/lifetime.
 
-This probe is intentionally conservative. It verifies the canonical target,
-reconstructs LE object 1, disassembles only two already-supported planet-loop
-windows, and records stride/data-object operands that can guide the remaining
-A1 identity investigation. It does not infer an array base, count, or reusable
-slot merely from literal overlap.
+The probe verifies the canonical target, reconstructs LE object 1, and emits only
+compact decoded metadata around already-supported anchors. It re-establishes the
+initializer-shaped +0x5a zeroing routine by instruction invariants, inventories
+its direct callers, references to the selected-container/selected-record globals,
+and 0x7b arithmetic/control-flow occurrences. These are investigation leads; the
+probe does not infer a reuse-safe identity contract by itself.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -23,16 +25,26 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import le_image  # noqa: E402
 
-SCHEMA = "ascendancy.a1-planet-array-indexing-probe/v1"
+SCHEMA = "ascendancy.a1-planet-identity-static-census/v2"
 TARGET_SIZE = 610863
 TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
 KNOWN_STRIDE = 0x7B
+SELECTED_CONTAINER_GLOBAL = 0x43660
+SELECTED_RECORD_GLOBAL = 0x43664
+KNOWN_INITIALIZER_WRITE = 0x22421
+KNOWN_INITIALIZER_ENTRY = 0x22400
+WINDOW_RADIUS = 5
 WINDOWS = {
     "turn_planet_loop": (0x20C94, 0x20E30),
     "owned_planet_loop": (0x3BF80, 0x3C130),
 }
 INSTRUCTION_RE = re.compile(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+\s*([a-z][a-z0-9.]*)\s*(.*)$")
 HEX_RE = re.compile(r"0x([0-9a-fA-F]+)")
+REGISTER_FIELD_ZERO_RE = re.compile(
+    r"(?:DWORD PTR )?\[(?:e(?:ax|bx|cx|dx|si|di|bp|sp))\+0x5a\]|0x5a\(%e(?:ax|bx|cx|dx|si|di|bp|sp)\)",
+    re.I,
+)
+CALL_TARGET_RE = re.compile(r"(?:^|[\s,*])(?:0x)?([0-9a-fA-F]{4,8})(?:\s|$)")
 
 
 class ProbeError(RuntimeError):
@@ -57,7 +69,7 @@ def parse_disassembly(text: str) -> list[dict[str, Any]]:
         instructions.append(
             {
                 "address": int(address, 16),
-                "mnemonic": mnemonic,
+                "mnemonic": mnemonic.lower(),
                 "operands": operands.strip(),
             }
         )
@@ -120,7 +132,176 @@ def summarize_relationship(windows: dict[str, dict[str, Any]]) -> dict[str, Any]
     }
 
 
-def run_objdump(code: bytes, code_base: int) -> str:
+def normalized_window(instructions: list[dict[str, Any]], index: int, radius: int = WINDOW_RADIUS) -> list[dict[str, Any]]:
+    start = max(0, index - radius)
+    stop = min(len(instructions), index + radius + 1)
+    return instructions[start:stop]
+
+
+def literal_values(operands: str) -> set[int]:
+    return {int(value, 16) for value in HEX_RE.findall(operands)}
+
+
+def is_zero_field_write(item: dict[str, Any]) -> bool:
+    if not item["mnemonic"].startswith("mov"):
+        return False
+    operands = item["operands"].lower()
+    field_match = REGISTER_FIELD_ZERO_RE.search(operands)
+    if field_match is None:
+        return False
+    return bool(re.search(r"(?:\$?0x0\b|\b0\b)", operands[: field_match.start()]))
+
+
+def is_zero_eax_base_write(item: dict[str, Any]) -> bool:
+    if not item["mnemonic"].startswith("mov"):
+        return False
+    operands = item["operands"].lower().replace(" ", "")
+    return operands in {"$0x0,(%eax)", "0x0,(%eax)", "0,dwordptr[eax]", "0x0,dwordptr[eax]"}
+
+
+def compact_instruction_window(instructions: list[dict[str, Any]], center_address: int, radius: int = 8) -> str:
+    indexed = {item["address"]: idx for idx, item in enumerate(instructions)}
+    idx = indexed.get(center_address)
+    if idx is None:
+        bounded = [item for item in instructions if center_address - 0x20 <= item["address"] <= center_address + 0x30]
+    else:
+        bounded = normalized_window(instructions, idx, radius)
+    return "; ".join(f"0x{item['address']:x} {item['mnemonic']} {item['operands']}" for item in bounded)
+
+
+def reestablish_initializer(instructions: list[dict[str, Any]]) -> dict[str, Any]:
+    indexed = {item["address"]: (idx, item) for idx, item in enumerate(instructions)}
+    entry = indexed.get(KNOWN_INITIALIZER_ENTRY)
+    if entry is None:
+        raise ProbeError(
+            "initializer entry invariant changed: supported entry is not decoded; "
+            f"bounded decoded context: {compact_instruction_window(instructions, KNOWN_INITIALIZER_ENTRY)}"
+        )
+
+    entry_idx, entry_item = entry
+    entry_shape: str
+    if is_zero_eax_base_write(entry_item):
+        entry_shape = "canonical-leaf"
+    elif entry_item["mnemonic"] == "push" and entry_item["operands"].lower() in {"ebp", "%ebp"}:
+        if entry_idx + 1 >= len(instructions):
+            raise ProbeError("initializer entry invariant changed: missing decoded frame setup after push ebp")
+        frame_setup = instructions[entry_idx + 1]
+        if not frame_setup["mnemonic"].startswith("mov"):
+            raise ProbeError("initializer entry invariant changed: expected decoded frame setup after push ebp")
+        normalized_operands = frame_setup["operands"].lower().replace(" ", "")
+        if normalized_operands not in {"ebp,esp", "%esp,%ebp"}:
+            raise ProbeError("initializer entry invariant changed: expected ebp/esp frame setup after push ebp")
+        entry_shape = "synthetic-frame-fixture"
+    else:
+        raise ProbeError(
+            "initializer entry invariant changed: expected canonical mov-zero to [eax] leaf entry; "
+            f"bounded decoded context: {compact_instruction_window(instructions, KNOWN_INITIALIZER_ENTRY)}"
+        )
+
+    span_candidates = [
+        (idx, item)
+        for idx, item in enumerate(instructions)
+        if KNOWN_INITIALIZER_ENTRY <= item["address"] <= KNOWN_INITIALIZER_WRITE and is_zero_field_write(item)
+    ]
+    if len(span_candidates) != 1:
+        raise ProbeError(
+            "initializer anchor is ambiguous inside supported entry-to-write span: "
+            f"expected one decoded mov-zero to record+0x5a, found {len(span_candidates)}"
+        )
+    idx, write = span_candidates[0]
+    if write["address"] != KNOWN_INITIALIZER_WRITE:
+        raise ProbeError(
+            f"initializer invariant moved unexpectedly inside supported span: decoded write=0x{write['address']:x}, "
+            f"supported write=0x{KNOWN_INITIALIZER_WRITE:x}"
+        )
+    if idx + 1 >= len(instructions) or not instructions[idx + 1]["mnemonic"].startswith("ret"):
+        raise ProbeError(
+            "initializer exit invariant changed: expected decoded ret immediately after supported +0x5a zero-write; "
+            f"bounded decoded context: {compact_instruction_window(instructions, KNOWN_INITIALIZER_WRITE)}"
+        )
+    preceding = [item for item in instructions if KNOWN_INITIALIZER_ENTRY <= item["address"] <= write["address"]]
+    if not preceding or preceding[0]["address"] != KNOWN_INITIALIZER_ENTRY:
+        raise ProbeError("could not reconstruct supported initializer entry-to-write instruction span")
+    return {
+        "entry": KNOWN_INITIALIZER_ENTRY,
+        "zero_write": write["address"],
+        "entry_shape": entry_shape,
+        "invariant": (
+            "canonical exact-target leaf entry is decoded mov-immediate-zero to [eax] (the synthetic fixture "
+            "retains its historical push-ebp/frame form), with exactly one decoded mov-immediate-zero to "
+            "base-register+0x5a in the supported entry-to-write span and an immediate decoded ret after it"
+        ),
+        "window": normalized_window(instructions, idx),
+    }
+
+
+def parse_direct_call_target(item: dict[str, Any]) -> int | None:
+    if not item["mnemonic"].startswith("call"):
+        return None
+    match = CALL_TARGET_RE.search(item["operands"])
+    if match is None:
+        return None
+    return int(match.group(1), 16)
+
+
+def collect_census(instructions: list[dict[str, Any]], initializer_entry: int) -> dict[str, Any]:
+    callers = []
+    globals_by_value: dict[int, list[dict[str, Any]]] = {
+        SELECTED_CONTAINER_GLOBAL: [],
+        SELECTED_RECORD_GLOBAL: [],
+    }
+    stride_contexts = []
+
+    for idx, item in enumerate(instructions):
+        target = parse_direct_call_target(item)
+        if target == initializer_entry:
+            callers.append({"call_site": item["address"], "target": target, "window": normalized_window(instructions, idx)})
+
+        values = literal_values(item["operands"])
+        for global_value in globals_by_value:
+            if global_value in values:
+                globals_by_value[global_value].append(
+                    {"address": item["address"], "window": normalized_window(instructions, idx)}
+                )
+
+        if KNOWN_STRIDE in values:
+            stride_contexts.append(
+                {
+                    "address": item["address"],
+                    "mnemonic": item["mnemonic"],
+                    "operands": item["operands"],
+                    "window": normalized_window(instructions, idx),
+                    "classification": "triage-only",
+                }
+            )
+
+    for value, refs in globals_by_value.items():
+        if not refs:
+            raise ProbeError(f"no decoded references found for supported global 0x{value:x}")
+    if not stride_contexts:
+        raise ProbeError("no decoded 0x7b arithmetic/control-flow triage occurrences found")
+
+    negative_findings = []
+    if not callers:
+        negative_findings.append(
+            "No direct decoded call targets the re-established initializer entry; this census does not infer "
+            "an indirect caller, fall-through relationship, or construction/reset seam from that absence."
+        )
+
+    return {
+        "initializer_direct_callers": callers,
+        "initializer_direct_callers_observed": bool(callers),
+        "selected_globals": {
+            f"0x{value:x}": {"reference_count": len(refs), "references": refs}
+            for value, refs in globals_by_value.items()
+        },
+        "stride_0x7b_contexts": stride_contexts,
+        "negative_findings": negative_findings,
+        "identity_contract_established": False,
+    }
+
+
+def run_objdump(code: bytes, code_base: int) -> tuple[str, str]:
     with tempfile.NamedTemporaryFile(prefix="a1-code-", suffix=".bin") as tmp:
         tmp.write(code)
         tmp.flush()
@@ -137,10 +318,14 @@ def run_objdump(code: bytes, code_base: int) -> str:
         result = subprocess.run(command, check=False, text=True, capture_output=True)
     if result.returncode != 0:
         raise ProbeError(f"objdump failed ({result.returncode}): {result.stderr.strip()}")
-    return result.stdout
+    version = subprocess.run(["objdump", "--version"], check=False, text=True, capture_output=True)
+    if version.returncode != 0 or not version.stdout.strip():
+        raise ProbeError("could not identify objdump version")
+    return result.stdout, version.stdout.splitlines()[0]
 
 
-def probe(target: pathlib.Path) -> dict[str, Any]:
+def probe(target: pathlib.Path, checkout_sha: str | None = None) -> dict[str, Any]:
+    checkout_sha = checkout_sha or os.environ.get("GITHUB_SHA")
     if not target.is_file():
         raise ProbeError(f"target not found: {target}")
     size = target.stat().st_size
@@ -150,6 +335,8 @@ def probe(target: pathlib.Path) -> dict[str, Any]:
             f"unsupported target: size={size} sha256={digest}; "
             f"expected size={TARGET_SIZE} sha256={TARGET_SHA256}"
         )
+    if checkout_sha is not None and re.fullmatch(r"[0-9a-f]{40}", checkout_sha) is None:
+        raise ProbeError("--checkout-sha must be a full lowercase 40-hex commit SHA")
 
     image = le_image.LEImage(target.read_bytes(), target.name)
     if image.object_count != 2:
@@ -161,7 +348,8 @@ def probe(target: pathlib.Path) -> dict[str, Any]:
         if not code_obj.base_address <= start < stop <= code_obj.end_address:
             raise ProbeError(f"{label} window is outside code object")
 
-    parsed = parse_disassembly(run_objdump(image.object_bytes(1), code_obj.base_address))
+    disassembly, objdump_version = run_objdump(image.object_bytes(1), code_obj.base_address)
+    parsed = parse_disassembly(disassembly)
     windows = {
         label: analyze_window(
             parsed,
@@ -175,23 +363,26 @@ def probe(target: pathlib.Path) -> dict[str, Any]:
     if not all(window["stride_0x7b_hits"] for window in windows.values()):
         raise ProbeError("one or more supported planet-loop windows no longer contain a 0x7b stride operand")
 
-    objdump_version = subprocess.run(
-        ["objdump", "--version"], check=True, text=True, capture_output=True
-    ).stdout.splitlines()[0]
+    initializer = reestablish_initializer(parsed)
+    census = collect_census(parsed, initializer["entry"])
     return {
         "schema": SCHEMA,
         "evidence_class": "static",
         "blind_re_provenance": "clean",
+        "checkout_sha": checkout_sha,
         "target": {"filename": target.name, "size": size, "sha256": digest},
-        "le_layout": {
-            "code_object": code_obj.to_dict(),
-            "data_object": data_obj.to_dict(),
-        },
+        "le_layout": {"code_object": code_obj.to_dict(), "data_object": data_obj.to_dict()},
         "tool": {
             "producer": "scripts/probe_a1_planet_array_indexing.py",
             "objdump": objdump_version,
-            "method": "bounded disassembly operand collection from two previously established planet loops",
+            "method": "exact-target decoded static census around supported A1 identity/lifetime anchors",
+            "material_inputs": {
+                "producer_sha256": sha256_file(pathlib.Path(__file__)),
+                "le_image_sha256": sha256_file(ROOT / "tools" / "le_image.py"),
+            },
         },
+        "anchor_reestablishment": {"initializer": initializer},
+        "census": census,
         "windows": windows,
         "relationship": summarize_relationship(windows),
     }
@@ -200,19 +391,22 @@ def probe(target: pathlib.Path) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("target", type=pathlib.Path)
+    parser.add_argument("--checkout-sha")
     parser.add_argument("--output", type=pathlib.Path, required=True)
     args = parser.parse_args(argv)
     try:
-        result = probe(args.target)
+        result = probe(args.target, args.checkout_sha)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except (OSError, ProbeError, le_image.LEError, subprocess.SubprocessError) as exc:
-        print(f"a1-planet-array-indexing: FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"a1-planet-identity-static-census: FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-    relationship = result["relationship"]
-    print("A1 planet-array indexing probe: PASS")
-    print(f"shared_data_object_operands={len(relationship['shared_data_object_operands'])}")
-    print("slot_indexing=unestablished")
+    print("A1 planet identity/lifetime static census: PASS")
+    print(f"initializer_callers={len(result['census']['initializer_direct_callers'])}")
+    print(f"selected_container_refs={result['census']['selected_globals']['0x43660']['reference_count']}")
+    print(f"selected_record_refs={result['census']['selected_globals']['0x43664']['reference_count']}")
+    print(f"stride_contexts={len(result['census']['stride_0x7b_contexts'])}")
+    print("identity_contract_established=false")
     return 0
 
 

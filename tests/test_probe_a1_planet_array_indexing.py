@@ -64,7 +64,7 @@ class ProbeTests(unittest.TestCase):
         self.assertIsNone(summary["array_count"])
         self.assertIsNone(summary["slot_indexing"])
 
-    def test_reestablishs_initializer_and_collects_bounded_census(self) -> None:
+    def test_reestablishes_initializer_and_collects_bounded_census(self) -> None:
         instructions = probe.parse_disassembly(CENSUS_SAMPLE)
         initializer = probe.reestablish_initializer(instructions)
         self.assertEqual(0x22400, initializer["entry"])
@@ -86,10 +86,25 @@ class ProbeTests(unittest.TestCase):
                     ),
                 )
 
-    def test_initializer_ambiguity_fails_closed(self) -> None:
+    def test_unrelated_zero_write_does_not_make_supported_initializer_ambiguous(self) -> None:
         instructions = probe.parse_disassembly(
             CENSUS_SAMPLE + "\n 24000: c7 40 5a 00 00 00 00 movl $0x0,0x5a(%eax)\n"
         )
+        initializer = probe.reestablish_initializer(instructions)
+        self.assertEqual(0x22421, initializer["zero_write"])
+
+    def test_initializer_ambiguity_inside_supported_span_fails_closed(self) -> None:
+        instructions = probe.parse_disassembly(
+            CENSUS_SAMPLE.replace(
+                " 2241e: 90                    nop\n",
+                " 22410: c7 40 5a 00 00 00 00 movl   $0x0,0x5a(%eax)\n 2241e: 90                    nop\n",
+            )
+        )
+        with self.assertRaises(probe.ProbeError):
+            probe.reestablish_initializer(instructions)
+
+    def test_initializer_entry_shape_change_fails_closed(self) -> None:
+        instructions = probe.parse_disassembly(CENSUS_SAMPLE.replace("push   ebp", "push   eax"))
         with self.assertRaises(probe.ProbeError):
             probe.reestablish_initializer(instructions)
 

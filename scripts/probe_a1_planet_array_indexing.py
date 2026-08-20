@@ -153,16 +153,31 @@ def is_zero_field_write(item: dict[str, Any]) -> bool:
 
 
 def reestablish_initializer(instructions: list[dict[str, Any]]) -> dict[str, Any]:
-    candidates = [(idx, item) for idx, item in enumerate(instructions) if is_zero_field_write(item)]
-    if len(candidates) != 1:
+    indexed = {item["address"]: (idx, item) for idx, item in enumerate(instructions)}
+    entry = indexed.get(KNOWN_INITIALIZER_ENTRY)
+    frame_setup = indexed.get(KNOWN_INITIALIZER_ENTRY + 1)
+    if entry is None or entry[1]["mnemonic"] != "push" or entry[1]["operands"].lower() not in {"ebp", "%ebp"}:
+        raise ProbeError("initializer entry invariant changed: expected decoded push ebp at supported entry")
+    if frame_setup is None or not frame_setup[1]["mnemonic"].startswith("mov"):
+        raise ProbeError("initializer entry invariant changed: expected decoded frame setup after supported entry")
+    normalized_operands = frame_setup[1]["operands"].lower().replace(" ", "")
+    if normalized_operands not in {"ebp,esp", "%esp,%ebp"}:
+        raise ProbeError("initializer entry invariant changed: expected ebp/esp frame setup after supported entry")
+
+    span_candidates = [
+        (idx, item)
+        for idx, item in enumerate(instructions)
+        if KNOWN_INITIALIZER_ENTRY <= item["address"] <= KNOWN_INITIALIZER_WRITE and is_zero_field_write(item)
+    ]
+    if len(span_candidates) != 1:
         raise ProbeError(
-            "initializer anchor is ambiguous: expected one decoded mov-zero to record+0x5a, "
-            f"found {len(candidates)}"
+            "initializer anchor is ambiguous inside supported entry-to-write span: "
+            f"expected one decoded mov-zero to record+0x5a, found {len(span_candidates)}"
         )
-    idx, write = candidates[0]
+    idx, write = span_candidates[0]
     if write["address"] != KNOWN_INITIALIZER_WRITE:
         raise ProbeError(
-            f"initializer invariant moved unexpectedly: decoded write=0x{write['address']:x}, "
+            f"initializer invariant moved unexpectedly inside supported span: decoded write=0x{write['address']:x}, "
             f"supported write=0x{KNOWN_INITIALIZER_WRITE:x}"
         )
     preceding = [item for item in instructions if KNOWN_INITIALIZER_ENTRY <= item["address"] <= write["address"]]
@@ -171,7 +186,10 @@ def reestablish_initializer(instructions: list[dict[str, Any]]) -> dict[str, Any
     return {
         "entry": KNOWN_INITIALIZER_ENTRY,
         "zero_write": write["address"],
-        "invariant": "unique decoded mov-immediate-zero to base-register+0x5a plus supported entry/write span",
+        "invariant": (
+            "decoded push-ebp / ebp-esp frame setup at supported entry plus exactly one decoded "
+            "mov-immediate-zero to base-register+0x5a within the supported entry-to-write span"
+        ),
         "window": normalized_window(instructions, idx),
     }
 

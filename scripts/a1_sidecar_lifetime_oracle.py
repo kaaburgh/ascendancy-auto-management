@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Validate/classify detached A1 sidecar lifetime observations."""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+SCHEMA = "ascendancy.a1-sidecar-runtime-lifetime/v1"
+OUTCOMES = {
+    "positive-epoch-pointer",
+    "positive-epoch-index",
+    "positive-other",
+    "negative-no-safe-seam",
+    "incomplete-harness",
+}
+REQUIRED_TRANSITIONS = {"selection-control", "new-game-reset", "save-load-replacement"}
+
+
+class A1LifetimeError(ValueError):
+    pass
+
+
+def _require_bool(claims: dict[str, Any], key: str) -> bool:
+    value = claims.get(key)
+    if not isinstance(value, bool):
+        raise A1LifetimeError(f"claim {key!r} must be boolean")
+    return value
+
+
+def validate_record(record: dict[str, Any]) -> dict[str, Any]:
+    if record.get("schema") != SCHEMA:
+        raise A1LifetimeError("unsupported or missing schema")
+    outcome = record.get("outcome")
+    if outcome not in OUTCOMES:
+        raise A1LifetimeError("unsupported or missing outcome")
+
+    claims = record.get("claims")
+    if not isinstance(claims, dict):
+        raise A1LifetimeError("claims must be an object")
+    array_base = _require_bool(claims, "array_base_established")
+    array_count = _require_bool(claims, "array_count_established")
+    stable_index = _require_bool(claims, "stable_index_established")
+    reuse_detector = _require_bool(claims, "reuse_detector_established")
+    epoch = _require_bool(claims, "epoch_boundary_established")
+    manual = _require_bool(claims, "manual_transition_invalidation_established")
+    if manual:
+        raise A1LifetimeError("this experiment must not establish Manual-transition invalidation")
+    if stable_index and not (array_base and array_count):
+        raise A1LifetimeError("stable index requires independently established array base and count")
+
+    control = record.get("control")
+    if not isinstance(control, dict) or not isinstance(control.get("passed"), bool):
+        raise A1LifetimeError("control.passed must be boolean")
+
+    transitions = record.get("transitions")
+    if not isinstance(transitions, list):
+        raise A1LifetimeError("transitions must be a list")
+    labels = {step.get("label") for step in transitions if isinstance(step, dict)}
+    coverage_complete = REQUIRED_TRANSITIONS.issubset(labels)
+    for step in transitions:
+        if not isinstance(step, dict):
+            raise A1LifetimeError("transition entries must be objects")
+        if step.get("identity_basis") == "presentation-name":
+            raise A1LifetimeError("presentation name cannot be promoted to identity")
+        if step.get("index_basis") == "stride-only":
+            raise A1LifetimeError("0x7b stride alone cannot establish a stable index")
+        if step.get("replacement") is True and step.get("signal_order") == "post-hoc":
+            raise A1LifetimeError("post-hoc replacement signal cannot establish lossless invalidation")
+
+    positive = outcome.startswith("positive-")
+    if positive:
+        if not control["passed"]:
+            raise A1LifetimeError("positive outcome requires passed selection control")
+        if not coverage_complete:
+            raise A1LifetimeError("positive outcome requires all predeclared transitions")
+        if outcome == "positive-epoch-pointer" and not (epoch and reuse_detector):
+            raise A1LifetimeError("epoch+pointer outcome requires epoch and reuse detector")
+        if outcome == "positive-epoch-index" and not (epoch and stable_index and array_base and array_count):
+            raise A1LifetimeError("epoch+index outcome requires epoch plus independently established index")
+        if outcome == "positive-other":
+            other = record.get("other_identity_contract")
+            if not isinstance(other, dict) or not other.get("fails_closed_on_reuse"):
+                raise A1LifetimeError("positive-other requires an explicit fail-closed reuse contract")
+
+    return {
+        "schema": SCHEMA,
+        "outcome": outcome,
+        "control_passed": control["passed"],
+        "coverage_complete": coverage_complete,
+        "positive_contract_accepted": positive,
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("record", type=Path)
+    ns = ap.parse_args()
+    try:
+        data = json.loads(ns.record.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise A1LifetimeError("record root must be an object")
+        result = validate_record(data)
+    except (OSError, json.JSONDecodeError, A1LifetimeError) as exc:
+        ap.error(str(exc))
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

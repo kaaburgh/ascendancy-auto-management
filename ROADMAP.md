@@ -867,7 +867,7 @@ For the pinned M1 target, the compatibility handoff is established: preserve the
 
 ## A1 — Design the M1 per-planet profile state representation
 
-- **Status:** Investigation first — representation split selected; reuse-safe sidecar identity/lifetime remains open.
+- **Status:** Investigation first — representation split selected; exact-target static identity census reviewed as Outcome C, reuse-safe sidecar identity/lifetime remains open.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / state
@@ -892,9 +892,13 @@ Save-game format changes remain out of M1 unless evidence shows they are necessa
 
 ### Current evidence and next experiment
 
-The remaining A1 identity/lifetime work is now concretely sequenced by [`docs/experiments/A1-sidecar-identity-lifetime-next-probe.md`](./docs/experiments/A1-sidecar-identity-lifetime-next-probe.md). That bounded probe pins the existing exact-target anchors, keeps reuse-safe identity separate from Manual-transition invalidation, and defines a fail-closed static producer/caller census without promoting pointer, slot, or name stability to fact.
+The Stage 1 exact-target census defined by [`docs/experiments/A1-sidecar-identity-lifetime-next-probe.md`](./docs/experiments/A1-sidecar-identity-lifetime-next-probe.md) was implemented in PR #55 and ran successfully on exact PR head `75f36345675d12be93b68da337c4f925e5946df9` in Actions run `32375884873`. The reviewed result is recorded in [`docs/experiments/A1-sidecar-identity-static-census-result.md`](./docs/experiments/A1-sidecar-identity-static-census-result.md) as **Outcome C — no adequate static seam** (`static`, clean blind-RE provenance).
 
-**Next bounded experiment:** implement and run that exact-target census, re-establishing its anchors from byte/instruction invariants and emitting only compact derived metadata for direct callers of the initializer-shaped `+0x5a = 0` routine, references to `DS:0x43660` / `DS:0x43664`, and `0x7b` arithmetic/control-flow triage. Review the result only into the probe's three stated outcomes: a reuse-safe construction/reset seam, a stable indexed population plus generation/reset boundary, or a durable negative result that narrows the follow-up to a bounded runtime lifetime experiment. This experiment does not by itself complete A1, and the separate lossless Manual-transition invalidation requirement remains open.
+The census re-established the initializer-shaped `+0x5a = 0` leaf at `0x22400`/`0x22421`, but observed **zero direct decoded callers**. It also emitted 38 decoded references to `DS:0x43660`, 109 to `DS:0x43664`, and 36 decoded `0x7b` contexts, all retained as investigation/triage evidence. None independently establishes a construction/reset event that necessarily precedes record reuse, an array base/count, a stable slot index, or a generation boundary. The companion conservative writer inventory likewise does not establish a complete writer set or the separate lossless Manual-transition invalidation boundary.
+
+**Next bounded experiment:** move the identity half of A1 to a fail-closed runtime lifetime experiment on the exact canonical target. Reuse the established CF3 runtime mapping and exercise bounded lifecycle transitions that are already reproducible in cloud (including an in-session new-game/reset boundary and a save/load or equivalent population replacement). Observe the selected-record pointer plus only bounded metadata needed to distinguish logical-record continuity, test whether record addresses/indices are reused, and test candidate population epoch/reset signals before any reuse could transfer stale sidecar state. Include a control that distinguishes an ordinary selection change between two known player-owned records from population replacement. Do not promote planet name to immutable identity, infer a slot from stride, or weaken the requirement if the bounded runtime experiment remains negative.
+
+This runtime experiment still does not by itself complete A1: the separate lossless Manual-transition invalidation requirement remains open and must be established independently before a sidecar entry can safely survive arbitrary original-game activity.
 
 ### Decision criteria
 
@@ -911,6 +915,7 @@ The remaining A1 identity/lifetime work is now concretely sequenced by [`docs/ex
 - [x] architecture/design note under [`docs/re/m1-profile-state-representation.md`](./docs/re/m1-profile-state-representation.md);
 - [x] selected two-layer representation, compatibility fallback, and explicit state invariants/lifecycle failure modes;
 - [x] downstream assumptions updated so A2/UI2/V1 do not reinterpret `+0x5a`, invent slot stability, or lose the owner/override qualification;
+- [x] exact-target static identity census reviewed into a durable negative result without promoting unsupported pointer/slot identity;
 - [ ] evidence-backed reuse-safe sidecar identity/lifetime contract, including any array/indexing evidence required by the chosen key.
 
 ### Acceptance criteria

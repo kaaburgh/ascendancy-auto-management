@@ -118,7 +118,7 @@ Full detail in [`docs/re/targets.md`](./docs/re/targets.md), [`docs/experiments/
 Full detail in [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md) and the repo-safe handoff under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/).
 
 - `scripts/generate_t2_static_bundle.py` fail-closes on the exact four CF1/T1 filenames, sizes and SHA-256 values, regenerates canonical layouts/strings/`le_disasm` v2 inventories into ignored `artifacts/`, and writes compact reviewable summaries with stable digests under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/).
-- The canonical English summaries reproduce CF2's corrected headline metrics: `ANTAG_EN` 144696 instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162.
+- The canonical English summaries reproduce CF2's corrected headline metrics: `ANTAG_EN` 144696 decoded instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162.
 - Open Watcom `wdump` 2.0 beta independently agrees with `le_image.py info --json` on all four pinned targets: 24 shared LE header fields, both object records and every emitted page-map row, with **zero disagreements** (126 + 126 + 121 + 121 = 494 page rows). In particular it independently confirms `page_off = 0x18000` for both Antagonizer builds and `0x17600` for both patch builds.
 - T2 does not establish semantic function identity. Candidate starts remain linear-sweep/direct-call analysis regions and the full target strings/disassembly stay out of git.
 
@@ -274,7 +274,7 @@ Limits that downstream work must retain:
 - candidate starts are direct-call-derived regions, not verified functions; indirect-only callees are folded into preceding spans;
 - 11 EN / 12 INTL structural Antagonizer-only spans exceed 2000 bytes, so the structural count is not a changed-function count;
 - reference-only differences mix benign relocation with possible callee/global/table retargets;
-- constant-only differences mix DS-relative layout movement with genuine thresholds/biases/flags and are the largest unresolved English bucket;
+- constant-only differences mix DS-relative layout movement with genuine thresholds/flags and are the largest unresolved English bucket;
 - structural matched-byte fraction ignores both unresolved middle buckets;
 - despite T1's strong direct-lineage evidence, whole-image differences may still contain unrelated bug-fix/configuration drift and need cross-locale or semantic corroboration.
 
@@ -553,7 +553,7 @@ T2 now provides a fail-closed, repo-safe handoff rather than an interactive RE d
 
 - `scripts/generate_t2_static_bundle.py` verifies all four pinned filenames, sizes and SHA-256 values before analysis;
 - the canonical English pair gets full `le_image` layouts, string inventories and `le_disasm` v2 inventories under ignored `artifacts/t2-static-analysis/`, while compact summaries and stable digests are committed under [`docs/re/static-analysis/t2/`](./docs/re/static-analysis/t2/);
-- `ANTAG_EN` reproduces 144696 instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162;
+- `ANTAG_EN` reproduces 144696 decoded instructions / 1326 candidate starts / 7472 direct in-object call sites / 11059 distinct branch targets / 4259 call edges; `PATCH_EN` 139093 / 1297 / 7251 / 10433 / 4162;
 - Open Watcom `wdump` independently matched `le_image.py info --json` on 24 shared LE header fields, both objects and every page row for all four pinned targets: 494 page rows total, zero disagreements;
 - no target executables, raw disassembly, or bulk target strings are committed, and no candidate is promoted to a semantic function identity.
 

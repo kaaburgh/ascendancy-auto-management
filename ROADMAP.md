@@ -890,6 +890,12 @@ A1 remains investigatory until it establishes one reuse-safe identity/lifetime c
 
 Save-game format changes remain out of M1 unless evidence shows they are necessary.
 
+### Current evidence and next experiment
+
+The remaining A1 identity/lifetime work is now concretely sequenced by [`docs/experiments/A1-sidecar-identity-lifetime-next-probe.md`](./docs/experiments/A1-sidecar-identity-lifetime-next-probe.md). That bounded probe pins the existing exact-target anchors, keeps reuse-safe identity separate from Manual-transition invalidation, and defines a fail-closed static producer/caller census without promoting pointer, slot, or name stability to fact.
+
+**Next bounded experiment:** implement and run that exact-target census, re-establishing its anchors from byte/instruction invariants and emitting only compact derived metadata for direct callers of the initializer-shaped `+0x5a = 0` routine, references to `DS:0x43660` / `DS:0x43664`, and `0x7b` arithmetic/control-flow triage. Review the result only into the probe's three stated outcomes: a reuse-safe construction/reset seam, a stable indexed population plus generation/reset boundary, or a durable negative result that narrows the follow-up to a bounded runtime lifetime experiment. This experiment does not by itself complete A1, and the separate lossless Manual-transition invalidation requirement remains open.
+
 ### Decision criteria
 
 - per-planet correctness;

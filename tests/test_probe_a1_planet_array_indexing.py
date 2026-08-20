@@ -76,6 +76,16 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual([0x23010], [item["address"] for item in census["stride_0x7b_contexts"]])
         self.assertFalse(census["identity_contract_established"])
 
+    def test_direct_call_target_accepts_objdump_with_or_without_0x_prefix(self) -> None:
+        for operands in ("22400", "0x22400"):
+            with self.subTest(operands=operands):
+                self.assertEqual(
+                    0x22400,
+                    probe.parse_direct_call_target(
+                        {"address": 0x23000, "mnemonic": "call", "operands": operands}
+                    ),
+                )
+
     def test_initializer_ambiguity_fails_closed(self) -> None:
         instructions = probe.parse_disassembly(
             CENSUS_SAMPLE + "\n 24000: c7 40 5a 00 00 00 00 movl $0x0,0x5a(%eax)\n"

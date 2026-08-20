@@ -44,7 +44,7 @@ REGISTER_FIELD_ZERO_RE = re.compile(
     r"(?:DWORD PTR )?\[(?:e(?:ax|bx|cx|dx|si|di|bp|sp))\+0x5a\]|0x5a\(%e(?:ax|bx|cx|dx|si|di|bp|sp)\)",
     re.I,
 )
-CALL_TARGET_RE = re.compile(r"(?:^|[\s,*])0x?([0-9a-fA-F]{4,8})(?:\s|$)")
+CALL_TARGET_RE = re.compile(r"(?:^|[\s,*])(?:0x)?([0-9a-fA-F]{4,8})(?:\s|$)")
 
 
 class ProbeError(RuntimeError):

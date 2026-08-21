@@ -52,6 +52,17 @@ def _require_nonempty_string(value: Any, context: str) -> str:
     return value
 
 
+def _require_sha256(value: Any, context: str) -> str:
+    text = _require_nonempty_string(value, context)
+    if len(text) != 64:
+        raise A1LifetimeError(f"{context} must be a 64-hex SHA-256 digest")
+    try:
+        int(text, 16)
+    except ValueError as exc:
+        raise A1LifetimeError(f"{context} must be a 64-hex SHA-256 digest") from exc
+    return text.lower()
+
+
 def _require_point(observations: dict[str, Any], name: str, label: str) -> dict[str, Any]:
     point = observations.get(name)
     if not isinstance(point, dict):
@@ -60,8 +71,29 @@ def _require_point(observations: dict[str, Any], name: str, label: str) -> dict[
     pointer = point.get("record_pointer")
     if not isinstance(pointer, int) or isinstance(pointer, bool) or pointer < 0:
         raise A1LifetimeError(f"{label} observations.{name}.record_pointer must be a non-negative integer")
-    _require_nonempty_string(
+    logical_record = _require_nonempty_string(
         point.get("logical_record"), f"{label} observations.{name}.logical_record"
+    )
+    witness = point.get("qualified_witness")
+    if not isinstance(witness, dict):
+        raise A1LifetimeError(f"{label} observations.{name} requires qualified_witness")
+    scenario_planet = _require_nonempty_string(
+        witness.get("scenario_planet"),
+        f"{label} observations.{name}.qualified_witness.scenario_planet",
+    )
+    if scenario_planet != logical_record:
+        raise A1LifetimeError(
+            f"{label} observations.{name}.qualified_witness.scenario_planet must bind to logical_record"
+        )
+    basis = _require_nonempty_string(
+        witness.get("metadata_basis"),
+        f"{label} observations.{name}.qualified_witness.metadata_basis",
+    )
+    if basis == "presentation-name":
+        raise A1LifetimeError("presentation name cannot qualify a logical-record witness")
+    witness["metadata_sha256"] = _require_sha256(
+        witness.get("metadata_sha256"),
+        f"{label} observations.{name}.qualified_witness.metadata_sha256",
     )
     return point
 
@@ -132,6 +164,24 @@ def _validate_reuse_event(
     if before_logical != pre["logical_record"] or after_logical != post["logical_record"]:
         raise A1LifetimeError(
             f"{label} observed reuse event must bind before/after logical records to pre/post observations"
+        )
+    before_digest = _require_sha256(
+        event.get("before_metadata_sha256"),
+        f"{label} observations.reuse_event.before_metadata_sha256",
+    )
+    after_digest = _require_sha256(
+        event.get("after_metadata_sha256"),
+        f"{label} observations.reuse_event.after_metadata_sha256",
+    )
+    pre_digest = pre["qualified_witness"]["metadata_sha256"]
+    post_digest = post["qualified_witness"]["metadata_sha256"]
+    if before_digest != pre_digest or after_digest != post_digest:
+        raise A1LifetimeError(
+            f"{label} observed reuse event must bind before/after metadata digests to qualified witnesses"
+        )
+    if pre_digest == post_digest:
+        raise A1LifetimeError(
+            f"{label} qualified witnesses must distinguish pre/post logical records"
         )
 
     if outcome == "positive-epoch-pointer":

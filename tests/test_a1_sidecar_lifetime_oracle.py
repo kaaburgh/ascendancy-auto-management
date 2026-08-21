@@ -28,6 +28,14 @@ def base_record():
     }
 
 
+def witness(planet: str, digest_char: str):
+    return {
+        "scenario_planet": planet,
+        "metadata_basis": "bounded-record-metadata",
+        "metadata_sha256": digest_char * 64,
+    }
+
+
 def replacement_step(
     label: str,
     invalidation_basis: str,
@@ -45,6 +53,7 @@ def replacement_step(
             "seq": 10,
             "record_pointer": 0x10100,
             "logical_record": "scenario-planet-a",
+            "qualified_witness": witness("scenario-planet-a", "a"),
             "array_base": 0x10000,
             "array_count": 8,
             "index": 1,
@@ -53,6 +62,7 @@ def replacement_step(
             "seq": 30,
             "record_pointer": 0x10100,
             "logical_record": "scenario-planet-b",
+            "qualified_witness": witness("scenario-planet-b", "b"),
             "array_base": 0x10000,
             "array_count": 8,
             "index": 1,
@@ -64,6 +74,8 @@ def replacement_step(
                 "record_pointer": 0x10100,
                 "before_logical_record": "scenario-planet-a",
                 "after_logical_record": "scenario-planet-b",
+                "before_metadata_sha256": "a" * 64,
+                "after_metadata_sha256": "b" * 64,
             }
         elif outcome == "positive-other":
             reuse_event = {
@@ -72,6 +84,8 @@ def replacement_step(
                 "identity_subject": "candidate-key-slot-1",
                 "before_logical_record": "scenario-planet-a",
                 "after_logical_record": "scenario-planet-b",
+                "before_metadata_sha256": "a" * 64,
+                "after_metadata_sha256": "b" * 64,
             }
         else:
             reuse_event = {
@@ -81,6 +95,8 @@ def replacement_step(
                 "index": 1,
                 "before_logical_record": "scenario-planet-a",
                 "after_logical_record": "scenario-planet-b",
+                "before_metadata_sha256": "a" * 64,
+                "after_metadata_sha256": "b" * 64,
             }
         step["observations"] = {
             "pre": pre,
@@ -209,6 +225,28 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
         event["before_logical_record"] = "fabricated-planet-a"
         event["after_logical_record"] = "fabricated-planet-b"
         with self.assertRaisesRegex(mod.A1LifetimeError, "bind before/after logical records"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_fabricated_logical_records_without_witness_binding(self):
+        record = self._positive_index_record()
+        observations = record["transitions"][1]["observations"]
+        observations["pre"]["logical_record"] = "fabricated-planet-a"
+        observations["post"]["logical_record"] = "fabricated-planet-b"
+        observations["reuse_event"]["before_logical_record"] = "fabricated-planet-a"
+        observations["reuse_event"]["after_logical_record"] = "fabricated-planet-b"
+        with self.assertRaisesRegex(mod.A1LifetimeError, "scenario_planet must bind to logical_record"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_unbound_metadata_digest(self):
+        record = self._positive_index_record()
+        record["transitions"][1]["observations"]["reuse_event"]["after_metadata_sha256"] = "c" * 64
+        with self.assertRaisesRegex(mod.A1LifetimeError, "metadata digests to qualified witnesses"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_presentation_name_only_qualified_witness(self):
+        record = self._positive_index_record()
+        record["transitions"][1]["observations"]["pre"]["qualified_witness"]["metadata_basis"] = "presentation-name"
+        with self.assertRaisesRegex(mod.A1LifetimeError, "presentation name cannot qualify"):
             mod.validate_record(record)
 
     def test_positive_pointer_reuse_event_must_bind_to_pointer(self):

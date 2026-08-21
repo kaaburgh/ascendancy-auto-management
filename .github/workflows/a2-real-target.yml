@@ -1,11 +1,11 @@
-name: A2 real-target Stage 1 inventory
+name: A2 real-target evidence
 
 on:
   workflow_dispatch:
 
 jobs:
   a2-stage1-real-target:
-    name: A2 Stage 1 real-target inventory
+    name: A2 real-target evidence
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

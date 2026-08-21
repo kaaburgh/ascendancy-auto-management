@@ -44,6 +44,8 @@ python scripts/generate_a2_raw_literal_reference_probe.py \
 
 The detached result must be bound to the exact repository revision and material producer/parser inputs before it is promoted to durable target evidence.
 
+The manual [`../../.github/workflows/a2-real-target.yml`](../../.github/workflows/a2-real-target.yml) evidence workflow now runs this producer beside the Stage 1 inventory after one verified target acquisition. It records the exact checkout SHA plus SHA-256 values for the workflow, acquisition inputs, LE parser and raw-literal producer, prints a compact hit summary, and uploads `a2-raw-literal-reference-probe.json` as a separate short-lived artifact. This remains an explicit evidence-generation dispatch, not a PR correctness gate.
+
 ## Decision impact
 
 This slice does not change A2 status. If exact-target literal hits exist, inspect those source sites before any reuse claim. If no literal hits exist, that is only one independent negative structural observation; the roadmap still requires stronger structural/runtime evidence before capacity is reusable. If the bounded investigation cannot establish reusable capacity, proceed to the already-defined Stage 2 target-neutral LE-growth control rather than forcing a code-cave conclusion.

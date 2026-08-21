@@ -10,6 +10,7 @@ from typing import Any
 
 SCHEMA = "ascendancy.a1-sidecar-runtime-lifetime/v1"
 SCENARIO_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
+EXPECTED_SOURCE_SCHEMA = "ascendancy.a1-sidecar-expected-source/v1"
 MAX_METADATA_BYTES = 512
 OUTCOMES = {
     "positive-epoch-pointer",
@@ -87,7 +88,21 @@ def _require_metadata_bytes(value: Any, context: str) -> bytes:
     return raw
 
 
-def _scenario_planets(record: dict[str, Any], scenario_manifest: dict[str, Any] | None) -> dict[str, str]:
+def _source_value(source: dict[str, Any], field: str, context: str) -> str:
+    if field.endswith("sha256"):
+        return _require_sha256(source.get(field), f"{context} {field}")
+    return _require_nonempty_string(source.get(field), f"{context} {field}")
+
+
+def _scenario_planets(
+    record: dict[str, Any],
+    scenario_manifest: dict[str, Any] | None,
+    expected_source: dict[str, Any] | None,
+) -> dict[str, str]:
+    if not isinstance(expected_source, dict):
+        raise A1LifetimeError("positive outcome requires independently supplied expected source identity")
+    if expected_source.get("schema") != EXPECTED_SOURCE_SCHEMA:
+        raise A1LifetimeError("unsupported or missing expected source schema")
     if not isinstance(scenario_manifest, dict):
         raise A1LifetimeError("positive outcome requires independent scenario qualification manifest")
     if scenario_manifest.get("schema") != SCENARIO_SCHEMA:
@@ -99,16 +114,16 @@ def _scenario_planets(record: dict[str, Any], scenario_manifest: dict[str, Any] 
     source = scenario_manifest.get("source")
     if not isinstance(source, dict):
         raise A1LifetimeError("scenario qualification manifest requires pinned source identity")
+
     for field in SCENARIO_SOURCE_FIELDS:
-        if field.endswith("sha256"):
-            expected = _require_sha256(inputs.get(field), f"run inputs {field}")
-            actual = _require_sha256(source.get(field), f"scenario qualification source {field}")
-        else:
-            expected = _require_nonempty_string(inputs.get(field), f"run inputs {field}")
-            actual = _require_nonempty_string(source.get(field), f"scenario qualification source {field}")
-        if actual != expected:
+        trusted = _source_value(expected_source, field, "expected source")
+        run_value = _source_value(inputs, field, "run inputs")
+        manifest_value = _source_value(source, field, "scenario qualification source")
+        if run_value != trusted:
+            raise A1LifetimeError(f"run inputs {field} must bind to independently supplied expected source")
+        if manifest_value != trusted:
             raise A1LifetimeError(
-                f"scenario qualification source {field} must bind to pinned run inputs"
+                f"scenario qualification source {field} must bind to independently supplied expected source"
             )
 
     planets = scenario_manifest.get("planets")
@@ -283,7 +298,11 @@ def _validate_replacement_observations(step: dict[str, Any], label: str, outcome
         _validate_signal(observations, "other_invalidation_signal", label, pre_seq, reuse_event_seq)
 
 
-def validate_record(record: dict[str, Any], scenario_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
+def validate_record(
+    record: dict[str, Any],
+    scenario_manifest: dict[str, Any] | None = None,
+    expected_source: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if record.get("schema") != SCHEMA:
         raise A1LifetimeError("unsupported or missing schema")
     outcome = record.get("outcome")
@@ -327,7 +346,7 @@ def validate_record(record: dict[str, Any], scenario_manifest: dict[str, Any] | 
     coverage_complete = REQUIRED_TRANSITIONS.issubset(by_label)
     positive = outcome.startswith("positive-")
     if positive:
-        scenario_planets = _scenario_planets(record, scenario_manifest)
+        scenario_planets = _scenario_planets(record, scenario_manifest, expected_source)
         if not control["passed"]:
             raise A1LifetimeError("positive outcome requires passed selection control")
         if not coverage_complete:
@@ -357,21 +376,28 @@ def validate_record(record: dict[str, Any], scenario_manifest: dict[str, Any] | 
     }
 
 
+def _read_json_object(path: Path, label: str) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise A1LifetimeError(f"{label} root must be an object")
+    return data
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("record", type=Path)
     ap.add_argument("--scenario-manifest", type=Path)
+    ap.add_argument("--expected-source", type=Path)
     ns = ap.parse_args()
     try:
-        data = json.loads(ns.record.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise A1LifetimeError("record root must be an object")
+        data = _read_json_object(ns.record, "record")
         scenario_manifest = None
         if ns.scenario_manifest is not None:
-            scenario_manifest = json.loads(ns.scenario_manifest.read_text(encoding="utf-8"))
-            if not isinstance(scenario_manifest, dict):
-                raise A1LifetimeError("scenario manifest root must be an object")
-        result = validate_record(data, scenario_manifest)
+            scenario_manifest = _read_json_object(ns.scenario_manifest, "scenario manifest")
+        expected_source = None
+        if ns.expected_source is not None:
+            expected_source = _read_json_object(ns.expected_source, "expected source")
+        result = validate_record(data, scenario_manifest, expected_source)
     except (OSError, json.JSONDecodeError, A1LifetimeError) as exc:
         ap.error(str(exc))
     print(json.dumps(result, sort_keys=True))

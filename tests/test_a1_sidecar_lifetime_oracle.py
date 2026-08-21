@@ -13,6 +13,24 @@ TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b0
 QUALIFICATION_SHA256 = "4" * 64
 RETAIL_MANIFEST_IDENTITY = "tools/retail-runtime-manifest.json#canonical-retail-fixture"
 SCENARIO_IDENTITY = "a1-synthetic-two-planet-scenario-v1"
+_RAW_VALIDATE_RECORD = mod.validate_record
+
+
+def expected_source():
+    return {
+        "schema": mod.EXPECTED_SOURCE_SCHEMA,
+        "target_sha256": TARGET_SHA256,
+        "retail_manifest_identity": RETAIL_MANIFEST_IDENTITY,
+        "scenario_identity": SCENARIO_IDENTITY,
+        "qualification_source_sha256": QUALIFICATION_SHA256,
+    }
+
+
+def _anchored_validate_record(record, scenario_manifest=None):
+    return _RAW_VALIDATE_RECORD(record, scenario_manifest, expected_source())
+
+
+mod.validate_record = _anchored_validate_record
 
 
 def base_record():
@@ -108,6 +126,10 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
         self.assertFalse(result["positive_contract_accepted"])
         self.assertFalse(result["coverage_complete"])
 
+    def test_positive_requires_independently_supplied_expected_source(self):
+        with self.assertRaisesRegex(mod.A1LifetimeError, "independently supplied expected source identity"):
+            _RAW_VALIDATE_RECORD(self._positive_index_record(), scenario_manifest())
+
     def test_positive_requires_independent_scenario_manifest(self):
         with self.assertRaisesRegex(mod.A1LifetimeError, "independent scenario qualification manifest"):
             mod.validate_record(self._positive_index_record())
@@ -131,6 +153,11 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
         manifest = scenario_manifest(); manifest["source"]["qualification_source_sha256"] = "5" * 64
         with self.assertRaisesRegex(mod.A1LifetimeError, "qualification_source_sha256 must bind"):
             mod.validate_record(self._positive_index_record(), manifest)
+
+    def test_positive_rejects_run_inputs_disagreeing_with_expected_source(self):
+        record = self._positive_index_record(); record["inputs"]["scenario_identity"] = "fabricated-scenario"
+        with self.assertRaisesRegex(mod.A1LifetimeError, "run inputs scenario_identity must bind"):
+            mod.validate_record(record, scenario_manifest())
 
     def test_positive_epoch_pointer_requires_full_coverage(self):
         record = base_record(); record["outcome"] = "positive-epoch-pointer"; record["control"]["passed"] = True

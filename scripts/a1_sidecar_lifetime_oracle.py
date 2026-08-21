@@ -30,6 +30,12 @@ REUSE_EVENT_KIND = {
     "positive-epoch-index": "index-reassignment",
     "positive-other": "other-identity-reuse",
 }
+SCENARIO_SOURCE_FIELDS = (
+    "target_sha256",
+    "retail_manifest_identity",
+    "scenario_identity",
+    "qualification_source_sha256",
+)
 
 
 class A1LifetimeError(ValueError):
@@ -81,11 +87,30 @@ def _require_metadata_bytes(value: Any, context: str) -> bytes:
     return raw
 
 
-def _scenario_planets(scenario_manifest: dict[str, Any] | None) -> dict[str, str]:
+def _scenario_planets(record: dict[str, Any], scenario_manifest: dict[str, Any] | None) -> dict[str, str]:
     if not isinstance(scenario_manifest, dict):
         raise A1LifetimeError("positive outcome requires independent scenario qualification manifest")
     if scenario_manifest.get("schema") != SCENARIO_SCHEMA:
         raise A1LifetimeError("unsupported or missing scenario qualification schema")
+
+    inputs = record.get("inputs")
+    if not isinstance(inputs, dict):
+        raise A1LifetimeError("positive outcome requires pinned run inputs")
+    source = scenario_manifest.get("source")
+    if not isinstance(source, dict):
+        raise A1LifetimeError("scenario qualification manifest requires pinned source identity")
+    for field in SCENARIO_SOURCE_FIELDS:
+        if field.endswith("sha256"):
+            expected = _require_sha256(inputs.get(field), f"run inputs {field}")
+            actual = _require_sha256(source.get(field), f"scenario qualification source {field}")
+        else:
+            expected = _require_nonempty_string(inputs.get(field), f"run inputs {field}")
+            actual = _require_nonempty_string(source.get(field), f"scenario qualification source {field}")
+        if actual != expected:
+            raise A1LifetimeError(
+                f"scenario qualification source {field} must bind to pinned run inputs"
+            )
+
     planets = scenario_manifest.get("planets")
     if not isinstance(planets, dict) or not planets:
         raise A1LifetimeError("scenario qualification manifest requires planets map")
@@ -184,7 +209,10 @@ def _validate_index_point(point: dict[str, Any], label: str, name: str) -> None:
         raise A1LifetimeError(f"{label} observations.{name}.index must be within observed array_count")
 
 
-def _validate_reuse_event(observations: dict[str, Any], label: str, outcome: str, pre: dict[str, Any], post: dict[str, Any], pre_seq: int, post_seq: int) -> int:
+def _validate_reuse_event(
+    observations: dict[str, Any], label: str, outcome: str,
+    pre: dict[str, Any], post: dict[str, Any], pre_seq: int, post_seq: int,
+) -> int:
     event = observations.get("reuse_event")
     if not isinstance(event, dict):
         raise A1LifetimeError(f"{label} requires observations.reuse_event")
@@ -299,7 +327,7 @@ def validate_record(record: dict[str, Any], scenario_manifest: dict[str, Any] | 
     coverage_complete = REQUIRED_TRANSITIONS.issubset(by_label)
     positive = outcome.startswith("positive-")
     if positive:
-        scenario_planets = _scenario_planets(scenario_manifest)
+        scenario_planets = _scenario_planets(record, scenario_manifest)
         if not control["passed"]:
             raise A1LifetimeError("positive outcome requires passed selection control")
         if not coverage_complete:
@@ -320,7 +348,13 @@ def validate_record(record: dict[str, Any], scenario_manifest: dict[str, Any] | 
             other = record.get("other_identity_contract")
             if not isinstance(other, dict) or not other.get("fails_closed_on_reuse"):
                 raise A1LifetimeError("positive-other requires an explicit fail-closed reuse contract")
-    return {"schema": SCHEMA, "outcome": outcome, "control_passed": control["passed"], "coverage_complete": coverage_complete, "positive_contract_accepted": positive}
+    return {
+        "schema": SCHEMA,
+        "outcome": outcome,
+        "control_passed": control["passed"],
+        "coverage_complete": coverage_complete,
+        "positive_contract_accepted": positive,
+    }
 
 
 def main() -> int:

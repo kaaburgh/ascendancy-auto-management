@@ -9,11 +9,22 @@ mod = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(mod)
 
+TARGET_SHA256 = "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
+QUALIFICATION_SHA256 = "4" * 64
+RETAIL_MANIFEST_IDENTITY = "tools/retail-runtime-manifest.json#canonical-retail-fixture"
+SCENARIO_IDENTITY = "a1-synthetic-two-planet-scenario-v1"
+
 
 def base_record():
     return {
         "schema": mod.SCHEMA,
         "outcome": "incomplete-harness",
+        "inputs": {
+            "target_sha256": TARGET_SHA256,
+            "retail_manifest_identity": RETAIL_MANIFEST_IDENTITY,
+            "scenario_identity": SCENARIO_IDENTITY,
+            "qualification_source_sha256": QUALIFICATION_SHA256,
+        },
         "claims": {
             "array_base_established": False,
             "array_count_established": False,
@@ -38,6 +49,12 @@ def metadata_digest(planet: str):
 def scenario_manifest():
     return {
         "schema": mod.SCENARIO_SCHEMA,
+        "source": {
+            "target_sha256": TARGET_SHA256,
+            "retail_manifest_identity": RETAIL_MANIFEST_IDENTITY,
+            "scenario_identity": SCENARIO_IDENTITY,
+            "qualification_source_sha256": QUALIFICATION_SHA256,
+        },
         "planets": {
             "scenario-planet-a": metadata_digest("scenario-planet-a"),
             "scenario-planet-b": metadata_digest("scenario-planet-b"),
@@ -94,6 +111,26 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
     def test_positive_requires_independent_scenario_manifest(self):
         with self.assertRaisesRegex(mod.A1LifetimeError, "independent scenario qualification manifest"):
             mod.validate_record(self._positive_index_record())
+
+    def test_positive_rejects_scenario_manifest_without_pinned_source_identity(self):
+        manifest = scenario_manifest(); del manifest["source"]
+        with self.assertRaisesRegex(mod.A1LifetimeError, "pinned source identity"):
+            mod.validate_record(self._positive_index_record(), manifest)
+
+    def test_positive_rejects_scenario_manifest_bound_to_different_fixture(self):
+        manifest = scenario_manifest(); manifest["source"]["retail_manifest_identity"] = "different-fixture"
+        with self.assertRaisesRegex(mod.A1LifetimeError, "retail_manifest_identity must bind"):
+            mod.validate_record(self._positive_index_record(), manifest)
+
+    def test_positive_rejects_scenario_manifest_bound_to_different_scenario(self):
+        manifest = scenario_manifest(); manifest["source"]["scenario_identity"] = "different-scenario"
+        with self.assertRaisesRegex(mod.A1LifetimeError, "scenario_identity must bind"):
+            mod.validate_record(self._positive_index_record(), manifest)
+
+    def test_positive_rejects_unpinned_qualification_source(self):
+        manifest = scenario_manifest(); manifest["source"]["qualification_source_sha256"] = "5" * 64
+        with self.assertRaisesRegex(mod.A1LifetimeError, "qualification_source_sha256 must bind"):
+            mod.validate_record(self._positive_index_record(), manifest)
 
     def test_positive_epoch_pointer_requires_full_coverage(self):
         record = base_record(); record["outcome"] = "positive-epoch-pointer"; record["control"]["passed"] = True

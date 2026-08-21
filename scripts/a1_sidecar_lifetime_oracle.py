@@ -60,6 +60,9 @@ def _require_point(observations: dict[str, Any], name: str, label: str) -> dict[
     pointer = point.get("record_pointer")
     if not isinstance(pointer, int) or isinstance(pointer, bool) or pointer < 0:
         raise A1LifetimeError(f"{label} observations.{name}.record_pointer must be a non-negative integer")
+    _require_nonempty_string(
+        point.get("logical_record"), f"{label} observations.{name}.logical_record"
+    )
     return point
 
 
@@ -126,6 +129,10 @@ def _validate_reuse_event(
     )
     if before_logical == after_logical:
         raise A1LifetimeError(f"{label} observed reuse event must distinguish two logical records")
+    if before_logical != pre["logical_record"] or after_logical != post["logical_record"]:
+        raise A1LifetimeError(
+            f"{label} observed reuse event must bind before/after logical records to pre/post observations"
+        )
 
     if outcome == "positive-epoch-pointer":
         pointer = event.get("record_pointer")

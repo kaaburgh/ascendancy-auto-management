@@ -44,6 +44,7 @@ def replacement_step(
         pre = {
             "seq": 10,
             "record_pointer": 0x10100,
+            "logical_record": "scenario-planet-a",
             "array_base": 0x10000,
             "array_count": 8,
             "index": 1,
@@ -51,6 +52,7 @@ def replacement_step(
         post = {
             "seq": 30,
             "record_pointer": 0x10100,
+            "logical_record": "scenario-planet-b",
             "array_base": 0x10000,
             "array_count": 8,
             "index": 1,
@@ -199,6 +201,14 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
         event = record["transitions"][1]["observations"]["reuse_event"]
         event["after_logical_record"] = event["before_logical_record"]
         with self.assertRaisesRegex(mod.A1LifetimeError, "distinguish two logical records"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_fabricated_logical_replacement_labels(self):
+        record = self._positive_index_record()
+        event = record["transitions"][1]["observations"]["reuse_event"]
+        event["before_logical_record"] = "fabricated-planet-a"
+        event["after_logical_record"] = "fabricated-planet-b"
+        with self.assertRaisesRegex(mod.A1LifetimeError, "bind before/after logical records"):
             mod.validate_record(record)
 
     def test_positive_pointer_reuse_event_must_bind_to_pointer(self):

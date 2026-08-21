@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 SCHEMA = "ascendancy.a1-sidecar-runtime-lifetime/v1"
+SCENARIO_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
+MAX_METADATA_BYTES = 512
 OUTCOMES = {
     "positive-epoch-pointer",
     "positive-epoch-index",
@@ -63,7 +66,44 @@ def _require_sha256(value: Any, context: str) -> str:
     return text.lower()
 
 
-def _require_point(observations: dict[str, Any], name: str, label: str) -> dict[str, Any]:
+def _require_metadata_bytes(value: Any, context: str) -> bytes:
+    text = _require_nonempty_string(value, context)
+    if len(text) % 2:
+        raise A1LifetimeError(f"{context} must be even-length hex")
+    try:
+        raw = bytes.fromhex(text)
+    except ValueError as exc:
+        raise A1LifetimeError(f"{context} must be hex") from exc
+    if not raw:
+        raise A1LifetimeError(f"{context} must not be empty")
+    if len(raw) > MAX_METADATA_BYTES:
+        raise A1LifetimeError(f"{context} exceeds {MAX_METADATA_BYTES} byte bound")
+    return raw
+
+
+def _scenario_planets(scenario_manifest: dict[str, Any] | None) -> dict[str, str]:
+    if not isinstance(scenario_manifest, dict):
+        raise A1LifetimeError("positive outcome requires independent scenario qualification manifest")
+    if scenario_manifest.get("schema") != SCENARIO_SCHEMA:
+        raise A1LifetimeError("unsupported or missing scenario qualification schema")
+    planets = scenario_manifest.get("planets")
+    if not isinstance(planets, dict) or not planets:
+        raise A1LifetimeError("scenario qualification manifest requires planets map")
+    validated: dict[str, str] = {}
+    for planet, digest in planets.items():
+        logical = _require_nonempty_string(planet, "scenario qualification planet")
+        validated[logical] = _require_sha256(
+            digest, f"scenario qualification digest for {logical}"
+        )
+    return validated
+
+
+def _require_point(
+    observations: dict[str, Any],
+    name: str,
+    label: str,
+    scenario_planets: dict[str, str],
+) -> dict[str, Any]:
     point = observations.get(name)
     if not isinstance(point, dict):
         raise A1LifetimeError(f"{label} requires observations.{name}")
@@ -91,20 +131,33 @@ def _require_point(observations: dict[str, Any], name: str, label: str) -> dict[
     )
     if basis == "presentation-name":
         raise A1LifetimeError("presentation name cannot qualify a logical-record witness")
-    witness["metadata_sha256"] = _require_sha256(
+    raw_metadata = _require_metadata_bytes(
+        witness.get("metadata_hex"),
+        f"{label} observations.{name}.qualified_witness.metadata_hex",
+    )
+    observed_digest = hashlib.sha256(raw_metadata).hexdigest()
+    declared_digest = _require_sha256(
         witness.get("metadata_sha256"),
         f"{label} observations.{name}.qualified_witness.metadata_sha256",
     )
+    if declared_digest != observed_digest:
+        raise A1LifetimeError(
+            f"{label} observations.{name}.qualified_witness.metadata_sha256 must match bounded metadata bytes"
+        )
+    expected_digest = scenario_planets.get(scenario_planet)
+    if expected_digest is None:
+        raise A1LifetimeError(
+            f"{label} observations.{name} logical record is not independently qualified by scenario manifest"
+        )
+    if expected_digest != observed_digest:
+        raise A1LifetimeError(
+            f"{label} observations.{name} bounded metadata does not match independent scenario qualification"
+        )
+    witness["metadata_sha256"] = observed_digest
     return point
 
 
-def _validate_signal(
-    observations: dict[str, Any],
-    name: str,
-    label: str,
-    pre_seq: int,
-    reuse_event_seq: int,
-) -> None:
+def _validate_signal(observations: dict[str, Any], name: str, label: str, pre_seq: int, reuse_event_seq: int) -> None:
     signal = observations.get(name)
     if not isinstance(signal, dict):
         raise A1LifetimeError(f"{label} requires observations.{name}")
@@ -131,15 +184,7 @@ def _validate_index_point(point: dict[str, Any], label: str, name: str) -> None:
         raise A1LifetimeError(f"{label} observations.{name}.index must be within observed array_count")
 
 
-def _validate_reuse_event(
-    observations: dict[str, Any],
-    label: str,
-    outcome: str,
-    pre: dict[str, Any],
-    post: dict[str, Any],
-    pre_seq: int,
-    post_seq: int,
-) -> int:
+def _validate_reuse_event(observations: dict[str, Any], label: str, outcome: str, pre: dict[str, Any], post: dict[str, Any], pre_seq: int, post_seq: int) -> int:
     event = observations.get("reuse_event")
     if not isinstance(event, dict):
         raise A1LifetimeError(f"{label} requires observations.reuse_event")
@@ -150,50 +195,28 @@ def _validate_reuse_event(
         )
     expected_kind = REUSE_EVENT_KIND[outcome]
     if event.get("kind") != expected_kind:
-        raise A1LifetimeError(
-            f"{label} observations.reuse_event.kind must be {expected_kind!r} for {outcome}"
-        )
-    before_logical = _require_nonempty_string(
-        event.get("before_logical_record"), f"{label} observations.reuse_event.before_logical_record"
-    )
-    after_logical = _require_nonempty_string(
-        event.get("after_logical_record"), f"{label} observations.reuse_event.after_logical_record"
-    )
+        raise A1LifetimeError(f"{label} observations.reuse_event.kind must be {expected_kind!r} for {outcome}")
+    before_logical = _require_nonempty_string(event.get("before_logical_record"), f"{label} observations.reuse_event.before_logical_record")
+    after_logical = _require_nonempty_string(event.get("after_logical_record"), f"{label} observations.reuse_event.after_logical_record")
     if before_logical == after_logical:
         raise A1LifetimeError(f"{label} observed reuse event must distinguish two logical records")
     if before_logical != pre["logical_record"] or after_logical != post["logical_record"]:
-        raise A1LifetimeError(
-            f"{label} observed reuse event must bind before/after logical records to pre/post observations"
-        )
-    before_digest = _require_sha256(
-        event.get("before_metadata_sha256"),
-        f"{label} observations.reuse_event.before_metadata_sha256",
-    )
-    after_digest = _require_sha256(
-        event.get("after_metadata_sha256"),
-        f"{label} observations.reuse_event.after_metadata_sha256",
-    )
+        raise A1LifetimeError(f"{label} observed reuse event must bind before/after logical records to pre/post observations")
+    before_digest = _require_sha256(event.get("before_metadata_sha256"), f"{label} observations.reuse_event.before_metadata_sha256")
+    after_digest = _require_sha256(event.get("after_metadata_sha256"), f"{label} observations.reuse_event.after_metadata_sha256")
     pre_digest = pre["qualified_witness"]["metadata_sha256"]
     post_digest = post["qualified_witness"]["metadata_sha256"]
     if before_digest != pre_digest or after_digest != post_digest:
-        raise A1LifetimeError(
-            f"{label} observed reuse event must bind before/after metadata digests to qualified witnesses"
-        )
+        raise A1LifetimeError(f"{label} observed reuse event must bind before/after metadata digests to qualified witnesses")
     if pre_digest == post_digest:
-        raise A1LifetimeError(
-            f"{label} qualified witnesses must distinguish pre/post logical records"
-        )
+        raise A1LifetimeError(f"{label} qualified witnesses must distinguish pre/post logical records")
 
     if outcome == "positive-epoch-pointer":
         pointer = event.get("record_pointer")
         if not isinstance(pointer, int) or isinstance(pointer, bool) or pointer < 0:
-            raise A1LifetimeError(
-                f"{label} observations.reuse_event.record_pointer must be a non-negative integer"
-            )
+            raise A1LifetimeError(f"{label} observations.reuse_event.record_pointer must be a non-negative integer")
         if pointer != pre["record_pointer"] or pointer != post["record_pointer"]:
-            raise A1LifetimeError(
-                f"{label} observed pointer-reuse event must bind to both pre/post record_pointer values"
-            )
+            raise A1LifetimeError(f"{label} observed pointer-reuse event must bind to both pre/post record_pointer values")
     elif outcome == "positive-epoch-index":
         event_base = event.get("array_base")
         event_index = event.get("index")
@@ -202,36 +225,24 @@ def _validate_reuse_event(
         if event_index != pre.get("index") or event_index != post.get("index"):
             raise A1LifetimeError(f"{label} observed index-reuse event must bind to pre/post index")
     else:
-        _require_nonempty_string(
-            event.get("identity_subject"), f"{label} observations.reuse_event.identity_subject"
-        )
+        _require_nonempty_string(event.get("identity_subject"), f"{label} observations.reuse_event.identity_subject")
     return event_seq
 
 
-def _validate_replacement_observations(
-    step: dict[str, Any],
-    label: str,
-    outcome: str,
-) -> None:
+def _validate_replacement_observations(step: dict[str, Any], label: str, outcome: str, scenario_planets: dict[str, str]) -> None:
     observations = step.get("observations")
     if not isinstance(observations, dict):
         raise A1LifetimeError(f"positive outcome requires bounded observations for {label}")
-
-    pre = _require_point(observations, "pre", label)
-    post = _require_point(observations, "post", label)
+    pre = _require_point(observations, "pre", label, scenario_planets)
+    post = _require_point(observations, "post", label, scenario_planets)
     pre_seq = _require_seq(pre["seq"], f"{label} observations.pre.seq")
     post_seq = _require_seq(post["seq"], f"{label} observations.post.seq")
     if pre_seq >= post_seq:
         raise A1LifetimeError(f"{label} observations must order pre before post")
-
     if outcome == "positive-epoch-index":
         _validate_index_point(pre, label, "pre")
         _validate_index_point(post, label, "post")
-
-    reuse_event_seq = _validate_reuse_event(
-        observations, label, outcome, pre, post, pre_seq, post_seq
-    )
-
+    reuse_event_seq = _validate_reuse_event(observations, label, outcome, pre, post, pre_seq, post_seq)
     basis = step.get("invalidation_basis")
     if basis == "epoch":
         _validate_signal(observations, "epoch_signal", label, pre_seq, reuse_event_seq)
@@ -244,13 +255,12 @@ def _validate_replacement_observations(
         _validate_signal(observations, "other_invalidation_signal", label, pre_seq, reuse_event_seq)
 
 
-def validate_record(record: dict[str, Any]) -> dict[str, Any]:
+def validate_record(record: dict[str, Any], scenario_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
     if record.get("schema") != SCHEMA:
         raise A1LifetimeError("unsupported or missing schema")
     outcome = record.get("outcome")
     if outcome not in OUTCOMES:
         raise A1LifetimeError("unsupported or missing outcome")
-
     claims = record.get("claims")
     if not isinstance(claims, dict):
         raise A1LifetimeError("claims must be an object")
@@ -264,11 +274,9 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
         raise A1LifetimeError("this experiment must not establish Manual-transition invalidation")
     if stable_index and not (array_base and array_count):
         raise A1LifetimeError("stable index requires independently established array base and count")
-
     control = record.get("control")
     if not isinstance(control, dict) or not isinstance(control.get("passed"), bool):
         raise A1LifetimeError("control.passed must be boolean")
-
     transitions = record.get("transitions")
     if not isinstance(transitions, list):
         raise A1LifetimeError("transitions must be a list")
@@ -288,10 +296,10 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
             raise A1LifetimeError("0x7b stride alone cannot establish a stable index")
         if step.get("replacement") is True and step.get("signal_order") == "post-hoc":
             raise A1LifetimeError("post-hoc replacement signal cannot establish lossless invalidation")
-
     coverage_complete = REQUIRED_TRANSITIONS.issubset(by_label)
     positive = outcome.startswith("positive-")
     if positive:
+        scenario_planets = _scenario_planets(scenario_manifest)
         if not control["passed"]:
             raise A1LifetimeError("positive outcome requires passed selection control")
         if not coverage_complete:
@@ -300,14 +308,10 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
         for label in REPLACEMENT_TRANSITIONS:
             step = by_label[label]
             if step.get("replacement") is not True:
-                raise A1LifetimeError(
-                    f"positive outcome requires observed replacement for {label}"
-                )
+                raise A1LifetimeError(f"positive outcome requires observed replacement for {label}")
             if step.get("invalidation_basis") not in accepted_basis:
-                raise A1LifetimeError(
-                    f"positive outcome has incompatible invalidation basis for {label}"
-                )
-            _validate_replacement_observations(step, label, outcome)
+                raise A1LifetimeError(f"positive outcome has incompatible invalidation basis for {label}")
+            _validate_replacement_observations(step, label, outcome, scenario_planets)
         if outcome == "positive-epoch-pointer" and not (epoch and reuse_detector):
             raise A1LifetimeError("epoch+pointer outcome requires epoch and reuse detector")
         if outcome == "positive-epoch-index" and not (epoch and stable_index and array_base and array_count):
@@ -316,25 +320,24 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
             other = record.get("other_identity_contract")
             if not isinstance(other, dict) or not other.get("fails_closed_on_reuse"):
                 raise A1LifetimeError("positive-other requires an explicit fail-closed reuse contract")
-
-    return {
-        "schema": SCHEMA,
-        "outcome": outcome,
-        "control_passed": control["passed"],
-        "coverage_complete": coverage_complete,
-        "positive_contract_accepted": positive,
-    }
+    return {"schema": SCHEMA, "outcome": outcome, "control_passed": control["passed"], "coverage_complete": coverage_complete, "positive_contract_accepted": positive}
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("record", type=Path)
+    ap.add_argument("--scenario-manifest", type=Path)
     ns = ap.parse_args()
     try:
         data = json.loads(ns.record.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise A1LifetimeError("record root must be an object")
-        result = validate_record(data)
+        scenario_manifest = None
+        if ns.scenario_manifest is not None:
+            scenario_manifest = json.loads(ns.scenario_manifest.read_text(encoding="utf-8"))
+            if not isinstance(scenario_manifest, dict):
+                raise A1LifetimeError("scenario manifest root must be an object")
+        result = validate_record(data, scenario_manifest)
     except (OSError, json.JSONDecodeError, A1LifetimeError) as exc:
         ap.error(str(exc))
     print(json.dumps(result, sort_keys=True))

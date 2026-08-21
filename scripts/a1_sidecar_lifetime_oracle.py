@@ -57,7 +57,7 @@ def _validate_signal(
     name: str,
     label: str,
     pre_seq: int,
-    post_seq: int,
+    reuse_boundary_seq: int,
 ) -> None:
     signal = observations.get(name)
     if not isinstance(signal, dict):
@@ -67,9 +67,9 @@ def _validate_signal(
     if signal["before"] == signal["after"]:
         raise A1LifetimeError(f"{label} observations.{name} did not change")
     signal_seq = _require_seq(signal.get("seq"), f"{label} observations.{name}.seq")
-    if not (pre_seq < signal_seq <= post_seq):
+    if not (pre_seq < signal_seq < reuse_boundary_seq):
         raise A1LifetimeError(
-            f"{label} observations.{name} must be observed after pre-state and no later than post/reuse"
+            f"{label} observations.{name} must be observed after pre-state and before reuse boundary"
         )
 
 
@@ -100,6 +100,14 @@ def _validate_replacement_observations(
     post_seq = _require_seq(post["seq"], f"{label} observations.post.seq")
     if pre_seq >= post_seq:
         raise A1LifetimeError(f"{label} observations must order pre before post")
+    reuse_boundary_seq = _require_seq(
+        observations.get("reuse_boundary_seq"),
+        f"{label} observations.reuse_boundary_seq",
+    )
+    if not (pre_seq < reuse_boundary_seq <= post_seq):
+        raise A1LifetimeError(
+            f"{label} observations.reuse_boundary_seq must be after pre-state and no later than post-state"
+        )
 
     if outcome == "positive-epoch-index":
         _validate_index_point(pre, label, "pre")
@@ -107,14 +115,14 @@ def _validate_replacement_observations(
 
     basis = step.get("invalidation_basis")
     if basis == "epoch":
-        _validate_signal(observations, "epoch_signal", label, pre_seq, post_seq)
+        _validate_signal(observations, "epoch_signal", label, pre_seq, reuse_boundary_seq)
     elif basis == "reuse-detector":
-        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, post_seq)
+        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, reuse_boundary_seq)
     elif basis == "epoch+reuse-detector":
-        _validate_signal(observations, "epoch_signal", label, pre_seq, post_seq)
-        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, post_seq)
+        _validate_signal(observations, "epoch_signal", label, pre_seq, reuse_boundary_seq)
+        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, reuse_boundary_seq)
     elif basis == "other":
-        _validate_signal(observations, "other_invalidation_signal", label, pre_seq, post_seq)
+        _validate_signal(observations, "other_invalidation_signal", label, pre_seq, reuse_boundary_seq)
 
 
 def validate_record(record: dict[str, Any]) -> dict[str, Any]:

@@ -50,6 +50,7 @@ def replacement_step(label: str, invalidation_basis: str, *, include_observation
                 "array_count": 8,
                 "index": 1,
             },
+            "reuse_boundary_seq": 25,
             "epoch_signal": {"before": 7, "after": 8, "seq": 20},
             "reuse_detector_signal": {"before": "old", "after": "new", "seq": 20},
             "other_invalidation_signal": {"before": "old", "after": "new", "seq": 20},
@@ -119,7 +120,7 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(mod.A1LifetimeError, "did not change"):
             mod.validate_record(record)
 
-    def test_positive_rejects_post_hoc_epoch_observation(self):
+    def test_positive_rejects_missing_reuse_boundary(self):
         record = base_record()
         record["outcome"] = "positive-epoch-index"
         record["control"]["passed"] = True
@@ -130,8 +131,38 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
             "epoch_boundary_established": True,
         })
         record["transitions"] = complete_transitions("epoch")
-        record["transitions"][1]["observations"]["epoch_signal"]["seq"] = 31
-        with self.assertRaisesRegex(mod.A1LifetimeError, "no later than post/reuse"):
+        del record["transitions"][1]["observations"]["reuse_boundary_seq"]
+        with self.assertRaisesRegex(mod.A1LifetimeError, "reuse_boundary_seq"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_signal_at_reuse_boundary(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-index"
+        record["control"]["passed"] = True
+        record["claims"].update({
+            "array_base_established": True,
+            "array_count_established": True,
+            "stable_index_established": True,
+            "epoch_boundary_established": True,
+        })
+        record["transitions"] = complete_transitions("epoch")
+        record["transitions"][1]["observations"]["epoch_signal"]["seq"] = 25
+        with self.assertRaisesRegex(mod.A1LifetimeError, "before reuse boundary"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_signal_only_at_post_point(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-index"
+        record["control"]["passed"] = True
+        record["claims"].update({
+            "array_base_established": True,
+            "array_count_established": True,
+            "stable_index_established": True,
+            "epoch_boundary_established": True,
+        })
+        record["transitions"] = complete_transitions("epoch")
+        record["transitions"][1]["observations"]["epoch_signal"]["seq"] = 30
+        with self.assertRaisesRegex(mod.A1LifetimeError, "before reuse boundary"):
             mod.validate_record(record)
 
     def test_positive_rejects_incompatible_invalidation_basis(self):

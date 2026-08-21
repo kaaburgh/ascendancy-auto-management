@@ -21,6 +21,8 @@ Before the A1 lifetime runner starts, the qualification producer must receive an
 - qualification-source SHA-256 identifying the exact operator/repository-supplied scenario qualification input;
 - a finite set of logical planet labels used only for the bounded experiment.
 
+Logical labels are opaque identifiers. After JSON decoding, each label must be a non-empty string and must be unique by exact Unicode code-point sequence. Producer, validator and lifetime consumer must not trim whitespace, case-fold, Unicode-normalize, locale-transform or otherwise rewrite labels; `scenario_planet` / `logical_record` binding uses the exact same decoded string.
+
 The lifetime runner may consume these values but must not derive or rewrite them from its own observations.
 
 ## Qualification output
@@ -56,7 +58,7 @@ The producer/validator must reject:
 
 - unsupported schema versions;
 - missing or malformed source identities;
-- duplicate logical labels after normalization;
+- empty logical labels or duplicate logical labels under exact decoded-string comparison;
 - empty metadata ranges;
 - metadata larger than the lifetime oracle's 512-byte witness bound;
 - presentation-name-only qualification;

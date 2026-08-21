@@ -16,6 +16,12 @@ OUTCOMES = {
     "incomplete-harness",
 }
 REQUIRED_TRANSITIONS = {"selection-control", "new-game-reset", "save-load-replacement"}
+REPLACEMENT_TRANSITIONS = {"new-game-reset", "save-load-replacement"}
+ACCEPTED_INVALIDATION_BASIS = {
+    "positive-epoch-pointer": {"epoch", "reuse-detector", "epoch+reuse-detector"},
+    "positive-epoch-index": {"epoch"},
+    "positive-other": {"other"},
+}
 
 
 class A1LifetimeError(ValueError):
@@ -57,11 +63,16 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
     transitions = record.get("transitions")
     if not isinstance(transitions, list):
         raise A1LifetimeError("transitions must be a list")
-    labels = {step.get("label") for step in transitions if isinstance(step, dict)}
-    coverage_complete = REQUIRED_TRANSITIONS.issubset(labels)
+    by_label: dict[str, dict[str, Any]] = {}
     for step in transitions:
         if not isinstance(step, dict):
             raise A1LifetimeError("transition entries must be objects")
+        label = step.get("label")
+        if not isinstance(label, str):
+            raise A1LifetimeError("transition label must be a string")
+        if label in by_label:
+            raise A1LifetimeError(f"duplicate transition label {label!r}")
+        by_label[label] = step
         if step.get("identity_basis") == "presentation-name":
             raise A1LifetimeError("presentation name cannot be promoted to identity")
         if step.get("index_basis") == "stride-only":
@@ -69,12 +80,28 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
         if step.get("replacement") is True and step.get("signal_order") == "post-hoc":
             raise A1LifetimeError("post-hoc replacement signal cannot establish lossless invalidation")
 
+    coverage_complete = REQUIRED_TRANSITIONS.issubset(by_label)
     positive = outcome.startswith("positive-")
     if positive:
         if not control["passed"]:
             raise A1LifetimeError("positive outcome requires passed selection control")
         if not coverage_complete:
             raise A1LifetimeError("positive outcome requires all predeclared transitions")
+        accepted_basis = ACCEPTED_INVALIDATION_BASIS[outcome]
+        for label in REPLACEMENT_TRANSITIONS:
+            step = by_label[label]
+            if step.get("replacement") is not True:
+                raise A1LifetimeError(
+                    f"positive outcome requires observed replacement for {label}"
+                )
+            if step.get("signal_order") != "before-reuse":
+                raise A1LifetimeError(
+                    f"positive outcome requires pre-reuse invalidation for {label}"
+                )
+            if step.get("invalidation_basis") not in accepted_basis:
+                raise A1LifetimeError(
+                    f"positive outcome has incompatible invalidation basis for {label}"
+                )
         if outcome == "positive-epoch-pointer" and not (epoch and reuse_detector):
             raise A1LifetimeError("epoch+pointer outcome requires epoch and reuse detector")
         if outcome == "positive-epoch-index" and not (epoch and stable_index and array_base and array_count):

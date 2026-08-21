@@ -28,6 +28,24 @@ def base_record():
     }
 
 
+def complete_transitions(invalidation_basis: str):
+    return [
+        {"label": "selection-control"},
+        {
+            "label": "new-game-reset",
+            "replacement": True,
+            "signal_order": "before-reuse",
+            "invalidation_basis": invalidation_basis,
+        },
+        {
+            "label": "save-load-replacement",
+            "replacement": True,
+            "signal_order": "before-reuse",
+            "invalidation_basis": invalidation_basis,
+        },
+    ]
+
+
 class A1SidecarLifetimeOracleTests(unittest.TestCase):
     def test_incomplete_record_is_valid_without_positive_claims(self):
         result = mod.validate_record(base_record())
@@ -41,6 +59,34 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
         record["claims"]["reuse_detector_established"] = True
         record["claims"]["epoch_boundary_established"] = True
         with self.assertRaisesRegex(mod.A1LifetimeError, "all predeclared transitions"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_claims_only_transition_labels(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-pointer"
+        record["control"]["passed"] = True
+        record["claims"]["reuse_detector_established"] = True
+        record["claims"]["epoch_boundary_established"] = True
+        record["transitions"] = [
+            {"label": "selection-control"},
+            {"label": "new-game-reset"},
+            {"label": "save-load-replacement"},
+        ]
+        with self.assertRaisesRegex(mod.A1LifetimeError, "observed replacement"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_incompatible_invalidation_basis(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-index"
+        record["control"]["passed"] = True
+        record["claims"].update({
+            "array_base_established": True,
+            "array_count_established": True,
+            "stable_index_established": True,
+            "epoch_boundary_established": True,
+        })
+        record["transitions"] = complete_transitions("reuse-detector")
+        with self.assertRaisesRegex(mod.A1LifetimeError, "incompatible invalidation basis"):
             mod.validate_record(record)
 
     def test_rejects_pointer_reuse_with_post_hoc_signal(self):
@@ -81,11 +127,7 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
             "stable_index_established": True,
             "epoch_boundary_established": True,
         })
-        record["transitions"] = [
-            {"label": "selection-control", "index_basis": "runtime-base-count"},
-            {"label": "new-game-reset", "replacement": True, "signal_order": "before-reuse"},
-            {"label": "save-load-replacement", "replacement": True, "signal_order": "before-reuse"},
-        ]
+        record["transitions"] = complete_transitions("epoch")
         result = mod.validate_record(record)
         self.assertTrue(result["positive_contract_accepted"])
         self.assertTrue(result["coverage_complete"])

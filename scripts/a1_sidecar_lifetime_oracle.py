@@ -35,6 +35,88 @@ def _require_bool(claims: dict[str, Any], key: str) -> bool:
     return value
 
 
+def _require_seq(value: Any, context: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise A1LifetimeError(f"{context} must be a non-negative integer")
+    return value
+
+
+def _require_point(observations: dict[str, Any], name: str, label: str) -> dict[str, Any]:
+    point = observations.get(name)
+    if not isinstance(point, dict):
+        raise A1LifetimeError(f"{label} requires observations.{name}")
+    _require_seq(point.get("seq"), f"{label} observations.{name}.seq")
+    pointer = point.get("record_pointer")
+    if not isinstance(pointer, int) or isinstance(pointer, bool) or pointer < 0:
+        raise A1LifetimeError(f"{label} observations.{name}.record_pointer must be a non-negative integer")
+    return point
+
+
+def _validate_signal(
+    observations: dict[str, Any],
+    name: str,
+    label: str,
+    pre_seq: int,
+    post_seq: int,
+) -> None:
+    signal = observations.get(name)
+    if not isinstance(signal, dict):
+        raise A1LifetimeError(f"{label} requires observations.{name}")
+    if "before" not in signal or "after" not in signal:
+        raise A1LifetimeError(f"{label} observations.{name} requires before and after values")
+    if signal["before"] == signal["after"]:
+        raise A1LifetimeError(f"{label} observations.{name} did not change")
+    signal_seq = _require_seq(signal.get("seq"), f"{label} observations.{name}.seq")
+    if not (pre_seq < signal_seq <= post_seq):
+        raise A1LifetimeError(
+            f"{label} observations.{name} must be observed after pre-state and no later than post/reuse"
+        )
+
+
+def _validate_index_point(point: dict[str, Any], label: str, name: str) -> None:
+    base = point.get("array_base")
+    count = point.get("array_count")
+    index = point.get("index")
+    if not isinstance(base, int) or isinstance(base, bool) or base < 0:
+        raise A1LifetimeError(f"{label} observations.{name}.array_base must be a non-negative integer")
+    if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+        raise A1LifetimeError(f"{label} observations.{name}.array_count must be a positive integer")
+    if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < count:
+        raise A1LifetimeError(f"{label} observations.{name}.index must be within observed array_count")
+
+
+def _validate_replacement_observations(
+    step: dict[str, Any],
+    label: str,
+    outcome: str,
+) -> None:
+    observations = step.get("observations")
+    if not isinstance(observations, dict):
+        raise A1LifetimeError(f"positive outcome requires bounded observations for {label}")
+
+    pre = _require_point(observations, "pre", label)
+    post = _require_point(observations, "post", label)
+    pre_seq = _require_seq(pre["seq"], f"{label} observations.pre.seq")
+    post_seq = _require_seq(post["seq"], f"{label} observations.post.seq")
+    if pre_seq >= post_seq:
+        raise A1LifetimeError(f"{label} observations must order pre before post")
+
+    if outcome == "positive-epoch-index":
+        _validate_index_point(pre, label, "pre")
+        _validate_index_point(post, label, "post")
+
+    basis = step.get("invalidation_basis")
+    if basis == "epoch":
+        _validate_signal(observations, "epoch_signal", label, pre_seq, post_seq)
+    elif basis == "reuse-detector":
+        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, post_seq)
+    elif basis == "epoch+reuse-detector":
+        _validate_signal(observations, "epoch_signal", label, pre_seq, post_seq)
+        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, post_seq)
+    elif basis == "other":
+        _validate_signal(observations, "other_invalidation_signal", label, pre_seq, post_seq)
+
+
 def validate_record(record: dict[str, Any]) -> dict[str, Any]:
     if record.get("schema") != SCHEMA:
         raise A1LifetimeError("unsupported or missing schema")
@@ -94,14 +176,11 @@ def validate_record(record: dict[str, Any]) -> dict[str, Any]:
                 raise A1LifetimeError(
                     f"positive outcome requires observed replacement for {label}"
                 )
-            if step.get("signal_order") != "before-reuse":
-                raise A1LifetimeError(
-                    f"positive outcome requires pre-reuse invalidation for {label}"
-                )
             if step.get("invalidation_basis") not in accepted_basis:
                 raise A1LifetimeError(
                     f"positive outcome has incompatible invalidation basis for {label}"
                 )
+            _validate_replacement_observations(step, label, outcome)
         if outcome == "positive-epoch-pointer" and not (epoch and reuse_detector):
             raise A1LifetimeError("epoch+pointer outcome requires epoch and reuse detector")
         if outcome == "positive-epoch-index" and not (epoch and stable_index and array_base and array_count):

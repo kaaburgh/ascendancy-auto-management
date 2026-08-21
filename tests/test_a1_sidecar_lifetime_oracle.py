@@ -28,21 +28,40 @@ def base_record():
     }
 
 
-def complete_transitions(invalidation_basis: str):
+def replacement_step(label: str, invalidation_basis: str, *, include_observations: bool = True):
+    step = {
+        "label": label,
+        "replacement": True,
+        "invalidation_basis": invalidation_basis,
+    }
+    if include_observations:
+        step["observations"] = {
+            "pre": {
+                "seq": 10,
+                "record_pointer": 0x10100,
+                "array_base": 0x10000,
+                "array_count": 8,
+                "index": 1,
+            },
+            "post": {
+                "seq": 30,
+                "record_pointer": 0x10100,
+                "array_base": 0x10000,
+                "array_count": 8,
+                "index": 1,
+            },
+            "epoch_signal": {"before": 7, "after": 8, "seq": 20},
+            "reuse_detector_signal": {"before": "old", "after": "new", "seq": 20},
+            "other_invalidation_signal": {"before": "old", "after": "new", "seq": 20},
+        }
+    return step
+
+
+def complete_transitions(invalidation_basis: str, *, include_observations: bool = True):
     return [
         {"label": "selection-control"},
-        {
-            "label": "new-game-reset",
-            "replacement": True,
-            "signal_order": "before-reuse",
-            "invalidation_basis": invalidation_basis,
-        },
-        {
-            "label": "save-load-replacement",
-            "replacement": True,
-            "signal_order": "before-reuse",
-            "invalidation_basis": invalidation_basis,
-        },
+        replacement_step("new-game-reset", invalidation_basis, include_observations=include_observations),
+        replacement_step("save-load-replacement", invalidation_basis, include_observations=include_observations),
     ]
 
 
@@ -73,6 +92,46 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
             {"label": "save-load-replacement"},
         ]
         with self.assertRaisesRegex(mod.A1LifetimeError, "observed replacement"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_declarative_transition_without_observations(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-pointer"
+        record["control"]["passed"] = True
+        record["claims"]["reuse_detector_established"] = True
+        record["claims"]["epoch_boundary_established"] = True
+        record["transitions"] = complete_transitions("epoch", include_observations=False)
+        with self.assertRaisesRegex(mod.A1LifetimeError, "bounded observations"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_unchanged_epoch_signal(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-index"
+        record["control"]["passed"] = True
+        record["claims"].update({
+            "array_base_established": True,
+            "array_count_established": True,
+            "stable_index_established": True,
+            "epoch_boundary_established": True,
+        })
+        record["transitions"] = complete_transitions("epoch")
+        record["transitions"][1]["observations"]["epoch_signal"]["after"] = 7
+        with self.assertRaisesRegex(mod.A1LifetimeError, "did not change"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_post_hoc_epoch_observation(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-index"
+        record["control"]["passed"] = True
+        record["claims"].update({
+            "array_base_established": True,
+            "array_count_established": True,
+            "stable_index_established": True,
+            "epoch_boundary_established": True,
+        })
+        record["transitions"] = complete_transitions("epoch")
+        record["transitions"][1]["observations"]["epoch_signal"]["seq"] = 31
+        with self.assertRaisesRegex(mod.A1LifetimeError, "no later than post/reuse"):
             mod.validate_record(record)
 
     def test_positive_rejects_incompatible_invalidation_basis(self):

@@ -22,6 +22,11 @@ ACCEPTED_INVALIDATION_BASIS = {
     "positive-epoch-index": {"epoch"},
     "positive-other": {"other"},
 }
+REUSE_EVENT_KIND = {
+    "positive-epoch-pointer": "record-pointer-reuse",
+    "positive-epoch-index": "index-reassignment",
+    "positive-other": "other-identity-reuse",
+}
 
 
 class A1LifetimeError(ValueError):
@@ -41,6 +46,12 @@ def _require_seq(value: Any, context: str) -> int:
     return value
 
 
+def _require_nonempty_string(value: Any, context: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise A1LifetimeError(f"{context} must be a non-empty string")
+    return value
+
+
 def _require_point(observations: dict[str, Any], name: str, label: str) -> dict[str, Any]:
     point = observations.get(name)
     if not isinstance(point, dict):
@@ -57,7 +68,7 @@ def _validate_signal(
     name: str,
     label: str,
     pre_seq: int,
-    reuse_boundary_seq: int,
+    reuse_event_seq: int,
 ) -> None:
     signal = observations.get(name)
     if not isinstance(signal, dict):
@@ -67,9 +78,9 @@ def _validate_signal(
     if signal["before"] == signal["after"]:
         raise A1LifetimeError(f"{label} observations.{name} did not change")
     signal_seq = _require_seq(signal.get("seq"), f"{label} observations.{name}.seq")
-    if not (pre_seq < signal_seq < reuse_boundary_seq):
+    if not (pre_seq < signal_seq < reuse_event_seq):
         raise A1LifetimeError(
-            f"{label} observations.{name} must be observed after pre-state and before reuse boundary"
+            f"{label} observations.{name} must be observed after pre-state and before observed reuse event"
         )
 
 
@@ -83,6 +94,61 @@ def _validate_index_point(point: dict[str, Any], label: str, name: str) -> None:
         raise A1LifetimeError(f"{label} observations.{name}.array_count must be a positive integer")
     if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < count:
         raise A1LifetimeError(f"{label} observations.{name}.index must be within observed array_count")
+
+
+def _validate_reuse_event(
+    observations: dict[str, Any],
+    label: str,
+    outcome: str,
+    pre: dict[str, Any],
+    post: dict[str, Any],
+    pre_seq: int,
+    post_seq: int,
+) -> int:
+    event = observations.get("reuse_event")
+    if not isinstance(event, dict):
+        raise A1LifetimeError(f"{label} requires observations.reuse_event")
+    event_seq = _require_seq(event.get("seq"), f"{label} observations.reuse_event.seq")
+    if not (pre_seq < event_seq <= post_seq):
+        raise A1LifetimeError(
+            f"{label} observations.reuse_event.seq must be after pre-state and no later than post-state"
+        )
+    expected_kind = REUSE_EVENT_KIND[outcome]
+    if event.get("kind") != expected_kind:
+        raise A1LifetimeError(
+            f"{label} observations.reuse_event.kind must be {expected_kind!r} for {outcome}"
+        )
+    before_logical = _require_nonempty_string(
+        event.get("before_logical_record"), f"{label} observations.reuse_event.before_logical_record"
+    )
+    after_logical = _require_nonempty_string(
+        event.get("after_logical_record"), f"{label} observations.reuse_event.after_logical_record"
+    )
+    if before_logical == after_logical:
+        raise A1LifetimeError(f"{label} observed reuse event must distinguish two logical records")
+
+    if outcome == "positive-epoch-pointer":
+        pointer = event.get("record_pointer")
+        if not isinstance(pointer, int) or isinstance(pointer, bool) or pointer < 0:
+            raise A1LifetimeError(
+                f"{label} observations.reuse_event.record_pointer must be a non-negative integer"
+            )
+        if pointer != pre["record_pointer"] or pointer != post["record_pointer"]:
+            raise A1LifetimeError(
+                f"{label} observed pointer-reuse event must bind to both pre/post record_pointer values"
+            )
+    elif outcome == "positive-epoch-index":
+        event_base = event.get("array_base")
+        event_index = event.get("index")
+        if event_base != pre.get("array_base") or event_base != post.get("array_base"):
+            raise A1LifetimeError(f"{label} observed index-reuse event must bind to pre/post array_base")
+        if event_index != pre.get("index") or event_index != post.get("index"):
+            raise A1LifetimeError(f"{label} observed index-reuse event must bind to pre/post index")
+    else:
+        _require_nonempty_string(
+            event.get("identity_subject"), f"{label} observations.reuse_event.identity_subject"
+        )
+    return event_seq
 
 
 def _validate_replacement_observations(
@@ -100,29 +166,25 @@ def _validate_replacement_observations(
     post_seq = _require_seq(post["seq"], f"{label} observations.post.seq")
     if pre_seq >= post_seq:
         raise A1LifetimeError(f"{label} observations must order pre before post")
-    reuse_boundary_seq = _require_seq(
-        observations.get("reuse_boundary_seq"),
-        f"{label} observations.reuse_boundary_seq",
-    )
-    if not (pre_seq < reuse_boundary_seq <= post_seq):
-        raise A1LifetimeError(
-            f"{label} observations.reuse_boundary_seq must be after pre-state and no later than post-state"
-        )
 
     if outcome == "positive-epoch-index":
         _validate_index_point(pre, label, "pre")
         _validate_index_point(post, label, "post")
 
+    reuse_event_seq = _validate_reuse_event(
+        observations, label, outcome, pre, post, pre_seq, post_seq
+    )
+
     basis = step.get("invalidation_basis")
     if basis == "epoch":
-        _validate_signal(observations, "epoch_signal", label, pre_seq, reuse_boundary_seq)
+        _validate_signal(observations, "epoch_signal", label, pre_seq, reuse_event_seq)
     elif basis == "reuse-detector":
-        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, reuse_boundary_seq)
+        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, reuse_event_seq)
     elif basis == "epoch+reuse-detector":
-        _validate_signal(observations, "epoch_signal", label, pre_seq, reuse_boundary_seq)
-        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, reuse_boundary_seq)
+        _validate_signal(observations, "epoch_signal", label, pre_seq, reuse_event_seq)
+        _validate_signal(observations, "reuse_detector_signal", label, pre_seq, reuse_event_seq)
     elif basis == "other":
-        _validate_signal(observations, "other_invalidation_signal", label, pre_seq, reuse_boundary_seq)
+        _validate_signal(observations, "other_invalidation_signal", label, pre_seq, reuse_event_seq)
 
 
 def validate_record(record: dict[str, Any]) -> dict[str, Any]:

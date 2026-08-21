@@ -28,29 +28,62 @@ def base_record():
     }
 
 
-def replacement_step(label: str, invalidation_basis: str, *, include_observations: bool = True):
+def replacement_step(
+    label: str,
+    invalidation_basis: str,
+    *,
+    include_observations: bool = True,
+    outcome: str = "positive-epoch-index",
+):
     step = {
         "label": label,
         "replacement": True,
         "invalidation_basis": invalidation_basis,
     }
     if include_observations:
+        pre = {
+            "seq": 10,
+            "record_pointer": 0x10100,
+            "array_base": 0x10000,
+            "array_count": 8,
+            "index": 1,
+        }
+        post = {
+            "seq": 30,
+            "record_pointer": 0x10100,
+            "array_base": 0x10000,
+            "array_count": 8,
+            "index": 1,
+        }
+        if outcome == "positive-epoch-pointer":
+            reuse_event = {
+                "kind": "record-pointer-reuse",
+                "seq": 25,
+                "record_pointer": 0x10100,
+                "before_logical_record": "scenario-planet-a",
+                "after_logical_record": "scenario-planet-b",
+            }
+        elif outcome == "positive-other":
+            reuse_event = {
+                "kind": "other-identity-reuse",
+                "seq": 25,
+                "identity_subject": "candidate-key-slot-1",
+                "before_logical_record": "scenario-planet-a",
+                "after_logical_record": "scenario-planet-b",
+            }
+        else:
+            reuse_event = {
+                "kind": "index-reassignment",
+                "seq": 25,
+                "array_base": 0x10000,
+                "index": 1,
+                "before_logical_record": "scenario-planet-a",
+                "after_logical_record": "scenario-planet-b",
+            }
         step["observations"] = {
-            "pre": {
-                "seq": 10,
-                "record_pointer": 0x10100,
-                "array_base": 0x10000,
-                "array_count": 8,
-                "index": 1,
-            },
-            "post": {
-                "seq": 30,
-                "record_pointer": 0x10100,
-                "array_base": 0x10000,
-                "array_count": 8,
-                "index": 1,
-            },
-            "reuse_boundary_seq": 25,
+            "pre": pre,
+            "post": post,
+            "reuse_event": reuse_event,
             "epoch_signal": {"before": 7, "after": 8, "seq": 20},
             "reuse_detector_signal": {"before": "old", "after": "new", "seq": 20},
             "other_invalidation_signal": {"before": "old", "after": "new", "seq": 20},
@@ -58,11 +91,22 @@ def replacement_step(label: str, invalidation_basis: str, *, include_observation
     return step
 
 
-def complete_transitions(invalidation_basis: str, *, include_observations: bool = True):
+def complete_transitions(
+    invalidation_basis: str,
+    *,
+    include_observations: bool = True,
+    outcome: str = "positive-epoch-index",
+):
     return [
         {"label": "selection-control"},
-        replacement_step("new-game-reset", invalidation_basis, include_observations=include_observations),
-        replacement_step("save-load-replacement", invalidation_basis, include_observations=include_observations),
+        replacement_step(
+            "new-game-reset", invalidation_basis,
+            include_observations=include_observations, outcome=outcome,
+        ),
+        replacement_step(
+            "save-load-replacement", invalidation_basis,
+            include_observations=include_observations, outcome=outcome,
+        ),
     ]
 
 
@@ -101,11 +145,13 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
         record["control"]["passed"] = True
         record["claims"]["reuse_detector_established"] = True
         record["claims"]["epoch_boundary_established"] = True
-        record["transitions"] = complete_transitions("epoch", include_observations=False)
+        record["transitions"] = complete_transitions(
+            "epoch", include_observations=False, outcome="positive-epoch-pointer"
+        )
         with self.assertRaisesRegex(mod.A1LifetimeError, "bounded observations"):
             mod.validate_record(record)
 
-    def test_positive_rejects_unchanged_epoch_signal(self):
+    def _positive_index_record(self):
         record = base_record()
         record["outcome"] = "positive-epoch-index"
         record["control"]["passed"] = True
@@ -116,65 +162,60 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
             "epoch_boundary_established": True,
         })
         record["transitions"] = complete_transitions("epoch")
+        return record
+
+    def test_positive_rejects_unchanged_epoch_signal(self):
+        record = self._positive_index_record()
         record["transitions"][1]["observations"]["epoch_signal"]["after"] = 7
         with self.assertRaisesRegex(mod.A1LifetimeError, "did not change"):
             mod.validate_record(record)
 
-    def test_positive_rejects_missing_reuse_boundary(self):
-        record = base_record()
-        record["outcome"] = "positive-epoch-index"
-        record["control"]["passed"] = True
-        record["claims"].update({
-            "array_base_established": True,
-            "array_count_established": True,
-            "stable_index_established": True,
-            "epoch_boundary_established": True,
-        })
-        record["transitions"] = complete_transitions("epoch")
-        del record["transitions"][1]["observations"]["reuse_boundary_seq"]
-        with self.assertRaisesRegex(mod.A1LifetimeError, "reuse_boundary_seq"):
+    def test_positive_rejects_missing_reuse_event(self):
+        record = self._positive_index_record()
+        del record["transitions"][1]["observations"]["reuse_event"]
+        with self.assertRaisesRegex(mod.A1LifetimeError, "reuse_event"):
             mod.validate_record(record)
 
-    def test_positive_rejects_signal_at_reuse_boundary(self):
-        record = base_record()
-        record["outcome"] = "positive-epoch-index"
-        record["control"]["passed"] = True
-        record["claims"].update({
-            "array_base_established": True,
-            "array_count_established": True,
-            "stable_index_established": True,
-            "epoch_boundary_established": True,
-        })
-        record["transitions"] = complete_transitions("epoch")
+    def test_positive_rejects_signal_at_reuse_event(self):
+        record = self._positive_index_record()
         record["transitions"][1]["observations"]["epoch_signal"]["seq"] = 25
-        with self.assertRaisesRegex(mod.A1LifetimeError, "before reuse boundary"):
+        with self.assertRaisesRegex(mod.A1LifetimeError, "before observed reuse event"):
             mod.validate_record(record)
 
     def test_positive_rejects_signal_only_at_post_point(self):
-        record = base_record()
-        record["outcome"] = "positive-epoch-index"
-        record["control"]["passed"] = True
-        record["claims"].update({
-            "array_base_established": True,
-            "array_count_established": True,
-            "stable_index_established": True,
-            "epoch_boundary_established": True,
-        })
-        record["transitions"] = complete_transitions("epoch")
+        record = self._positive_index_record()
         record["transitions"][1]["observations"]["epoch_signal"]["seq"] = 30
-        with self.assertRaisesRegex(mod.A1LifetimeError, "before reuse boundary"):
+        with self.assertRaisesRegex(mod.A1LifetimeError, "before observed reuse event"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_unbound_index_reuse_event(self):
+        record = self._positive_index_record()
+        record["transitions"][1]["observations"]["reuse_event"]["index"] = 2
+        with self.assertRaisesRegex(mod.A1LifetimeError, "bind to pre/post index"):
+            mod.validate_record(record)
+
+    def test_positive_rejects_reuse_event_without_logical_replacement(self):
+        record = self._positive_index_record()
+        event = record["transitions"][1]["observations"]["reuse_event"]
+        event["after_logical_record"] = event["before_logical_record"]
+        with self.assertRaisesRegex(mod.A1LifetimeError, "distinguish two logical records"):
+            mod.validate_record(record)
+
+    def test_positive_pointer_reuse_event_must_bind_to_pointer(self):
+        record = base_record()
+        record["outcome"] = "positive-epoch-pointer"
+        record["control"]["passed"] = True
+        record["claims"]["reuse_detector_established"] = True
+        record["claims"]["epoch_boundary_established"] = True
+        record["transitions"] = complete_transitions(
+            "epoch+reuse-detector", outcome="positive-epoch-pointer"
+        )
+        record["transitions"][1]["observations"]["reuse_event"]["record_pointer"] = 0x20200
+        with self.assertRaisesRegex(mod.A1LifetimeError, "bind to both pre/post record_pointer"):
             mod.validate_record(record)
 
     def test_positive_rejects_incompatible_invalidation_basis(self):
-        record = base_record()
-        record["outcome"] = "positive-epoch-index"
-        record["control"]["passed"] = True
-        record["claims"].update({
-            "array_base_established": True,
-            "array_count_established": True,
-            "stable_index_established": True,
-            "epoch_boundary_established": True,
-        })
+        record = self._positive_index_record()
         record["transitions"] = complete_transitions("reuse-detector")
         with self.assertRaisesRegex(mod.A1LifetimeError, "incompatible invalidation basis"):
             mod.validate_record(record)
@@ -208,17 +249,7 @@ class A1SidecarLifetimeOracleTests(unittest.TestCase):
             mod.validate_record(record)
 
     def test_accepts_positive_epoch_index_when_evidence_contract_is_complete(self):
-        record = base_record()
-        record["outcome"] = "positive-epoch-index"
-        record["control"]["passed"] = True
-        record["claims"].update({
-            "array_base_established": True,
-            "array_count_established": True,
-            "stable_index_established": True,
-            "epoch_boundary_established": True,
-        })
-        record["transitions"] = complete_transitions("epoch")
-        result = mod.validate_record(record)
+        result = mod.validate_record(self._positive_index_record())
         self.assertTrue(result["positive_contract_accepted"])
         self.assertTrue(result["coverage_complete"])
 

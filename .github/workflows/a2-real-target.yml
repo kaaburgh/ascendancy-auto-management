@@ -2,16 +2,31 @@ name: A2 real-target evidence
 
 on:
   workflow_dispatch:
+  create:
+
+permissions:
+  contents: read
 
 jobs:
   a2-stage1-real-target:
     name: A2 real-target evidence
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'create' &&
+       github.event.ref_type == 'branch' &&
+       startsWith(github.event.ref, 'evidence/a2-real-target/'))
     runs-on: ubuntu-latest
+    env:
+      A2_CHECKOUT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.A2_CHECKOUT_SHA }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Check exact checkout binding
+        run: test "$(git rev-parse HEAD)" = "$A2_CHECKOUT_SHA"
       - name: Check binutils is available
         run: objdump --version
       - name: Fetch and verify canonical Antagonizer target
@@ -27,8 +42,6 @@ jobs:
           binaries/ANTAG_EN.EXE
           --output artifacts/a2-raw-literal-reference-probe.json
       - name: Bind detached evidence provenance
-        env:
-          A2_CHECKOUT_SHA: ${{ github.sha }}
         run: |
           python - <<'PY'
           import hashlib

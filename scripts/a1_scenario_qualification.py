@@ -12,6 +12,7 @@ INPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification-input/v1"
 OUTPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
 EXPECTED_SOURCE_SCHEMA = "ascendancy.a1-sidecar-expected-source/v1"
 MAX_METADATA_BYTES = 512
+ALLOWED_METADATA_BASES = frozenset({"bounded-record-metadata"})
 
 
 class A1ScenarioQualificationError(ValueError):
@@ -125,8 +126,11 @@ def _validated_input(raw: bytes, expected: dict[str, Any]) -> tuple[dict[str, st
         if label in digests:
             raise A1ScenarioQualificationError(f"duplicate logical label {label!r}")
         basis = _require_nonempty_string(entry.get("metadata_basis"), f"{context}.metadata_basis")
-        if basis == "presentation-name":
-            raise A1ScenarioQualificationError("presentation-name-only qualification is not allowed")
+        if basis not in ALLOWED_METADATA_BASES:
+            raise A1ScenarioQualificationError(
+                f"{context}.metadata_basis must be one of {sorted(ALLOWED_METADATA_BASES)!r}; "
+                "presentation-name-only qualification is not allowed"
+            )
         metadata = _require_hex_bytes(entry.get("metadata_hex"), f"{context}.metadata_hex")
         digests[label] = hashlib.sha256(metadata).hexdigest()
 

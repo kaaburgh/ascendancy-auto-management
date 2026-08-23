@@ -122,6 +122,25 @@ class A1ScenarioQualificationTests(unittest.TestCase):
         pre_digest = hashlib.sha256(pre_raw).hexdigest()
         post_digest = hashlib.sha256(post_raw).hexdigest()
 
+        def selection_point(seq, pointer, label, metadata):
+            return {
+                "seq": seq,
+                "record_pointer": pointer,
+                "logical_record": label,
+                "qualified_witness": witness(label, metadata),
+            }
+
+        def selection_control():
+            return {
+                "label": "selection-control",
+                "replacement": False,
+                "observations": {
+                    "first": selection_point(1, 0x10100, "scenario-planet-a", pre_raw),
+                    "second": selection_point(2, 0x10200, "scenario-planet-b", post_raw),
+                    "return": selection_point(3, 0x10100, "scenario-planet-a", pre_raw),
+                },
+            }
+
         def replacement(label):
             return {
                 "label": label,
@@ -179,7 +198,7 @@ class A1ScenarioQualificationTests(unittest.TestCase):
             },
             "control": {"passed": True},
             "transitions": [
-                {"label": "selection-control"},
+                selection_control(),
                 replacement("new-game-reset"),
                 replacement("save-load-replacement"),
             ],

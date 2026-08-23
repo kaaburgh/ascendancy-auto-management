@@ -8,9 +8,11 @@ from pathlib import Path
 
 try:
     from .a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
+    from .a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
     from .a1_sidecar_lifetime_oracle import A1LifetimeError, validate_record
 except ImportError:
     from a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
+    from a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
     from a1_sidecar_lifetime_oracle import A1LifetimeError, validate_record
 
 
@@ -44,6 +46,7 @@ def validate_bundle(
 
     scenario_manifest = build_manifest(raw, expected_source)
     result = validate_record(record, scenario_manifest, expected_source)
+    validate_selection_control(record, scenario_manifest)
     if manifest_output is not None:
         _write_json(manifest_output, scenario_manifest)
     return result
@@ -64,7 +67,7 @@ def main() -> int:
             args.record,
             args.manifest_output,
         )
-    except (ValueError, A1ScenarioQualificationError, A1LifetimeError) as exc:
+    except (ValueError, A1ScenarioQualificationError, A1SelectionControlError, A1LifetimeError) as exc:
         parser.error(str(exc))
     print(json.dumps(result, sort_keys=True))
     return 0

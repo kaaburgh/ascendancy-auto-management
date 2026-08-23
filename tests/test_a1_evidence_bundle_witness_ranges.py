@@ -1,14 +1,6 @@
-import importlib.util
-from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location(
-    "a1_sidecar_evidence_bundle", ROOT / "scripts" / "a1_sidecar_evidence_bundle.py"
-)
-bundle = importlib.util.module_from_spec(SPEC)
-assert SPEC.loader is not None
-SPEC.loader.exec_module(bundle)
+from scripts import a1_sidecar_evidence_bundle as bundle
 
 
 class A1EvidenceBundleWitnessRangeTests(unittest.TestCase):

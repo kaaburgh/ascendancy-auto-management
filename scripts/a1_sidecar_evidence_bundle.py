@@ -9,11 +9,11 @@ from pathlib import Path
 try:
     from .a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
     from .a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
-    from .a1_sidecar_lifetime_oracle import A1LifetimeError, validate_record
+    from .a1_sidecar_lifetime_oracle import A1LifetimeError, SCENARIO_SCHEMA, validate_record
 except ImportError:
     from a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
     from a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
-    from a1_sidecar_lifetime_oracle import A1LifetimeError, validate_record
+    from a1_sidecar_lifetime_oracle import A1LifetimeError, SCENARIO_SCHEMA, validate_record
 
 
 def _read_json_object(path: Path, label: str) -> dict:
@@ -31,6 +31,15 @@ def _write_json(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _oracle_manifest(scenario_manifest: dict) -> dict:
+    """Project qualification v2 onto the unchanged lifetime-oracle v1 input contract."""
+    return {
+        "schema": SCENARIO_SCHEMA,
+        "source": scenario_manifest["source"],
+        "planets": scenario_manifest["planets"],
+    }
+
+
 def validate_bundle(
     qualification_input: Path,
     expected_source_path: Path,
@@ -45,8 +54,9 @@ def validate_bundle(
         raise ValueError(f"cannot read qualification input: {exc}") from exc
 
     scenario_manifest = build_manifest(raw, expected_source)
-    result = validate_record(record, scenario_manifest, expected_source)
-    validate_selection_control(record, scenario_manifest)
+    oracle_manifest = _oracle_manifest(scenario_manifest)
+    result = validate_record(record, oracle_manifest, expected_source)
+    validate_selection_control(record, oracle_manifest)
     if manifest_output is not None:
         _write_json(manifest_output, scenario_manifest)
     return result

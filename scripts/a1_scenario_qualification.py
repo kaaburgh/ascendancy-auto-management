@@ -8,10 +8,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-INPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification-input/v1"
-OUTPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
+INPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification-input/v2"
+OUTPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v2"
+LEGACY_INPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification-input/v1"
+LEGACY_OUTPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
 EXPECTED_SOURCE_SCHEMA = "ascendancy.a1-sidecar-expected-source/v1"
 MAX_METADATA_BYTES = 512
+PLANET_RECORD_SIZE = 0x7B
 ALLOWED_METADATA_BASES = frozenset({"bounded-record-metadata"})
 
 
@@ -27,6 +30,12 @@ def _require_nonempty_string(value: Any, context: str, *, exact: bool = False) -
             raise A1ScenarioQualificationError(f"{context} must be a non-empty string")
     elif not value.strip():
         raise A1ScenarioQualificationError(f"{context} must be a non-empty string")
+    return value
+
+
+def _require_nonnegative_int(value: Any, context: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise A1ScenarioQualificationError(f"{context} must be a non-negative integer")
     return value
 
 
@@ -83,9 +92,12 @@ def _validated_expected_source(expected: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _validated_input(raw: bytes, expected: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
+def _validated_input(
+    raw: bytes, expected: dict[str, Any]
+) -> tuple[dict[str, str], dict[str, str], dict[str, dict[str, Any]] | None]:
     document = _load_json_bytes(raw, "qualification input")
-    if document.get("schema") != INPUT_SCHEMA:
+    input_schema = document.get("schema")
+    if input_schema not in {INPUT_SCHEMA, LEGACY_INPUT_SCHEMA}:
         raise A1ScenarioQualificationError("unsupported or missing qualification input schema")
 
     trusted = _validated_expected_source(expected)
@@ -118,6 +130,7 @@ def _validated_input(raw: bytes, expected: dict[str, Any]) -> tuple[dict[str, st
         raise A1ScenarioQualificationError("qualification input requires non-empty planets list")
 
     digests: dict[str, str] = {}
+    witness_ranges: dict[str, dict[str, Any]] = {}
     for index, entry in enumerate(planets):
         context = f"qualification input planets[{index}]"
         if not isinstance(entry, dict):
@@ -132,20 +145,42 @@ def _validated_input(raw: bytes, expected: dict[str, Any]) -> tuple[dict[str, st
                 "presentation-name-only qualification is not allowed"
             )
         metadata = _require_hex_bytes(entry.get("metadata_hex"), f"{context}.metadata_hex")
-        digests[label] = hashlib.sha256(metadata).hexdigest()
+        digest = hashlib.sha256(metadata).hexdigest()
+        digests[label] = digest
+        if input_schema == INPUT_SCHEMA:
+            record_offset = _require_nonnegative_int(entry.get("record_offset"), f"{context}.record_offset")
+            if record_offset + len(metadata) > PLANET_RECORD_SIZE:
+                raise A1ScenarioQualificationError(
+                    f"{context} metadata range must fit within the established 0x{PLANET_RECORD_SIZE:x}-byte planet record"
+                )
+            rationale = _require_nonempty_string(entry.get("metadata_rationale"), f"{context}.metadata_rationale")
+            witness_ranges[label] = {
+                "metadata_basis": basis,
+                "record_offset": record_offset,
+                "length": len(metadata),
+                "sha256": digest,
+                "rationale": rationale,
+            }
 
     source_out = {**input_source, "qualification_source_sha256": observed_source_sha256}
-    return source_out, digests
+    return source_out, digests, witness_ranges if input_schema == INPUT_SCHEMA else None
 
 
 def build_manifest(raw: bytes, expected: dict[str, Any]) -> dict[str, Any]:
-    source, planets = _validated_input(raw, expected)
-    return {"schema": OUTPUT_SCHEMA, "source": source, "planets": planets}
+    source, planets, witness_ranges = _validated_input(raw, expected)
+    if witness_ranges is None:
+        return {"schema": LEGACY_OUTPUT_SCHEMA, "source": source, "planets": planets}
+    return {
+        "schema": OUTPUT_SCHEMA,
+        "source": source,
+        "planets": planets,
+        "witness_ranges": witness_ranges,
+    }
 
 
 def validate_manifest(raw: bytes, expected: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
     generated = build_manifest(raw, expected)
-    if manifest.get("schema") != OUTPUT_SCHEMA:
+    if manifest.get("schema") != generated["schema"]:
         raise A1ScenarioQualificationError("unsupported or missing scenario qualification schema")
     if manifest != generated:
         raise A1ScenarioQualificationError(

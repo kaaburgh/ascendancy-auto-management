@@ -34,6 +34,8 @@ def document(basis):
                 "logical_label": "scenario-planet-a",
                 "metadata_basis": basis,
                 "metadata_hex": b"planet-a".hex(),
+                "record_offset": 0x10,
+                "metadata_rationale": "synthetic metadata basis test",
             }
         ],
     }
@@ -54,6 +56,8 @@ class A1ScenarioQualificationBasisTests(unittest.TestCase):
         raw = encode(document("bounded-record-metadata"))
         manifest = qual.build_manifest(raw, expected_source(raw))
         self.assertIn("scenario-planet-a", manifest["planets"])
+        self.assertEqual(manifest["schema"], qual.OUTPUT_SCHEMA)
+        self.assertEqual(manifest["witness_ranges"]["scenario-planet-a"]["record_offset"], 0x10)
 
     def test_rejects_noncanonical_or_unknown_metadata_basis(self):
         for basis in ("presentation-name", "presentation_name", "Presentation-Name", "arbitrary-metadata"):

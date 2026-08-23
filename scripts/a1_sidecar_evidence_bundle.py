@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any, Iterator
 
 try:
     from .a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
@@ -40,6 +41,43 @@ def _oracle_manifest(scenario_manifest: dict) -> dict:
     }
 
 
+def _qualified_witnesses(value: Any) -> Iterator[dict[str, Any]]:
+    if isinstance(value, dict):
+        witness = value.get("qualified_witness")
+        if isinstance(witness, dict):
+            yield witness
+        for child in value.values():
+            yield from _qualified_witnesses(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _qualified_witnesses(child)
+
+
+def _validate_v2_witness_range_binding(record: dict[str, Any], scenario_manifest: dict[str, Any]) -> None:
+    """Fail closed when a positive record is not bound to the v2 predeclared witness ranges."""
+    witness_ranges = scenario_manifest.get("witness_ranges")
+    if not isinstance(witness_ranges, dict) or not str(record.get("outcome", "")).startswith("positive-"):
+        return
+
+    witnesses = list(_qualified_witnesses(record))
+    if not witnesses:
+        raise A1ScenarioQualificationError("positive v2 lifetime record requires qualified witnesses")
+
+    for witness in witnesses:
+        label = witness.get("scenario_planet")
+        if not isinstance(label, str) or label not in witness_ranges:
+            raise A1ScenarioQualificationError("qualified witness scenario_planet is not present in v2 witness_ranges")
+        expected = witness_ranges[label]
+        if witness.get("record_offset") != expected.get("record_offset"):
+            raise A1ScenarioQualificationError(
+                f"qualified witness {label!r} record_offset does not match predeclared v2 witness range"
+            )
+        if witness.get("length") != expected.get("length"):
+            raise A1ScenarioQualificationError(
+                f"qualified witness {label!r} length does not match predeclared v2 witness range"
+            )
+
+
 def validate_bundle(
     qualification_input: Path,
     expected_source_path: Path,
@@ -54,6 +92,7 @@ def validate_bundle(
         raise ValueError(f"cannot read qualification input: {exc}") from exc
 
     scenario_manifest = build_manifest(raw, expected_source)
+    _validate_v2_witness_range_binding(record, scenario_manifest)
     oracle_manifest = _oracle_manifest(scenario_manifest)
     result = validate_record(record, oracle_manifest, expected_source)
     validate_selection_control(record, oracle_manifest)

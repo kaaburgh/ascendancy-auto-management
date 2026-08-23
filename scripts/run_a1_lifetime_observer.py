@@ -44,6 +44,31 @@ def _read_json_object(path: Path, label: str) -> dict[str, Any]:
     return value
 
 
+def _resolved(path: Path) -> Path:
+    return path.resolve(strict=False)
+
+
+def _validate_manifest_output_path(
+    manifest_output: Path | None,
+    qualification_input: Path,
+    expected_source: Path,
+    observer: Path,
+    record_output: Path,
+) -> None:
+    if manifest_output is None:
+        return
+    manifest_resolved = _resolved(manifest_output)
+    protected = {
+        "qualification input": _resolved(qualification_input),
+        "expected source": _resolved(expected_source),
+        "observer": _resolved(observer),
+        "record output": _resolved(record_output),
+    }
+    for label, path in protected.items():
+        if manifest_resolved == path:
+            raise A1RuntimeObserverError(f"manifest output must not alias {label}")
+
+
 def run_observer(
     qualification_input: Path,
     expected_source: Path,
@@ -57,6 +82,13 @@ def run_observer(
         raise A1RuntimeObserverError("timeout must be positive")
     if not observer.is_file():
         raise A1RuntimeObserverError(f"observer does not exist: {observer}")
+    _validate_manifest_output_path(
+        manifest_output,
+        qualification_input,
+        expected_source,
+        observer,
+        record_output,
+    )
     if record_output.exists():
         raise A1RuntimeObserverError("record output must not already exist")
 

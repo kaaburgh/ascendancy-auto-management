@@ -105,6 +105,35 @@ class A1LifetimeObserverRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(A1RuntimeObserverError, "must not already exist"):
                 run_observer(qualification, expected, observer, [], 5.0, record)
 
+    def test_rejects_manifest_output_aliases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            qualification, expected = _write_qualification(root)
+            observer = _write_observer(root, "raise SystemExit(0)\n")
+            record = root / "record.json"
+            aliases = [
+                (record, "record output"),
+                (qualification, "qualification input"),
+                (expected, "expected source"),
+                (observer, "observer"),
+            ]
+            for alias, label in aliases:
+                with self.subTest(label=label):
+                    with self.assertRaisesRegex(
+                        A1RuntimeObserverError,
+                        f"manifest output must not alias {label}",
+                    ):
+                        run_observer(
+                            qualification,
+                            expected,
+                            observer,
+                            [],
+                            5.0,
+                            record,
+                            alias,
+                        )
+                    self.assertFalse(record.exists())
+
     def test_rejects_nonzero_observer(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

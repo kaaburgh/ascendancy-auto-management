@@ -2,6 +2,7 @@ import hashlib
 import json
 import tempfile
 import textwrap
+import time
 import unittest
 from pathlib import Path
 
@@ -141,6 +142,45 @@ class A1LifetimeObserverRunnerTests(unittest.TestCase):
             observer = _write_observer(root, "raise SystemExit(7)\n")
             with self.assertRaisesRegex(A1RuntimeObserverError, "observer exited with 7"):
                 run_observer(qualification, expected, observer, [], 5.0, root / "record.json")
+
+    def test_timeout_kills_observer_process_group(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            qualification, expected = _write_qualification(root)
+            marker = root / "child-survived"
+            observer = _write_observer(
+                root,
+                r'''
+                import argparse
+                from pathlib import Path
+                import subprocess
+                import sys
+                import time
+
+                p = argparse.ArgumentParser()
+                p.add_argument("--scenario-manifest", type=Path, required=True)
+                p.add_argument("--record-output", type=Path, required=True)
+                p.add_argument("--child-marker", type=Path, required=True)
+                args = p.parse_args()
+                child_code = (
+                    "from pathlib import Path; import sys,time; "
+                    "time.sleep(0.5); Path(sys.argv[1]).write_text('survived')"
+                )
+                subprocess.Popen([sys.executable, "-c", child_code, str(args.child_marker)])
+                time.sleep(60)
+                ''',
+            )
+            with self.assertRaisesRegex(A1RuntimeObserverError, "observer timed out"):
+                run_observer(
+                    qualification,
+                    expected,
+                    observer,
+                    ["--child-marker", str(marker)],
+                    0.1,
+                    root / "record.json",
+                )
+            time.sleep(0.7)
+            self.assertFalse(marker.exists(), "observer descendant survived timeout cleanup")
 
     def test_rejects_manifest_mutation(self):
         with tempfile.TemporaryDirectory() as tmp:

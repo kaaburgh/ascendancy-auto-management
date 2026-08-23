@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import signal
 import subprocess
 import tempfile
 from typing import Any
@@ -69,6 +71,30 @@ def _validate_manifest_output_path(
             raise A1RuntimeObserverError(f"manifest output must not alias {label}")
 
 
+def _run_bounded_process(command: list[str], timeout_seconds: float) -> subprocess.CompletedProcess[str]:
+    if not hasattr(os, "killpg"):
+        raise A1RuntimeObserverError("observer process-group cleanup requires POSIX process groups")
+
+    proc = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired as exc:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+        raise A1RuntimeObserverError(f"observer timed out after {timeout_seconds:g}s") from exc
+
+    return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
+
+
 def run_observer(
     qualification_input: Path,
     expected_source: Path,
@@ -111,17 +137,7 @@ def run_observer(
             "--record-output", str(record_output),
             *observer_args,
         ]
-        try:
-            completed = subprocess.run(
-                command,
-                check=False,
-                timeout=timeout_seconds,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise A1RuntimeObserverError(f"observer timed out after {timeout_seconds:g}s") from exc
+        completed = _run_bounded_process(command, timeout_seconds)
 
         if completed.returncode != 0:
             stderr = completed.stderr.strip()

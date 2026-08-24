@@ -1,6 +1,6 @@
 # A1 runtime observer orchestration boundary
 
-Date: 2026-08-23  
+Date: 2026-08-24  
 Roadmap item: A1 / issue #26  
 Blind-RE provenance: **clean**  
 Evidence class in this slice: **tooling/synthetic only**; no new target-runtime claim.
@@ -25,6 +25,8 @@ Scenario qualification v2 closes a prerequisite that the digest-only v1 manifest
 
 The manifest does not contain the qualified proprietary bytes. The exact-target observer is expected to resolve the selected record through the established runtime mapping, read exactly the declared range, and emit only bounded repository-safe observation metadata. The v1 qualification path remains supported for existing synthetic/oracle compatibility but is not an acceptable input contract for the exact-target observer.
 
+`scripts/a1_observer_witness.py` now provides the observer-side fail-closed boundary for that rule. It accepts only the v2 manifest, preserves exact decoded logical-label identity, verifies that the manifest's digest and range views agree, requires the declared range to remain inside the established `0x7b` record, and hashes exactly that predeclared slice of one exact-size selected-record snapshot. Its successful result contains the range and digest metadata but not the record bytes. This helper deliberately does not locate a record, choose a witness range, or infer a logical identity from target observations.
+
 ## Interface boundary
 
 The observer process receives:
@@ -35,16 +37,16 @@ The observer process receives:
 
 Successful exit without a record is an error; non-zero exit or timeout is an error. Timeout cleanup terminates the observer POSIX process group before orchestration returns, and environments without that cleanup capability fail closed. The record must satisfy `scripts/a1_sidecar_lifetime_oracle.py` through `scripts/a1_sidecar_evidence_bundle.py` before the orchestration command reports success.
 
-A future exact-target observer remains responsible for verifying retail fixture/target identity, using an isolated writable runtime copy where required, driving the predeclared selection/new-game/save-load scenarios, consuming the v2 witness-location contract, collecting only bounded metadata, and emitting the runtime lifetime record. This layer does not infer or fabricate target observations.
+A future exact-target observer remains responsible for verifying retail fixture/target identity, using an isolated writable runtime copy where required, driving the predeclared selection/new-game/save-load scenarios, resolving each selected `0x7b` record through the established runtime mapping, passing that bounded record to `scripts/a1_observer_witness.py`, collecting only bounded metadata, and emitting the runtime lifetime record. This layer does not infer or fabricate target observations.
 
 ## Validation in this slice
 
-Synthetic coverage establishes scenario-qualification v2 generation and witness-range bounds while retaining legacy v1 compatibility. Existing orchestration tests continue to cover successful `incomplete-harness` flow, refusal to overwrite output, non-zero process failure, scenario-manifest mutation detection, and descendant cleanup on timeout.
+Synthetic coverage establishes that the observer-side helper accepts an exact v2-qualified witness and rejects a changed record, a legacy v1 manifest, an out-of-record range, disagreement between manifest digest views, label rewriting, and a non-exact record snapshot size. Existing orchestration tests continue to cover successful `incomplete-harness` flow, refusal to overwrite output, non-zero process failure, scenario-manifest mutation detection, and descendant cleanup on timeout.
 
 These checks establish tooling behavior only. They do not establish a reuse-safe planet key, epoch/reset seam, pointer/index reuse behavior, lossless Manual-transition invalidation, or A1 completion.
 
 ## Next experiment
 
-Implement the exact-target lifetime observer behind this interface using the v2 location-bearing scenario manifest, then run the already-defined `selection-control`, `new-game-reset`, and `save-load-replacement` experiment against the canonical target. Preserve a negative/no-safe-seam result if no valid epoch/reuse detector is observed rather than weakening the oracle.
+Implement the exact-target lifetime observer behind this interface, using the established runtime mapping and the new observer-side witness verifier, then run the already-defined `selection-control`, `new-game-reset`, and `save-load-replacement` experiment against the canonical target. Preserve a negative/no-safe-seam result if no valid epoch/reuse detector is observed rather than weakening the oracle.
 
 The separate Manual-transition invalidation requirement remains independent and must still be closed with its own lossless evidence boundary.

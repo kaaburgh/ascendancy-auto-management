@@ -86,6 +86,36 @@ def _snapshot_immutable_inputs(immutable_inputs: dict[str, Path]) -> dict[str, s
     return snapshots
 
 
+def _validate_immutable_input_bindings(
+    observer_args: list[str], immutable_inputs: dict[str, Path]
+) -> None:
+    for name, path in immutable_inputs.items():
+        flag = f"--{name}"
+        bound_values: list[str] = []
+        index = 0
+        while index < len(observer_args):
+            arg = observer_args[index]
+            if arg == flag:
+                if index + 1 >= len(observer_args):
+                    raise A1RuntimeObserverError(f"immutable input {name!r} observer argument has no value")
+                bound_values.append(observer_args[index + 1])
+                index += 2
+                continue
+            prefix = flag + "="
+            if arg.startswith(prefix):
+                bound_values.append(arg[len(prefix):])
+            index += 1
+
+        if len(bound_values) != 1:
+            raise A1RuntimeObserverError(
+                f"immutable input {name!r} must bind exactly one observer argument {flag}"
+            )
+        if _resolved(Path(bound_values[0])) != _resolved(path):
+            raise A1RuntimeObserverError(
+                f"immutable input {name!r} does not match observer argument {flag}"
+            )
+
+
 def _recheck_immutable_inputs(immutable_inputs: dict[str, Path], snapshots: dict[str, str]) -> None:
     for name, path in immutable_inputs.items():
         if not path.is_file() or _sha256_file(path) != snapshots[name]:
@@ -161,6 +191,7 @@ def run_observer(
     if not observer.is_file():
         raise A1RuntimeObserverError(f"observer does not exist: {observer}")
     immutable_inputs = immutable_inputs or {}
+    _validate_immutable_input_bindings(observer_args, immutable_inputs)
     immutable_snapshots = _snapshot_immutable_inputs(immutable_inputs)
     _validate_manifest_output_path(
         manifest_output,

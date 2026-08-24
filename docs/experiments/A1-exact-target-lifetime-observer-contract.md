@@ -31,7 +31,7 @@ Before launch, the orchestration layer supplies immutable inputs:
 4. bounded logical labels expected at each qualification point;
 5. a fresh detached output path.
 
-Any missing, stale, schema-incompatible, or digest-mismatched input fails before target interaction.
+The orchestration layer must treat the action script, and any other file-backed immutable observer argument, as first-class provenance input: hash it before launch, recheck that exact content immediately before target interaction, and record its path-independent identity/digest in the detached result alongside the already-bound qualification, expected-source, observer, and generated-manifest identities. `observer_args` alone are not sufficient provenance for file-backed inputs. Any missing, stale, schema-incompatible, changed, or digest-mismatched immutable input fails before target interaction.
 
 ## Observation primitive
 
@@ -91,7 +91,9 @@ The exact-target observer should populate the existing lifetime-record schema ra
 - `population_replacement` classification;
 - predeclared lifecycle-signal observations with explicit ordering.
 
-If the current schema cannot represent the required ordering without ambiguity, extend and version that existing schema in a separate bounded tooling change before running the target. Do not overload unrelated fields or encode ordering in prose strings.
+The detached record must also carry the orchestration provenance identities for every file-backed immutable input, including the action script digest used for the run, without serializing proprietary target bytes or host-specific absolute paths.
+
+If the current schema cannot represent the required ordering or immutable-input provenance without ambiguity, extend and version that existing schema in a separate bounded tooling change before running the target. Do not overload unrelated fields or encode ordering in prose strings.
 
 ## Fail-closed bounds
 
@@ -106,7 +108,7 @@ The observer must declare and enforce before launch:
 - detached record emission on PASS, FAIL, and INCOMPLETE paths;
 - process-tree cleanup delegated to the existing orchestration layer.
 
-Unexpected process exit, target/fixture mismatch, ambiguous runtime mapping, missing scripted UI transition, witness mismatch, unsupported schema, or output-path mutation is `incomplete-harness`.
+Unexpected process exit, target/fixture mismatch, ambiguous runtime mapping, missing scripted UI transition, witness mismatch, unsupported schema, immutable-input provenance mismatch, or output-path mutation is `incomplete-harness`.
 
 ## Evidence and claim boundary
 
@@ -124,6 +126,7 @@ Implement the observer as a thin adapter over the existing CF3/RE4 runtime primi
 - missing replacement leg;
 - lifecycle signal first observed too late;
 - pointer reuse without a preceding accepted signal;
+- action-script/file-backed immutable-input provenance mutation before launch;
 - detached-record emission on incomplete termination.
 
 After those tests pass, execute the exact-target experiment without changing the predeclared witness contracts or action semantics in the same run.

@@ -191,16 +191,15 @@ def execute_observer_plan(
                     pre = pending_replacement["pre"]
                     action = pending_replacement["action"]
                     signal = action["lifecycle_signal"]
-                    pointer_reused_for_new_logical = (
+                    pointer_reused_after_replacement = (
                         pre["record_pointer"] == point["record_pointer"]
-                        and pre["logical_record"] != point["logical_record"]
                     )
-                    if pointer_reused_for_new_logical and signal is None:
+                    if pointer_reused_after_replacement and signal is None:
                         raise A1ObserverExecutionError(
-                            "record pointer was reused for a different logical record without a lifecycle signal"
+                            "record pointer was reused after population replacement without a lifecycle signal"
                         )
                     if (
-                        pointer_reused_for_new_logical
+                        pointer_reused_after_replacement
                         and not signal["changed_before_post_qualification"]
                     ):
                         raise A1ObserverExecutionError(
@@ -215,7 +214,7 @@ def execute_observer_plan(
                         "post_record_pointer": point["record_pointer"],
                         "pre_logical_record": pre["logical_record"],
                         "post_logical_record": point["logical_record"],
-                        "pointer_reused_for_new_logical_record": pointer_reused_for_new_logical,
+                        "pointer_reused_after_replacement": pointer_reused_after_replacement,
                         "lifecycle_signal": signal,
                     }
                     transcript["replacement_legs"].append(leg)

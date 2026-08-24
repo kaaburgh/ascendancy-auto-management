@@ -120,6 +120,18 @@ class A1LifetimeObserverCoreTests(unittest.TestCase):
         self.assertEqual(result["status"], "incomplete-harness")
         self.assertIn("without a lifecycle signal", result["error"])
 
+    def test_same_logical_label_pointer_reuse_requires_preceding_signal(self):
+        actions = _actions()
+        actions["steps"][5]["logical_label"] = "A"
+        pointers = {"A": 100, "B": 200, "C": 300, "D": 400}
+        signals = {
+            "new-game-reset": None,
+            "save-load-replacement": {"name": "epoch", "before": 2, "after": 3, "changed_before_post_qualification": True},
+        }
+        result = execute_observer_plan(self.manifest, actions, Backend(self.records, pointers, signals))
+        self.assertEqual(result["status"], "incomplete-harness")
+        self.assertIn("without a lifecycle signal", result["error"])
+
     def test_late_signal_cannot_guard_pointer_reuse(self):
         pointers = {"A": 100, "B": 200, "C": 100, "D": 400}
         signals = {

@@ -33,7 +33,7 @@ def _write_json(path: Path, value: dict) -> None:
 
 
 def _oracle_manifest(scenario_manifest: dict) -> dict:
-    """Project qualification v2 onto the unchanged lifetime-oracle v1 input contract."""
+    """Project qualification v2 onto the legacy lifetime-oracle v1 input contract."""
     return {
         "schema": SCENARIO_SCHEMA,
         "source": scenario_manifest["source"],
@@ -76,6 +76,10 @@ def _validate_v2_witness_range_binding(record: dict[str, Any], scenario_manifest
             raise A1ScenarioQualificationError(
                 f"qualified witness {label!r} length does not match predeclared v2 witness range"
             )
+        if witness.get("metadata_sha256") != expected.get("sha256"):
+            raise A1ScenarioQualificationError(
+                f"qualified witness {label!r} metadata_sha256 does not match predeclared v2 witness range"
+            )
 
 
 def validate_bundle(
@@ -93,9 +97,8 @@ def validate_bundle(
 
     scenario_manifest = build_manifest(raw, expected_source)
     _validate_v2_witness_range_binding(record, scenario_manifest)
-    oracle_manifest = _oracle_manifest(scenario_manifest)
-    result = validate_record(record, oracle_manifest, expected_source)
-    validate_selection_control(record, oracle_manifest)
+    result = validate_record(record, scenario_manifest, expected_source)
+    validate_selection_control(record, scenario_manifest)
     if manifest_output is not None:
         _write_json(manifest_output, scenario_manifest)
     return result

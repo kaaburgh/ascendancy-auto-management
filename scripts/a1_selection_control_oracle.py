@@ -6,6 +6,8 @@ import hashlib
 from typing import Any
 
 MAX_METADATA_BYTES = 512
+PLANET_RECORD_SIZE = 0x7B
+SCENARIO_SCHEMA_V2 = "ascendancy.a1-sidecar-scenario-qualification/v2"
 
 
 class A1SelectionControlError(ValueError):
@@ -15,6 +17,12 @@ class A1SelectionControlError(ValueError):
 def _nonnegative_int(value: Any, context: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise A1SelectionControlError(f"{context} must be a non-negative integer")
+    return value
+
+
+def _positive_int(value: Any, context: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise A1SelectionControlError(f"{context} must be a positive integer")
     return value
 
 
@@ -35,7 +43,12 @@ def _sha256(value: Any, context: str) -> str:
     return text.lower()
 
 
-def _point(observations: dict[str, Any], name: str, scenario_planets: dict[str, Any]) -> dict[str, Any]:
+def _point(
+    observations: dict[str, Any],
+    name: str,
+    scenario_planets: dict[str, Any],
+    witness_ranges: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     context = f"selection-control observations.{name}"
     point = observations.get(name)
     if not isinstance(point, dict):
@@ -59,36 +72,89 @@ def _point(observations: dict[str, Any], name: str, scenario_planets: dict[str, 
     )
     if basis == "presentation-name":
         raise A1SelectionControlError("presentation name cannot qualify a selection-control witness")
-    metadata_hex = _nonempty_string(
-        witness.get("metadata_hex"), f"{context}.qualified_witness.metadata_hex"
-    )
-    if len(metadata_hex) % 2:
-        raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be even-length hex")
-    try:
-        metadata = bytes.fromhex(metadata_hex)
-    except ValueError as exc:
-        raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be hex") from exc
-    if not metadata:
-        raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must not be empty")
-    if len(metadata) > MAX_METADATA_BYTES:
-        raise A1SelectionControlError(
-            f"{context}.qualified_witness.metadata_hex exceeds {MAX_METADATA_BYTES} byte bound"
+
+    if witness_ranges is None:
+        metadata_hex = _nonempty_string(
+            witness.get("metadata_hex"), f"{context}.qualified_witness.metadata_hex"
         )
-    digest = hashlib.sha256(metadata).hexdigest()
-    declared = _sha256(
-        witness.get("metadata_sha256"), f"{context}.qualified_witness.metadata_sha256"
-    )
-    if declared != digest:
-        raise A1SelectionControlError(
-            f"{context}.qualified_witness.metadata_sha256 must match bounded metadata bytes"
+        if len(metadata_hex) % 2:
+            raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be even-length hex")
+        try:
+            metadata = bytes.fromhex(metadata_hex)
+        except ValueError as exc:
+            raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be hex") from exc
+        if not metadata:
+            raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must not be empty")
+        if len(metadata) > MAX_METADATA_BYTES:
+            raise A1SelectionControlError(
+                f"{context}.qualified_witness.metadata_hex exceeds {MAX_METADATA_BYTES} byte bound"
+            )
+        digest = hashlib.sha256(metadata).hexdigest()
+        declared = _sha256(
+            witness.get("metadata_sha256"), f"{context}.qualified_witness.metadata_sha256"
         )
-    expected = _sha256(
-        scenario_planets.get(logical), f"scenario qualification digest for {logical}"
-    )
-    if expected != digest:
-        raise A1SelectionControlError(
-            f"{context} bounded metadata does not match independent scenario qualification"
+        if declared != digest:
+            raise A1SelectionControlError(
+                f"{context}.qualified_witness.metadata_sha256 must match bounded metadata bytes"
+            )
+        expected = _sha256(
+            scenario_planets.get(logical), f"scenario qualification digest for {logical}"
         )
+        if expected != digest:
+            raise A1SelectionControlError(
+                f"{context} bounded metadata does not match independent scenario qualification"
+            )
+        witness["metadata_sha256"] = digest
+        return point
+
+    expected_range = witness_ranges.get(logical)
+    if not isinstance(expected_range, dict):
+        raise A1SelectionControlError(
+            f"{context} logical record is not independently qualified by v2 witness_ranges"
+        )
+    if "metadata_hex" in witness:
+        raise A1SelectionControlError(f"{context}.qualified_witness v2 witness must not contain metadata_hex")
+    expected_basis = _nonempty_string(
+        expected_range.get("metadata_basis"), f"scenario qualification witness range for {logical} metadata_basis"
+    )
+    if expected_basis == "presentation-name" or basis != expected_basis:
+        raise A1SelectionControlError(
+            f"{context}.qualified_witness.metadata_basis must match predeclared v2 witness range"
+        )
+    offset = _nonnegative_int(witness.get("record_offset"), f"{context}.qualified_witness.record_offset")
+    length = _positive_int(witness.get("length"), f"{context}.qualified_witness.length")
+    expected_offset = _nonnegative_int(
+        expected_range.get("record_offset"), f"scenario qualification witness range for {logical} record_offset"
+    )
+    expected_length = _positive_int(
+        expected_range.get("length"), f"scenario qualification witness range for {logical} length"
+    )
+    if expected_length > MAX_METADATA_BYTES or expected_offset + expected_length > PLANET_RECORD_SIZE:
+        raise A1SelectionControlError(
+            f"scenario qualification witness range for {logical} exceeds bounded planet record"
+        )
+    if offset != expected_offset:
+        raise A1SelectionControlError(
+            f"{context}.qualified_witness.record_offset must match predeclared v2 witness range"
+        )
+    if length != expected_length:
+        raise A1SelectionControlError(
+            f"{context}.qualified_witness.length must match predeclared v2 witness range"
+        )
+    declared = _sha256(witness.get("metadata_sha256"), f"{context}.qualified_witness.metadata_sha256")
+    range_digest = _sha256(
+        expected_range.get("sha256"), f"scenario qualification witness range for {logical} sha256"
+    )
+    planet_digest = _sha256(scenario_planets.get(logical), f"scenario qualification digest for {logical}")
+    if range_digest != planet_digest:
+        raise A1SelectionControlError(
+            f"scenario qualification witness range for {logical} must match planets digest"
+        )
+    if declared != range_digest:
+        raise A1SelectionControlError(
+            f"{context}.qualified_witness.metadata_sha256 must match predeclared v2 witness range"
+        )
+    witness["metadata_sha256"] = declared
     return point
 
 
@@ -99,6 +165,16 @@ def validate_selection_control(record: dict[str, Any], scenario_manifest: dict[s
     planets = scenario_manifest.get("planets")
     if not isinstance(planets, dict) or not planets:
         raise A1SelectionControlError("selection-control requires scenario qualification planets")
+
+    witness_ranges: dict[str, Any] | None = None
+    if scenario_manifest.get("schema") == SCENARIO_SCHEMA_V2:
+        candidate = scenario_manifest.get("witness_ranges")
+        if not isinstance(candidate, dict) or not candidate:
+            raise A1SelectionControlError("scenario qualification v2 manifest requires witness_ranges")
+        if set(candidate) != set(planets):
+            raise A1SelectionControlError("scenario qualification v2 witness_ranges must exactly cover planets")
+        witness_ranges = candidate
+
     transitions = record.get("transitions")
     if not isinstance(transitions, list):
         raise A1SelectionControlError("selection-control requires transitions list")
@@ -116,9 +192,9 @@ def validate_selection_control(record: dict[str, Any], scenario_manifest: dict[s
             "positive outcome requires bounded observations for selection-control"
         )
 
-    first = _point(observations, "first", planets)
-    second = _point(observations, "second", planets)
-    returned = _point(observations, "return", planets)
+    first = _point(observations, "first", planets, witness_ranges)
+    second = _point(observations, "second", planets, witness_ranges)
+    returned = _point(observations, "return", planets, witness_ranges)
     first_seq = first["seq"]
     second_seq = second["seq"]
     return_seq = returned["seq"]

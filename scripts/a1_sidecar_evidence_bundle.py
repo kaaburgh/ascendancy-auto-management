@@ -5,15 +5,16 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any, Iterator
 
 try:
     from .a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
     from .a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
-    from .a1_sidecar_lifetime_oracle import A1LifetimeError, validate_record
+    from .a1_sidecar_lifetime_oracle import A1LifetimeError, SCENARIO_SCHEMA, validate_record
 except ImportError:
     from a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
     from a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
-    from a1_sidecar_lifetime_oracle import A1LifetimeError, validate_record
+    from a1_sidecar_lifetime_oracle import A1LifetimeError, SCENARIO_SCHEMA, validate_record
 
 
 def _read_json_object(path: Path, label: str) -> dict:
@@ -31,6 +32,52 @@ def _write_json(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _oracle_manifest(scenario_manifest: dict) -> dict:
+    """Project qualification v2 onto the unchanged lifetime-oracle v1 input contract."""
+    return {
+        "schema": SCENARIO_SCHEMA,
+        "source": scenario_manifest["source"],
+        "planets": scenario_manifest["planets"],
+    }
+
+
+def _qualified_witnesses(value: Any) -> Iterator[dict[str, Any]]:
+    if isinstance(value, dict):
+        witness = value.get("qualified_witness")
+        if isinstance(witness, dict):
+            yield witness
+        for child in value.values():
+            yield from _qualified_witnesses(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _qualified_witnesses(child)
+
+
+def _validate_v2_witness_range_binding(record: dict[str, Any], scenario_manifest: dict[str, Any]) -> None:
+    """Fail closed when a positive record is not bound to the v2 predeclared witness ranges."""
+    witness_ranges = scenario_manifest.get("witness_ranges")
+    if not isinstance(witness_ranges, dict) or not str(record.get("outcome", "")).startswith("positive-"):
+        return
+
+    witnesses = list(_qualified_witnesses(record))
+    if not witnesses:
+        raise A1ScenarioQualificationError("positive v2 lifetime record requires qualified witnesses")
+
+    for witness in witnesses:
+        label = witness.get("scenario_planet")
+        if not isinstance(label, str) or label not in witness_ranges:
+            raise A1ScenarioQualificationError("qualified witness scenario_planet is not present in v2 witness_ranges")
+        expected = witness_ranges[label]
+        if witness.get("record_offset") != expected.get("record_offset"):
+            raise A1ScenarioQualificationError(
+                f"qualified witness {label!r} record_offset does not match predeclared v2 witness range"
+            )
+        if witness.get("length") != expected.get("length"):
+            raise A1ScenarioQualificationError(
+                f"qualified witness {label!r} length does not match predeclared v2 witness range"
+            )
+
+
 def validate_bundle(
     qualification_input: Path,
     expected_source_path: Path,
@@ -45,8 +92,10 @@ def validate_bundle(
         raise ValueError(f"cannot read qualification input: {exc}") from exc
 
     scenario_manifest = build_manifest(raw, expected_source)
-    result = validate_record(record, scenario_manifest, expected_source)
-    validate_selection_control(record, scenario_manifest)
+    _validate_v2_witness_range_binding(record, scenario_manifest)
+    oracle_manifest = _oracle_manifest(scenario_manifest)
+    result = validate_record(record, oracle_manifest, expected_source)
+    validate_selection_control(record, oracle_manifest)
     if manifest_output is not None:
         _write_json(manifest_output, scenario_manifest)
     return result

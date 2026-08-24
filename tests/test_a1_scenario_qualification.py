@@ -34,8 +34,20 @@ def qualification_document(*, basis="bounded-record-metadata", metadata_a=b"plan
             "scenario_identity": SCENARIO_IDENTITY,
         },
         "planets": [
-            {"logical_label": "scenario-planet-a", "metadata_basis": basis, "metadata_hex": metadata_a.hex()},
-            {"logical_label": "scenario-planet-b", "metadata_basis": "bounded-record-metadata", "metadata_hex": metadata_b.hex()},
+            {
+                "logical_label": "scenario-planet-a",
+                "metadata_basis": basis,
+                "metadata_hex": metadata_a.hex(),
+                "record_offset": 0x10,
+                "metadata_rationale": "synthetic stable metadata distinct from presentation name",
+            },
+            {
+                "logical_label": "scenario-planet-b",
+                "metadata_basis": "bounded-record-metadata",
+                "metadata_hex": metadata_b.hex(),
+                "record_offset": 0x20,
+                "metadata_rationale": "synthetic stable metadata distinct from presentation name",
+            },
         ],
     }
 
@@ -72,7 +84,18 @@ class A1ScenarioQualificationTests(unittest.TestCase):
         second = qual.build_manifest(raw, expected)
         self.assertEqual(first, second)
         self.assertEqual(first["source"]["qualification_source_sha256"], hashlib.sha256(raw).hexdigest())
-        self.assertEqual(first["planets"]["scenario-planet-a"], hashlib.sha256(b"planet-a").hexdigest())
+        digest = hashlib.sha256(b"planet-a").hexdigest()
+        self.assertEqual(first["planets"]["scenario-planet-a"], digest)
+        self.assertEqual(
+            first["witness_ranges"]["scenario-planet-a"],
+            {
+                "metadata_basis": "bounded-record-metadata",
+                "record_offset": 0x10,
+                "length": len(b"planet-a"),
+                "sha256": digest,
+                "rationale": "synthetic stable metadata distinct from presentation name",
+            },
+        )
 
     def test_rejects_expected_source_mismatch(self):
         raw = encode(qualification_document())
@@ -95,6 +118,26 @@ class A1ScenarioQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "exceeds 512 byte bound"):
             qual.build_manifest(oversized, expected_source(oversized))
 
+    def test_rejects_missing_or_out_of_record_range(self):
+        document = qualification_document()
+        del document["planets"][0]["record_offset"]
+        raw = encode(document)
+        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "record_offset must be a non-negative integer"):
+            qual.build_manifest(raw, expected_source(raw))
+
+        document = qualification_document()
+        document["planets"][0]["record_offset"] = qual.PLANET_RECORD_SIZE - 2
+        raw = encode(document)
+        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "must fit within"):
+            qual.build_manifest(raw, expected_source(raw))
+
+    def test_rejects_missing_metadata_rationale(self):
+        document = qualification_document()
+        del document["planets"][0]["metadata_rationale"]
+        raw = encode(document)
+        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "metadata_rationale must be a non-empty string"):
+            qual.build_manifest(raw, expected_source(raw))
+
     def test_rejects_manifest_digest_not_matching_supplied_bytes(self):
         raw = encode(qualification_document())
         expected = expected_source(raw)
@@ -110,12 +153,18 @@ class A1ScenarioQualificationTests(unittest.TestCase):
         raw = encode(document)
         manifest = qual.build_manifest(raw, expected_source(raw))
         self.assertEqual(set(manifest["planets"]), {" Planet-A ", "Planet-A"})
+        self.assertEqual(set(manifest["witness_ranges"]), {" Planet-A ", "Planet-A"})
 
     @unittest.skipUnless((ROOT / "scripts" / "a1_sidecar_lifetime_oracle.py").exists(), "oracle not present")
-    def test_generated_manifest_is_consumed_by_lifetime_oracle(self):
+    def test_generated_manifest_projects_to_lifetime_oracle_contract(self):
         raw = encode(qualification_document())
         expected = expected_source(raw)
         manifest = qual.build_manifest(raw, expected)
+        oracle_manifest = {
+            "schema": oracle.SCENARIO_SCHEMA,
+            "source": manifest["source"],
+            "planets": manifest["planets"],
+        }
 
         pre_raw = b"planet-a"
         post_raw = b"planet-b"
@@ -203,7 +252,7 @@ class A1ScenarioQualificationTests(unittest.TestCase):
                 replacement("save-load-replacement"),
             ],
         }
-        result = oracle.validate_record(record, manifest, expected)
+        result = oracle.validate_record(record, oracle_manifest, expected)
         self.assertTrue(result["positive_contract_accepted"])
 
 

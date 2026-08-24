@@ -44,12 +44,15 @@ def _qualify(
     backend: RuntimeBackend,
     step: dict[str, Any],
     *,
-    timeout: float,
+    deadline: float,
+    per_step: float,
     attempts: int,
+    clock: Any,
 ) -> dict[str, Any]:
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
+            timeout = _remaining(deadline, per_step, clock)
             raw = backend.qualify(
                 step_id=step["id"],
                 logical_label=step["logical_label"],
@@ -146,7 +149,8 @@ def execute_observer_plan(
             timeout = _remaining(deadline, per_step, clock)
             if step["action"] == "qualify":
                 point = _qualify(
-                    manifest, backend, step, timeout=timeout, attempts=attempts
+                    manifest, backend, step, deadline=deadline, per_step=per_step,
+                    attempts=attempts, clock=clock
                 )
                 transcript["steps"].append(point)
 

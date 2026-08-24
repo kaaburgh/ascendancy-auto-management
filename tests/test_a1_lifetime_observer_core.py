@@ -87,7 +87,7 @@ class A1LifetimeObserverCoreTests(unittest.TestCase):
         self.assertEqual(result["schema"], TRANSCRIPT_SCHEMA)
         self.assertEqual(result["status"], "complete")
         self.assertEqual(len(result["replacement_legs"]), 2)
-        self.assertNotIn("record", repr(result))
+        self.assertTrue(all(not isinstance(value, (bytes, bytearray)) for step in result["steps"] for value in step.values()))
         self.assertEqual(result["steps"][0]["record_pointer"], 100)
 
     def test_witness_mismatch_is_incomplete(self):

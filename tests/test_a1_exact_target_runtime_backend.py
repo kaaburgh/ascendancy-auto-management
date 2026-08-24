@@ -11,6 +11,8 @@ from a1_exact_target_runtime_backend import (  # noqa: E402
     A1ExactTargetBackendError,
     A1ExactTargetRuntimeBackend,
 )
+from a1_lifetime_observer_core import A1ObserverExecutionError  # noqa: E402
+from a1_selected_record_runtime import A1SelectedRecordResolutionError  # noqa: E402
 
 
 class ExactTargetRuntimeBackendTests(unittest.TestCase):
@@ -45,6 +47,19 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
         self.assertFalse(got["population_replacement"])
         self.assertEqual(calls[0][0], 7)
         self.assertEqual(calls[0][4], "A")
+
+    def test_selected_record_resolution_error_is_normalized_for_observer_retry(self) -> None:
+        def resolver(*args):
+            raise A1SelectedRecordResolutionError("short selected-planet record read")
+
+        backend = self._backend(resolver=resolver)
+        with self.assertRaisesRegex(
+            A1ExactTargetBackendError, "selected-record qualification failed"
+        ) as caught:
+            backend.qualify(step_id="control-a", logical_label="A", timeout_seconds=2)
+
+        self.assertIsInstance(caught.exception, A1ObserverExecutionError)
+        self.assertIsInstance(caught.exception.__cause__, A1SelectedRecordResolutionError)
 
     def test_completed_replacement_marks_only_next_qualification(self) -> None:
         backend = self._backend()

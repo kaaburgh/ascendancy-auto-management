@@ -4,13 +4,21 @@ from __future__ import annotations
 from typing import Any, Callable, Protocol
 
 try:
-    from .a1_selected_record_runtime import resolve_selected_record
+    from .a1_lifetime_observer_core import A1ObserverExecutionError
+    from .a1_selected_record_runtime import (
+        A1SelectedRecordResolutionError,
+        resolve_selected_record,
+    )
 except ImportError:
-    from a1_selected_record_runtime import resolve_selected_record
+    from a1_lifetime_observer_core import A1ObserverExecutionError
+    from a1_selected_record_runtime import (
+        A1SelectedRecordResolutionError,
+        resolve_selected_record,
+    )
 
 
-class A1ExactTargetBackendError(RuntimeError):
-    pass
+class A1ExactTargetBackendError(A1ObserverExecutionError):
+    """Retryable qualification/backend failure understood by the observer core."""
 
 
 class ReplacementDriver(Protocol):
@@ -69,13 +77,18 @@ class A1ExactTargetRuntimeBackend:
         if not isinstance(logical_label, str) or not logical_label.strip():
             raise A1ExactTargetBackendError("logical_label must be non-empty")
 
-        resolved = self._resolve(
-            self._pid,
-            self._anchor,
-            self._data_bias,
-            self._manifest,
-            logical_label,
-        )
+        try:
+            resolved = self._resolve(
+                self._pid,
+                self._anchor,
+                self._data_bias,
+                self._manifest,
+                logical_label,
+            )
+        except A1SelectedRecordResolutionError as exc:
+            raise A1ExactTargetBackendError(
+                f"selected-record qualification failed: {exc}"
+            ) from exc
         if not isinstance(resolved, dict):
             raise A1ExactTargetBackendError("selected-record resolver returned non-object")
         pointer = resolved.get("record_pointer")

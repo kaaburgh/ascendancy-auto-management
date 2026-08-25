@@ -124,6 +124,14 @@ class A1ReplacementCommandDriver:
             raise A1ReplacementCommandDriverError(
                 f"{mechanism} helper result must be an object"
             )
+        if result.get("step_id") != step_id:
+            raise A1ReplacementCommandDriverError(
+                f"{mechanism} helper result.step_id does not match request"
+            )
+        if result.get("mechanism") != mechanism:
+            raise A1ReplacementCommandDriverError(
+                f"{mechanism} helper result.mechanism does not match request"
+            )
         if not isinstance(result.get("completed"), bool):
             raise A1ReplacementCommandDriverError(
                 f"{mechanism} helper result.completed must be boolean"

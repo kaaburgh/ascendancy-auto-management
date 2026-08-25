@@ -6,6 +6,8 @@ from typing import Any
 
 SCENARIO_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v2"
 PLANET_RECORD_SIZE = 0x7B
+PRESENTATION_NAME_OFFSET = 0x24
+PRESENTATION_NAME_LENGTH = 32
 METADATA_BASIS = "bounded-record-metadata"
 
 
@@ -45,6 +47,16 @@ def _positive_int(value: Any, context: str) -> int:
     return result
 
 
+def _reject_presentation_name_overlap(offset: int, length: int, logical_label: str) -> None:
+    end = offset + length
+    name_end = PRESENTATION_NAME_OFFSET + PRESENTATION_NAME_LENGTH
+    if offset < name_end and end > PRESENTATION_NAME_OFFSET:
+        raise A1ObserverWitnessError(
+            f"witness range for {logical_label!r} overlaps established presentation-name window "
+            f"0x{PRESENTATION_NAME_OFFSET:x}..0x{name_end:x}; presentation name cannot establish identity"
+        )
+
+
 def witness_contract(manifest: dict[str, Any], logical_label: str) -> dict[str, Any]:
     """Return the exact predeclared witness contract for one logical label."""
     if not isinstance(manifest, dict) or manifest.get("schema") != SCENARIO_SCHEMA:
@@ -78,6 +90,7 @@ def witness_contract(manifest: dict[str, Any], logical_label: str) -> dict[str, 
         raise A1ObserverWitnessError(
             f"witness range for {label!r} exceeds established 0x{PLANET_RECORD_SIZE:x}-byte record"
         )
+    _reject_presentation_name_overlap(offset, length, label)
 
     return {
         "logical_record": label,

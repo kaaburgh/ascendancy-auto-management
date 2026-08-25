@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 from typing import Any, Mapping, Sequence
 
@@ -10,6 +12,36 @@ _ALLOWED_MECHANISMS = ("new-game-reset", "save-load-replacement")
 
 class A1ReplacementCommandDriverError(RuntimeError):
     """Fail-closed command-driver failure."""
+
+
+def _run_bounded_process(
+    command: Sequence[str], request_text: str, timeout_seconds: float
+) -> subprocess.CompletedProcess[str]:
+    if not hasattr(os, "killpg"):
+        raise A1ReplacementCommandDriverError(
+            "replacement helper process-group cleanup requires POSIX process groups"
+        )
+
+    proc = subprocess.Popen(
+        tuple(command),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+        shell=False,
+    )
+    try:
+        stdout, stderr = proc.communicate(input=request_text, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+        raise
+
+    return subprocess.CompletedProcess(tuple(command), proc.returncode, stdout, stderr)
 
 
 class A1ReplacementCommandDriver:
@@ -59,15 +91,10 @@ class A1ReplacementCommandDriver:
             "mechanism": mechanism,
             "timeout_seconds": float(timeout_seconds),
         }
+        request_text = json.dumps(request, separators=(",", ":")) + "\n"
         try:
-            completed = subprocess.run(
-                self._commands[mechanism],
-                input=json.dumps(request, separators=(",", ":")) + "\n",
-                text=True,
-                capture_output=True,
-                timeout=float(timeout_seconds),
-                check=False,
-                shell=False,
+            completed = _run_bounded_process(
+                self._commands[mechanism], request_text, float(timeout_seconds)
             )
         except subprocess.TimeoutExpired as exc:
             raise A1ReplacementCommandDriverError(

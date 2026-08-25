@@ -213,9 +213,14 @@ def proc_rw_mappings(pid: int) -> list[tuple[int, int]]:
 def read_process(pid: int, address: int, size: int) -> bytes:
     fd = os.open(f"/proc/{pid}/mem", os.O_RDONLY)
     try:
-        return os.pread(fd, size, address)
+        data = os.pread(fd, size, address)
     finally:
         os.close(fd)
+    if len(data) != size:
+        raise RE4Error(
+            f"short process-memory read at 0x{address:x}: expected {size} bytes, got {len(data)}"
+        )
+    return data
 
 
 def find_unique_runtime_anchor(pid: int) -> dict[str, Any]:

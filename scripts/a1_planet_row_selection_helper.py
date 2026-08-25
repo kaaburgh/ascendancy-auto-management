@@ -100,10 +100,19 @@ class X11SelectionBackend:
         self._x11.XSetInputFocus.argtypes = [
             ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong
         ]
-        self._x11.XFlush.argtypes = [ctypes.c_void_p]
-        self._xtst.XTestFakeRelativeMotionEvent.argtypes = [
-            ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_ulong
+        self._x11.XWarpPointer.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_ulong,
+            ctypes.c_ulong,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint,
+            ctypes.c_uint,
+            ctypes.c_int,
+            ctypes.c_int,
         ]
+        self._x11.XWarpPointer.restype = ctypes.c_int
+        self._x11.XFlush.argtypes = [ctypes.c_void_p]
         self._xtst.XTestFakeButtonEvent.argtypes = [
             ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong
         ]
@@ -145,8 +154,19 @@ class X11SelectionBackend:
 
     def click(self, x: int, y: int) -> None:
         self._x11.XSetInputFocus(self._display, self._window_id, 1, 0)
-        self._xtst.XTestFakeRelativeMotionEvent(self._display, -2000, -2000, 0)
-        self._xtst.XTestFakeRelativeMotionEvent(self._display, x, y, 0)
+        # ROW_X/ROW_Y are window-local coordinates. Warp relative to the target
+        # window rather than approximating a root-screen absolute position.
+        self._x11.XWarpPointer(
+            self._display,
+            0,
+            self._window_id,
+            0,
+            0,
+            0,
+            0,
+            x,
+            y,
+        )
         self._xtst.XTestFakeButtonEvent(self._display, 1, 1, 0)
         self._xtst.XTestFakeButtonEvent(self._display, 1, 0, 0)
         self._x11.XFlush(self._display)

@@ -161,6 +161,30 @@ class A1LifetimeRecordAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(A1LifetimeRecordAdapterError, "first record pointer"):
             adapt_transcript(transcript)
 
+    def test_replacement_leg_must_reference_existing_step_sequence(self) -> None:
+        transcript = _complete_transcript()
+        transcript["replacement_legs"][0]["pre_step"] = "missing-step"
+        with self.assertRaisesRegex(A1LifetimeRecordAdapterError, "references missing transcript step"):
+            adapt_transcript(transcript)
+
+    def test_replacement_leg_must_match_step_stream_fields(self) -> None:
+        transcript = _complete_transcript()
+        transcript["replacement_legs"][0]["post_record_pointer"] = 999
+        with self.assertRaisesRegex(A1LifetimeRecordAdapterError, "post_record_pointer"):
+            adapt_transcript(transcript)
+
+    def test_replacement_leg_must_match_action_lifecycle_signal(self) -> None:
+        transcript = _complete_transcript()
+        transcript["replacement_legs"][0]["lifecycle_signal"]["after"] = 99
+        with self.assertRaisesRegex(A1LifetimeRecordAdapterError, "lifecycle_signal"):
+            adapt_transcript(transcript)
+
+    def test_replacement_leg_requires_consecutive_pre_action_post_steps(self) -> None:
+        transcript = _complete_transcript()
+        transcript["steps"].insert(5, _point("interloper", "pre-replacement", "Z", 500, "e" * 64))
+        with self.assertRaisesRegex(A1LifetimeRecordAdapterError, "consecutive pre/action/post"):
+            adapt_transcript(transcript)
+
     def test_transcript_cannot_smuggle_positive_outcome(self) -> None:
         transcript = _complete_transcript()
         transcript["outcome"] = "positive-epoch-pointer"

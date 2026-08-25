@@ -57,6 +57,18 @@ def _steps(transcript: dict[str, Any]) -> list[dict[str, Any]]:
     return steps
 
 
+def _step_index(steps: list[dict[str, Any]]) -> dict[str, tuple[int, dict[str, Any]]]:
+    indexed: dict[str, tuple[int, dict[str, Any]]] = {}
+    for index, step in enumerate(steps):
+        step_id = _nonempty(step.get("step"), f"transcript.steps[{index}].step")
+        if step_id in indexed:
+            raise A1LifetimeRecordAdapterError(
+                f"transcript step id {step_id!r} is duplicated"
+            )
+        indexed[step_id] = (index, step)
+    return indexed
+
+
 def _replacement_legs(transcript: dict[str, Any]) -> list[dict[str, Any]]:
     raw = transcript.get("replacement_legs")
     if not isinstance(raw, list):
@@ -139,34 +151,74 @@ def _selection_transition(steps: list[dict[str, Any]], complete: bool) -> dict[s
     }
 
 
-def _replacement_transition(leg: dict[str, Any], index: int) -> dict[str, Any]:
-    mechanism = _nonempty(leg.get("mechanism"), f"replacement leg {index}.mechanism")
+def _replacement_transition(
+    leg: dict[str, Any],
+    index: int,
+    steps_by_id: dict[str, tuple[int, dict[str, Any]]],
+) -> dict[str, Any]:
+    context = f"replacement leg {index}"
+    mechanism = _nonempty(leg.get("mechanism"), f"{context}.mechanism")
     if mechanism not in EXPECTED_REPLACEMENTS:
         raise A1LifetimeRecordAdapterError(
-            f"replacement leg {index}.mechanism is unsupported: {mechanism!r}"
+            f"{context}.mechanism is unsupported: {mechanism!r}"
         )
     source_steps = [
-        _nonempty(leg.get("pre_step"), f"replacement leg {index}.pre_step"),
-        _nonempty(leg.get("replace_step"), f"replacement leg {index}.replace_step"),
-        _nonempty(leg.get("post_step"), f"replacement leg {index}.post_step"),
+        _nonempty(leg.get("pre_step"), f"{context}.pre_step"),
+        _nonempty(leg.get("replace_step"), f"{context}.replace_step"),
+        _nonempty(leg.get("post_step"), f"{context}.post_step"),
     ]
-    reused = leg.get("pointer_reused_after_replacement")
-    if not isinstance(reused, bool):
+    try:
+        resolved = [steps_by_id[step_id] for step_id in source_steps]
+    except KeyError as exc:
         raise A1LifetimeRecordAdapterError(
-            f"replacement leg {index}.pointer_reused_after_replacement must be boolean"
+            f"{context} references missing transcript step {exc.args[0]!r}"
+        ) from exc
+    positions = [position for position, _ in resolved]
+    if positions != list(range(positions[0], positions[0] + 3)):
+        raise A1LifetimeRecordAdapterError(
+            f"{context} steps must be one consecutive pre/action/post sequence"
         )
+    pre, action, post = [step for _, step in resolved]
+    if pre.get("phase") != "pre-replacement" or post.get("phase") != "post-replacement":
+        raise A1LifetimeRecordAdapterError(
+            f"{context} must reference pre-replacement and post-replacement qualifications"
+        )
+    if action.get("mechanism") != mechanism:
+        raise A1LifetimeRecordAdapterError(
+            f"{context}.mechanism does not match its replacement action step"
+        )
+
+    pre_pointer = pre.get("record_pointer")
+    post_pointer = post.get("record_pointer")
+    for label, pointer in (("pre", pre_pointer), ("post", post_pointer)):
+        if not isinstance(pointer, int) or isinstance(pointer, bool) or pointer < 0:
+            raise A1LifetimeRecordAdapterError(
+                f"{context} {label} step record_pointer must be a non-negative integer"
+            )
+    expected_fields = {
+        "pre_record_pointer": pre_pointer,
+        "post_record_pointer": post_pointer,
+        "pre_logical_record": _nonempty(pre.get("logical_record"), f"{context} pre logical_record"),
+        "post_logical_record": _nonempty(post.get("logical_record"), f"{context} post logical_record"),
+        "pointer_reused_after_replacement": pre_pointer == post_pointer,
+        "lifecycle_signal": action.get("lifecycle_signal"),
+    }
+    for field, expected in expected_fields.items():
+        if leg.get(field) != expected:
+            raise A1LifetimeRecordAdapterError(
+                f"{context}.{field} does not match referenced transcript steps"
+            )
+
+    reused = expected_fields["pointer_reused_after_replacement"]
+    assert isinstance(reused, bool)
     return {
         "label": mechanism,
         "replacement": True,
         "source_steps": source_steps,
-        "pre_logical_record": _nonempty(
-            leg.get("pre_logical_record"), f"replacement leg {index}.pre_logical_record"
-        ),
-        "post_logical_record": _nonempty(
-            leg.get("post_logical_record"), f"replacement leg {index}.post_logical_record"
-        ),
+        "pre_logical_record": expected_fields["pre_logical_record"],
+        "post_logical_record": expected_fields["post_logical_record"],
         "pointer_reused_after_replacement": reused,
-        "lifecycle_signal": leg.get("lifecycle_signal"),
+        "lifecycle_signal": expected_fields["lifecycle_signal"],
     }
 
 
@@ -186,6 +238,7 @@ def adapt_transcript(transcript: dict[str, Any]) -> dict[str, Any]:
         raise A1LifetimeRecordAdapterError("unsupported or missing observer transcript status")
 
     steps = _steps(transcript)
+    steps_by_id = _step_index(steps)
     legs = _replacement_legs(transcript)
     complete = status == "complete"
     if complete:
@@ -203,7 +256,9 @@ def adapt_transcript(transcript: dict[str, Any]) -> dict[str, Any]:
     selection = _selection_transition(steps, complete)
     if selection is not None:
         transitions.append(selection)
-    transitions.extend(_replacement_transition(leg, index) for index, leg in enumerate(legs))
+    transitions.extend(
+        _replacement_transition(leg, index, steps_by_id) for index, leg in enumerate(legs)
+    )
 
     record: dict[str, Any] = {
         "schema": LIFETIME_RECORD_SCHEMA,

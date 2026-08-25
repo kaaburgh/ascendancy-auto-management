@@ -16,9 +16,12 @@ from a1_selected_record_runtime import A1SelectedRecordResolutionError  # noqa: 
 
 
 class ExactTargetRuntimeBackendTests(unittest.TestCase):
-    def _backend(self, *, resolver=None, driver=None):
+    def _backend(self, *, resolver=None, selection=None, driver=None):
         resolver = resolver or (
             lambda *args: {"record_pointer": 0x2340, "record": b"x" * 0x7B}
+        )
+        selection = selection or (
+            lambda **kwargs: {"selected": True}
         )
         driver = driver or (
             lambda **kwargs: {"completed": True, "lifecycle_signal": None}
@@ -28,25 +31,62 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
             anchor={"map_start": 0x1000, "map_end": 0x9000},
             data_bias=0x20,
             manifest={"schema": "synthetic"},
+            selection_driver=selection,
             replacement_driver=driver,
             selected_record_resolver=resolver,
         )
 
-    def test_qualify_delegates_to_selected_record_resolver(self) -> None:
+    def test_qualify_selects_requested_logical_record_before_resolution(self) -> None:
         calls = []
 
+        def selection(**kwargs):
+            calls.append(("selection", kwargs))
+            return {"selected": True}
+
         def resolver(*args):
-            calls.append(args)
+            calls.append(("resolver", args))
             return {"record_pointer": 0x3450, "record": b"r" * 0x7B}
 
-        backend = self._backend(resolver=resolver)
+        backend = self._backend(resolver=resolver, selection=selection)
         got = backend.qualify(step_id="control-a", logical_label="A", timeout_seconds=2)
 
         self.assertEqual(got["record_pointer"], 0x3450)
         self.assertEqual(got["record"], b"r" * 0x7B)
         self.assertFalse(got["population_replacement"])
-        self.assertEqual(calls[0][0], 7)
-        self.assertEqual(calls[0][4], "A")
+        self.assertEqual(calls[0], (
+            "selection",
+            {"step_id": "control-a", "logical_label": "A", "timeout_seconds": 2.0},
+        ))
+        self.assertEqual(calls[1][0], "resolver")
+        self.assertEqual(calls[1][1][0], 7)
+        self.assertEqual(calls[1][1][4], "A")
+
+    def test_unconfirmed_selection_fails_before_record_resolution(self) -> None:
+        resolver_calls = []
+
+        def resolver(*args):
+            resolver_calls.append(args)
+            return {"record_pointer": 0x3450, "record": b"r" * 0x7B}
+
+        backend = self._backend(
+            resolver=resolver,
+            selection=lambda **kwargs: {"selected": False},
+        )
+        with self.assertRaisesRegex(A1ExactTargetBackendError, "did not confirm"):
+            backend.qualify(step_id="control-a", logical_label="A", timeout_seconds=2)
+        self.assertEqual(resolver_calls, [])
+
+    def test_nonobject_selection_result_fails_before_record_resolution(self) -> None:
+        resolver_calls = []
+
+        def resolver(*args):
+            resolver_calls.append(args)
+            return {"record_pointer": 0x3450, "record": b"r" * 0x7B}
+
+        backend = self._backend(resolver=resolver, selection=lambda **kwargs: True)
+        with self.assertRaisesRegex(A1ExactTargetBackendError, "selection driver returned"):
+            backend.qualify(step_id="control-a", logical_label="A", timeout_seconds=2)
+        self.assertEqual(resolver_calls, [])
 
     def test_selected_record_resolution_error_is_normalized_for_observer_retry(self) -> None:
         def resolver(*args):
@@ -103,17 +143,25 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
         with self.assertRaisesRegex(A1ExactTargetBackendError, "invalid record"):
             backend.qualify(step_id="control-a", logical_label="A", timeout_seconds=2)
 
-    def test_nonpositive_timeout_fails_before_runtime_driver(self) -> None:
-        calls = []
+    def test_nonpositive_timeout_fails_before_runtime_drivers(self) -> None:
+        selection_calls = []
+        replacement_calls = []
+
+        def selection(**kwargs):
+            selection_calls.append(kwargs)
+            return {"selected": True}
 
         def driver(**kwargs):
-            calls.append(kwargs)
+            replacement_calls.append(kwargs)
             return {"completed": True}
 
-        backend = self._backend(driver=driver)
+        backend = self._backend(selection=selection, driver=driver)
+        with self.assertRaisesRegex(A1ExactTargetBackendError, "timeout_seconds"):
+            backend.qualify(step_id="a", logical_label="A", timeout_seconds=0)
         with self.assertRaisesRegex(A1ExactTargetBackendError, "timeout_seconds"):
             backend.replace(step_id="reset", mechanism="new-game-reset", timeout_seconds=0)
-        self.assertEqual(calls, [])
+        self.assertEqual(selection_calls, [])
+        self.assertEqual(replacement_calls, [])
 
 
 if __name__ == "__main__":

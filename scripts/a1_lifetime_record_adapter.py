@@ -30,6 +30,19 @@ def _nonempty(value: Any, context: str) -> str:
     return value
 
 
+def _sha256(value: Any, context: str) -> str:
+    text = _nonempty(value, context).lower()
+    if len(text) != 64:
+        raise A1LifetimeRecordAdapterError(f"{context} must be a 64-hex SHA-256 digest")
+    try:
+        int(text, 16)
+    except ValueError as exc:
+        raise A1LifetimeRecordAdapterError(
+            f"{context} must be a 64-hex SHA-256 digest"
+        ) from exc
+    return text
+
+
 def _steps(transcript: dict[str, Any]) -> list[dict[str, Any]]:
     raw = transcript.get("steps")
     if not isinstance(raw, list):
@@ -88,11 +101,33 @@ def _selection_transition(steps: list[dict[str, Any]], complete: bool) -> dict[s
                 f"selection step {index}.qualified_witness must be an object"
             )
         witness_sha256.append(
-            _nonempty(
+            _sha256(
                 witness.get("metadata_sha256"),
                 f"selection step {index}.qualified_witness.metadata_sha256",
             )
         )
+
+    if complete:
+        if logical_records[0] == logical_records[1]:
+            raise A1LifetimeRecordAdapterError(
+                "complete selection control must observe two distinct logical records"
+            )
+        if record_pointers[0] == record_pointers[1]:
+            raise A1LifetimeRecordAdapterError(
+                "complete selection control must observe two distinct record pointers"
+            )
+        if logical_records[2] != logical_records[0]:
+            raise A1LifetimeRecordAdapterError(
+                "complete selection control must return to the first logical record"
+            )
+        if record_pointers[2] != record_pointers[0]:
+            raise A1LifetimeRecordAdapterError(
+                "complete selection control must return to the first record pointer"
+            )
+        if witness_sha256[2] != witness_sha256[0]:
+            raise A1LifetimeRecordAdapterError(
+                "complete selection control must return to the first qualified witness"
+            )
 
     return {
         "label": "selection-control",

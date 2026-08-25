@@ -155,6 +155,12 @@ class A1LifetimeRecordAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(A1LifetimeRecordAdapterError, "cover new-game-reset"):
             adapt_transcript(transcript)
 
+    def test_complete_transcript_revalidates_selection_control(self) -> None:
+        transcript = _complete_transcript()
+        transcript["steps"][2]["record_pointer"] = 999
+        with self.assertRaisesRegex(A1LifetimeRecordAdapterError, "first record pointer"):
+            adapt_transcript(transcript)
+
     def test_transcript_cannot_smuggle_positive_outcome(self) -> None:
         transcript = _complete_transcript()
         transcript["outcome"] = "positive-epoch-pointer"

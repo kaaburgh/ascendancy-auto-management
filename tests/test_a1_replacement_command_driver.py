@@ -37,7 +37,7 @@ class ReplacementCommandDriverTests(unittest.TestCase):
 
     @patch("a1_replacement_command_driver._run_bounded_process")
     def test_sends_bounded_json_request_without_shell(self, run):
-        run.return_value = _Completed(stdout='{"completed":true,"lifecycle_signal":null}')
+        run.return_value = _Completed(stdout='{"completed":true,"step_id":"reset","mechanism":"new-game-reset","lifecycle_signal":null}')
         got = self._driver()(step_id="reset", mechanism="new-game-reset", timeout_seconds=3)
         self.assertTrue(got["completed"])
         args = run.call_args.args
@@ -65,14 +65,36 @@ class ReplacementCommandDriverTests(unittest.TestCase):
             self._driver()(step_id="load", mechanism="save-load-replacement", timeout_seconds=2)
 
     @patch("a1_replacement_command_driver._run_bounded_process")
+    def test_missing_or_mismatched_step_id_fails_closed(self, run):
+        for stdout in (
+            '{"completed":true,"mechanism":"new-game-reset"}',
+            '{"completed":true,"step_id":"other","mechanism":"new-game-reset"}',
+        ):
+            with self.subTest(stdout=stdout):
+                run.return_value = _Completed(stdout=stdout)
+                with self.assertRaisesRegex(A1ReplacementCommandDriverError, "step_id"):
+                    self._driver()(step_id="reset", mechanism="new-game-reset", timeout_seconds=2)
+
+    @patch("a1_replacement_command_driver._run_bounded_process")
+    def test_missing_or_mismatched_mechanism_fails_closed(self, run):
+        for stdout in (
+            '{"completed":true,"step_id":"reset"}',
+            '{"completed":true,"step_id":"reset","mechanism":"save-load-replacement"}',
+        ):
+            with self.subTest(stdout=stdout):
+                run.return_value = _Completed(stdout=stdout)
+                with self.assertRaisesRegex(A1ReplacementCommandDriverError, "mechanism"):
+                    self._driver()(step_id="reset", mechanism="new-game-reset", timeout_seconds=2)
+
+    @patch("a1_replacement_command_driver._run_bounded_process")
     def test_completed_must_be_boolean(self, run):
-        run.return_value = _Completed(stdout='{"completed":"yes"}')
+        run.return_value = _Completed(stdout='{"completed":"yes","step_id":"load","mechanism":"save-load-replacement"}')
         with self.assertRaisesRegex(A1ReplacementCommandDriverError, "completed"):
             self._driver()(step_id="load", mechanism="save-load-replacement", timeout_seconds=2)
 
     @patch("a1_replacement_command_driver._run_bounded_process")
     def test_lifecycle_signal_must_be_object_or_null(self, run):
-        run.return_value = _Completed(stdout='{"completed":true,"lifecycle_signal":"late"}')
+        run.return_value = _Completed(stdout='{"completed":true,"step_id":"reset","mechanism":"new-game-reset","lifecycle_signal":"late"}')
         with self.assertRaisesRegex(A1ReplacementCommandDriverError, "lifecycle_signal"):
             self._driver()(step_id="reset", mechanism="new-game-reset", timeout_seconds=2)
 

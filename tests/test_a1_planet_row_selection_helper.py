@@ -37,19 +37,20 @@ class Backend:
 
 
 class PlanetRowSelectionHelperTests(unittest.TestCase):
-    def test_selects_configured_visible_row(self):
+    def test_completes_input_action_for_configured_visible_row(self):
         backend = Backend()
         result = handle_request(request("B"), {"A": 0, "B": 1}, backend)
         self.assertEqual(backend.clicks, [(205, 270)])
         self.assertEqual(
             result,
             {
-                "selected": True,
+                "action_completed": True,
                 "logical_label": "B",
                 "step_id": "control-a",
                 "visible_row": 1,
             },
         )
+        self.assertNotIn("selected", result)
 
     def test_label_matching_is_exact(self):
         backend = Backend()

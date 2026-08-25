@@ -1,4 +1,4 @@
-"""Bounded command transport for A1 exact-target logical-selection actions."""
+"""Bounded command transport for A1 exact-target logical-selection input actions."""
 from __future__ import annotations
 
 import json
@@ -43,7 +43,7 @@ def _run_bounded_process(
 
 
 class A1SelectionCommandDriver:
-    """Run one preconfigured helper command for a bounded logical selection."""
+    """Run one preconfigured helper command for a bounded logical selection action."""
 
     def __init__(self, command: Sequence[str]) -> None:
         if isinstance(command, (str, bytes)) or not isinstance(command, Sequence) or not command:
@@ -106,13 +106,13 @@ class A1SelectionCommandDriver:
             ) from exc
         if not isinstance(result, dict):
             raise A1SelectionCommandDriverError("selection helper result must be an object")
-        if not isinstance(result.get("selected"), bool):
+        if not isinstance(result.get("action_completed"), bool):
             raise A1SelectionCommandDriverError(
-                "selection helper result.selected must be boolean"
+                "selection helper result.action_completed must be boolean"
             )
-        if result.get("selected") is True:
+        if result.get("action_completed") is True:
             if result.get("logical_label") != logical_label:
                 raise A1SelectionCommandDriverError(
-                    "selection helper confirmed a different logical label"
+                    "selection helper completed an action for a different logical label"
                 )
         return result

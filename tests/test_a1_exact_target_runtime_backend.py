@@ -21,7 +21,7 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
             lambda *args: {"record_pointer": 0x2340, "record": b"x" * 0x7B}
         )
         selection = selection or (
-            lambda **kwargs: {"selected": True}
+            lambda **kwargs: {"action_completed": True}
         )
         driver = driver or (
             lambda **kwargs: {"completed": True, "lifecycle_signal": None}
@@ -36,12 +36,12 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
             selected_record_resolver=resolver,
         )
 
-    def test_qualify_selects_requested_logical_record_before_resolution(self) -> None:
+    def test_qualify_runs_requested_input_action_before_witness_resolution(self) -> None:
         calls = []
 
         def selection(**kwargs):
             calls.append(("selection", kwargs))
-            return {"selected": True}
+            return {"action_completed": True}
 
         def resolver(*args):
             calls.append(("resolver", args))
@@ -61,7 +61,7 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
         self.assertEqual(calls[1][1][0], 7)
         self.assertEqual(calls[1][1][4], "A")
 
-    def test_unconfirmed_selection_fails_before_record_resolution(self) -> None:
+    def test_uncompleted_selection_action_fails_before_record_resolution(self) -> None:
         resolver_calls = []
 
         def resolver(*args):
@@ -70,9 +70,9 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
 
         backend = self._backend(
             resolver=resolver,
-            selection=lambda **kwargs: {"selected": False},
+            selection=lambda **kwargs: {"action_completed": False},
         )
-        with self.assertRaisesRegex(A1ExactTargetBackendError, "did not confirm"):
+        with self.assertRaisesRegex(A1ExactTargetBackendError, "did not complete"):
             backend.qualify(step_id="control-a", logical_label="A", timeout_seconds=2)
         self.assertEqual(resolver_calls, [])
 
@@ -149,7 +149,7 @@ class ExactTargetRuntimeBackendTests(unittest.TestCase):
 
         def selection(**kwargs):
             selection_calls.append(kwargs)
-            return {"selected": True}
+            return {"action_completed": True}
 
         def driver(**kwargs):
             replacement_calls.append(kwargs)

@@ -20,7 +20,7 @@ from a1_selection_command_driver import (
 
 
 class _Completed:
-    def __init__(self, *, returncode=0, stdout='{"selected":true,"logical_label":"A"}', stderr=""):
+    def __init__(self, *, returncode=0, stdout='{"action_completed":true,"logical_label":"A"}', stderr=""):
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
@@ -34,7 +34,7 @@ class SelectionCommandDriverTests(unittest.TestCase):
     def test_sends_bounded_json_request_without_shell(self, run):
         run.return_value = _Completed()
         got = self._driver()(step_id="control-a", logical_label="A", timeout_seconds=3)
-        self.assertTrue(got["selected"])
+        self.assertTrue(got["action_completed"])
         args = run.call_args.args
         self.assertEqual(args[0], ("helper", "--select"))
         self.assertEqual(args[2], 3.0)
@@ -61,22 +61,22 @@ class SelectionCommandDriverTests(unittest.TestCase):
             self._driver()(step_id="control-a", logical_label="A", timeout_seconds=2)
 
     @patch("a1_selection_command_driver._run_bounded_process")
-    def test_selected_must_be_boolean(self, run):
-        run.return_value = _Completed(stdout='{"selected":"yes","logical_label":"A"}')
-        with self.assertRaisesRegex(A1SelectionCommandDriverError, "selected"):
+    def test_action_completed_must_be_boolean(self, run):
+        run.return_value = _Completed(stdout='{"action_completed":"yes","logical_label":"A"}')
+        with self.assertRaisesRegex(A1SelectionCommandDriverError, "action_completed"):
             self._driver()(step_id="control-a", logical_label="A", timeout_seconds=2)
 
     @patch("a1_selection_command_driver._run_bounded_process")
-    def test_confirmed_selection_must_echo_requested_label(self, run):
-        run.return_value = _Completed(stdout='{"selected":true,"logical_label":"B"}')
+    def test_completed_action_must_echo_requested_label(self, run):
+        run.return_value = _Completed(stdout='{"action_completed":true,"logical_label":"B"}')
         with self.assertRaisesRegex(A1SelectionCommandDriverError, "different logical label"):
             self._driver()(step_id="control-a", logical_label="A", timeout_seconds=2)
 
     @patch("a1_selection_command_driver._run_bounded_process")
-    def test_unconfirmed_selection_does_not_require_label_echo(self, run):
-        run.return_value = _Completed(stdout='{"selected":false}')
+    def test_uncompleted_action_does_not_require_label_echo(self, run):
+        run.return_value = _Completed(stdout='{"action_completed":false}')
         got = self._driver()(step_id="control-a", logical_label="A", timeout_seconds=2)
-        self.assertFalse(got["selected"])
+        self.assertFalse(got["action_completed"])
 
     @patch("a1_selection_command_driver._run_bounded_process")
     def test_timeout_is_normalized(self, run):

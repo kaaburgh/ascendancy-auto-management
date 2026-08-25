@@ -38,10 +38,10 @@ class A1ExactTargetRuntimeBackend:
 
     This adapter deliberately does not discover witnesses, lifecycle signals, or
     UI semantics. Every qualification first delegates the requested logical
-    selection to a separately bounded driver and only then resolves the selected
-    record through the already reviewed fail-closed resolver. Replacement actions
-    and any candidate lifecycle signal are likewise supplied by a separately
-    bounded target driver.
+    selection input action to a separately bounded driver and only then confirms
+    the resulting selected record through the already reviewed fail-closed
+    resolver. Replacement actions and any candidate lifecycle signal are likewise
+    supplied by a separately bounded target driver.
     """
 
     def __init__(
@@ -98,9 +98,9 @@ class A1ExactTargetRuntimeBackend:
         )
         if not isinstance(selection, dict):
             raise A1ExactTargetBackendError("selection driver returned non-object")
-        if selection.get("selected") is not True:
+        if selection.get("action_completed") is not True:
             raise A1ExactTargetBackendError(
-                "selection driver did not confirm requested logical selection"
+                "selection driver did not complete requested logical-selection input action"
             )
 
         try:

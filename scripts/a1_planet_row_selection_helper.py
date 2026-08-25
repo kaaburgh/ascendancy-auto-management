@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded X11 helper for A1 logical selection in the visible Planets list."""
+"""Bounded X11 helper for A1 logical-selection input actions."""
 from __future__ import annotations
 
 import argparse
@@ -177,7 +177,7 @@ def handle_request(
     y = FIRST_ROW_Y + row * ROW_HEIGHT
     backend.click(ROW_X, y)
     return {
-        "selected": True,
+        "action_completed": True,
         "logical_label": logical_label,
         "step_id": value["step_id"],
         "visible_row": row,

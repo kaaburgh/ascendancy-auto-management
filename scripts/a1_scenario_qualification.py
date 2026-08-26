@@ -15,6 +15,8 @@ LEGACY_OUTPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
 EXPECTED_SOURCE_SCHEMA = "ascendancy.a1-sidecar-expected-source/v1"
 MAX_METADATA_BYTES = 512
 PLANET_RECORD_SIZE = 0x7B
+PRESENTATION_NAME_OFFSET = 0x24
+PRESENTATION_NAME_BYTES = 32
 ALLOWED_METADATA_BASES = frozenset({"bounded-record-metadata"})
 
 
@@ -92,6 +94,12 @@ def _validated_expected_source(expected: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _overlaps_presentation_name(record_offset: int, length: int) -> bool:
+    name_end = PRESENTATION_NAME_OFFSET + PRESENTATION_NAME_BYTES
+    witness_end = record_offset + length
+    return record_offset < name_end and witness_end > PRESENTATION_NAME_OFFSET
+
+
 def _validated_input(
     raw: bytes, expected: dict[str, Any]
 ) -> tuple[dict[str, str], dict[str, str], dict[str, dict[str, Any]] | None]:
@@ -152,6 +160,11 @@ def _validated_input(
             if record_offset + len(metadata) > PLANET_RECORD_SIZE:
                 raise A1ScenarioQualificationError(
                     f"{context} metadata range must fit within the established 0x{PLANET_RECORD_SIZE:x}-byte planet record"
+                )
+            if _overlaps_presentation_name(record_offset, len(metadata)):
+                raise A1ScenarioQualificationError(
+                    f"{context} metadata range overlaps the established presentation-name field "
+                    f"[0x{PRESENTATION_NAME_OFFSET:x}, 0x{PRESENTATION_NAME_OFFSET + PRESENTATION_NAME_BYTES:x})"
                 )
             rationale = _require_nonempty_string(entry.get("metadata_rationale"), f"{context}.metadata_rationale")
             witness_ranges[label] = {

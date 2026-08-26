@@ -45,7 +45,7 @@ def qualification_document(*, basis="bounded-record-metadata", metadata_a=b"plan
                 "logical_label": "scenario-planet-b",
                 "metadata_basis": "bounded-record-metadata",
                 "metadata_hex": metadata_b.hex(),
-                "record_offset": 0x20,
+                "record_offset": 0x48,
                 "metadata_rationale": "synthetic stable metadata distinct from presentation name",
             },
         ],
@@ -108,6 +108,44 @@ class A1ScenarioQualificationTests(unittest.TestCase):
         raw = encode(qualification_document(basis="presentation-name"))
         with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "presentation-name-only"):
             qual.build_manifest(raw, expected_source(raw))
+
+    def test_rejects_witness_inside_presentation_name_field(self):
+        document = qualification_document(metadata_a=b"name-only")
+        document["planets"][0]["record_offset"] = qual.PRESENTATION_NAME_OFFSET
+        raw = encode(document)
+        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "overlaps the established presentation-name field"):
+            qual.build_manifest(raw, expected_source(raw))
+
+    def test_rejects_witness_partially_overlapping_presentation_name_field(self):
+        document = qualification_document(metadata_a=b"abcd")
+        document["planets"][0]["record_offset"] = qual.PRESENTATION_NAME_OFFSET - 2
+        raw = encode(document)
+        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "overlaps the established presentation-name field"):
+            qual.build_manifest(raw, expected_source(raw))
+
+    def test_accepts_witness_ranges_adjacent_to_presentation_name_field(self):
+        document = qualification_document(metadata_a=b"abcd", metadata_b=b"efgh")
+        document["planets"][0]["record_offset"] = qual.PRESENTATION_NAME_OFFSET - 4
+        document["planets"][1]["record_offset"] = qual.PRESENTATION_NAME_OFFSET + qual.PRESENTATION_NAME_BYTES
+        raw = encode(document)
+        manifest = qual.build_manifest(raw, expected_source(raw))
+        self.assertEqual(
+            manifest["witness_ranges"]["scenario-planet-a"]["record_offset"],
+            qual.PRESENTATION_NAME_OFFSET - 4,
+        )
+        self.assertEqual(
+            manifest["witness_ranges"]["scenario-planet-b"]["record_offset"],
+            qual.PRESENTATION_NAME_OFFSET + qual.PRESENTATION_NAME_BYTES,
+        )
+
+    def test_legacy_schema_does_not_apply_v2_witness_range_rule(self):
+        document = qualification_document(metadata_a=b"name-only")
+        document["schema"] = qual.LEGACY_INPUT_SCHEMA
+        document["planets"][0]["record_offset"] = qual.PRESENTATION_NAME_OFFSET
+        raw = encode(document)
+        manifest = qual.build_manifest(raw, expected_source(raw))
+        self.assertEqual(manifest["schema"], qual.LEGACY_OUTPUT_SCHEMA)
+        self.assertNotIn("witness_ranges", manifest)
 
     def test_rejects_empty_and_oversized_metadata(self):
         empty = encode(qualification_document(metadata_a=b""))

@@ -168,7 +168,8 @@ RE4 runtime-confirmed the existing per-planet Managed state. RE5 now closes the 
 
 ## CF1 — Investigate cloud access to exact target executables
 
-- **Status:** **Completed and verified** — see [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md). Evidence: `runtime` for cloud reachability and the end-to-end fetch (observed in a Claude cloud sandbox), `static` for the hashes and container format, `reported` for publisher distribution intent.
+- **Status:** Completed and verified
+- **Evidence / provenance:** see [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md). Evidence: `runtime` for cloud reachability and the end-to-end fetch (observed in a Claude cloud sandbox), `static` for the hashes and container format, `reported` for publisher distribution intent.
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / target acquisition
@@ -228,7 +229,8 @@ Do not commit game executables or copyrighted game assets merely to make the tas
 
 ## CF2 — Investigate cloud static reverse-engineering workflow
 
-- **Status:** **Completed and verified** — clean-checkout validation passed for PR head `67631baa78aada001103b58659364c8908e538db` / merge-ref `d0f0342f24274a9afd2575555324acf16eed4961` in GitHub Actions run `31534837880`: 205 unit tests passed and the separate real-target job completed `CF2 real-target regression: PASS`. See [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** clean-checkout validation passed for PR head `67631baa78aada001103b58659364c8908e538db` / merge-ref `d0f0342f24274a9afd2575555324acf16eed4961` in GitHub Actions run `31534837880`: 205 unit tests passed and the separate real-target job completed `CF2 real-target regression: PASS`. See [`docs/experiments/CF2-cloud-static-re.md`](./docs/experiments/CF2-cloud-static-re.md) and [`docs/experiments/CF2-real-target-regeneration.md`](./docs/experiments/CF2-real-target-regeneration.md).
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / static RE
@@ -310,7 +312,8 @@ Future CF2 pipeline code changes must continue to satisfy the same workflow; thi
 
 ## CF3 — Investigate cloud execution and debugging of the target game
 
-- **Status:** **Completed and verified** — the public demo is a reproducible cloud fixture; canonical `ANTAG.EXE` still fails on demo data, but the exact canonical target successfully reaches the 640x480 game/menu runtime in cloud when the maintainer supplies the pinned retail installation as task input. See [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** the public demo is a reproducible cloud fixture; canonical `ANTAG.EXE` still fails on demo data, but the exact canonical target successfully reaches the 640x480 game/menu runtime in cloud when the maintainer supplies the pinned retail installation as task input. See [`docs/experiments/CF3-cloud-runtime-debugging.md`](./docs/experiments/CF3-cloud-runtime-debugging.md).
 - **Execution:** CLOUD RESEARCH
 - **Priority:** Critical
 - **Category:** Cloud enablement / DOS runtime
@@ -368,7 +371,8 @@ Any `LOCAL ONLY` classification is only valid once the playable demo has actuall
 
 ## CF4 — Investigate cloud UI interaction and visual validation
 
-- **Status:** **Completed and verified** — cloud UI driving/capture is reproducible with Xvfb + XTEST + ffmpeg on the exact canonical target; see [`docs/experiments/CF4-cloud-ui-validation.md`](./docs/experiments/CF4-cloud-ui-validation.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** cloud UI driving/capture is reproducible with Xvfb + XTEST + ffmpeg on the exact canonical target; see [`docs/experiments/CF4-cloud-ui-validation.md`](./docs/experiments/CF4-cloud-ui-validation.md).
 - **Execution:** CLOUD RESEARCH
 - **Priority:** High
 - **Category:** Cloud enablement / UI validation
@@ -402,7 +406,8 @@ If local validation is unavoidable, prepare a one-command or minimal-step local 
 
 ## T0 — Define target policy and metadata capture tooling
 
-- **Status:** **Completed and verified** — deterministic synthetic fixture coverage establishes the T0 capture contract; no target-runtime claim is made.
+- **Status:** Completed and verified
+- **Evidence / provenance:** deterministic synthetic fixture coverage establishes the T0 capture contract; no target-runtime claim is made.
 - **Execution:** CLOUD
 - **Priority:** High
 - **Category:** Tooling / compatibility
@@ -459,7 +464,8 @@ Another agent or maintainer can point the tool at candidate binaries and produce
 
 ## T1 — Establish the canonical Antagonizer target and vanilla reference
 
-- **Status:** **Completed and verified** — see [`docs/experiments/T1-canonical-target-selection.md`](./docs/experiments/T1-canonical-target-selection.md). Static evidence establishes exact candidate identities and strongly supports directly comparable Antagonizer↔bug-patch build lineage; exact source-control revision identity remains unproven and is carried forward as an RE1 constraint.
+- **Status:** Completed and verified
+- **Evidence / provenance:** see [`docs/experiments/T1-canonical-target-selection.md`](./docs/experiments/T1-canonical-target-selection.md). Static evidence establishes exact candidate identities and strongly supports directly comparable Antagonizer↔bug-patch build lineage; exact source-control revision identity remains unproven and is carried forward as an RE1 constraint.
 - **Execution:** **CLOUD** — set by CF1. Candidate bytes are fetchable in cloud with `python3 tools/fetch_free_targets.py`; provenance is recorded in [`docs/experiments/CF1-cloud-target-access.md`](./docs/experiments/CF1-cloud-target-access.md).
 - **Priority:** Critical
 - **Category:** Target baseline
@@ -539,7 +545,8 @@ The retail unpatched `ASCEND.EXE` is not freely distributed and remains an optio
 
 ## T2 — Produce a reproducible static-analysis bundle
 
-- **Status:** **Completed and verified** — see [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md). Evidence is `static` with clean blind-RE provenance from all four exact CF1/T1 hash-pinned executables; the required independent Open Watcom `wdump` check passed with zero disagreements.
+- **Status:** Completed and verified
+- **Evidence / provenance:** see [`docs/experiments/T2-static-analysis-bundle.md`](./docs/experiments/T2-static-analysis-bundle.md). Evidence is `static` with clean blind-RE provenance from all four exact CF1/T1 hash-pinned executables; the required independent Open Watcom `wdump` check passed with zero disagreements.
 - **Execution:** **CLOUD** — set by CF2's completed feasibility result; T2 itself is complete.
 - **Priority:** High
 - **Category:** Tooling / static RE
@@ -591,7 +598,8 @@ Avoid bulk committing copyrighted disassembly if a smaller derived representatio
 
 ## T3 — Supply a multi-planet save fixture for M1 validation
 
-- **Status:** **Completed and verified** — exact fixture identity and canonical-target current-state runtime evidence are established; the 2026-08-18 maintainer decision in issue #38 accepts reported ordinary-play canonical-target authorship for this operator fixture without requiring byte-for-byte reproduction by a later save operation.
+- **Status:** Completed and verified
+- **Evidence / provenance:** exact fixture identity and canonical-target current-state runtime evidence are established; the 2026-08-18 maintainer decision in issue #38 accepts reported ordinary-play canonical-target authorship for this operator fixture without requiring byte-for-byte reproduction by a later save operation.
 - **Execution:** **CLOUD** — the maintainer-supplied candidate short-circuited acquisition and exact-target current-state qualification runs through the established CF3/CF4 DOSBox/Xvfb path.
 - **Priority:** High
 - **Category:** Target baseline / validation fixtures
@@ -654,7 +662,8 @@ For `m1-multi-planet`, exact-byte runtime reproduction of the historical save wr
 
 ## RE1 — Build a vanilla ↔ Antagonizer differential map
 
-- **Status:** **Completed and verified** — static blind-RE differential map completed; see [`docs/re/vanilla-antagonizer-diff.md`](./docs/re/vanilla-antagonizer-diff.md) and [`docs/experiments/RE1-vanilla-antagonizer-differential-map.md`](./docs/experiments/RE1-vanilla-antagonizer-differential-map.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** static blind-RE differential map completed; see [`docs/re/vanilla-antagonizer-diff.md`](./docs/re/vanilla-antagonizer-diff.md) and [`docs/experiments/RE1-vanilla-antagonizer-differential-map.md`](./docs/experiments/RE1-vanilla-antagonizer-differential-map.md).
 - **Execution:** **CLOUD** — set by completed CF2. Both sides are cloud-fetchable, T1 fixed their exact hashes, `tools/le_diff.py` performs the comparison, and T2 now provides the reproducible static handoff.
 - **Priority:** High
 - **Category:** Reverse engineering / differential analysis
@@ -698,7 +707,8 @@ Use normalized/static analysis rather than raw byte diff alone. Rank candidate r
 
 ## RE2 — Identify the existing auto-management UI/state seam statically
 
-- **Status:** **Completed and verified** — clean static blind-RE seam recovered; see [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md) and [`docs/experiments/RE2-auto-management-ui-state-static.md`](./docs/experiments/RE2-auto-management-ui-state-static.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** clean static blind-RE seam recovered; see [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md) and [`docs/experiments/RE2-auto-management-ui-state-static.md`](./docs/experiments/RE2-auto-management-ui-state-static.md).
 - **Execution:** **CLOUD** — completed with the CF2/T2 static path and a dedicated clean-checkout real-target regression.
 - **Priority:** Critical
 - **Category:** Reverse engineering / planet state / UI
@@ -738,7 +748,8 @@ The same narrow seam is corroborated in both product families/locales. `scripts/
 
 ## RE3 — Identify the per-turn self-management decision path statically
 
-- **Status:** **Completed and verified** — clean blind-RE static turn path established; see [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) and [`docs/experiments/RE3-static-turn-path.md`](./docs/experiments/RE3-static-turn-path.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** clean blind-RE static turn path established; see [`docs/re/auto-management-turn-path.md`](./docs/re/auto-management-turn-path.md) and [`docs/experiments/RE3-static-turn-path.md`](./docs/experiments/RE3-static-turn-path.md).
 - **Execution:** **CLOUD** — completed from the hash-pinned T2/RE1 static handoff and supplied exact target bytes; no RE2 output was required.
 - **Priority:** Critical
 - **Category:** Reverse engineering / turn processing
@@ -787,7 +798,8 @@ Do not require full reconstruction of the AI algorithm. M1 only needs a safe sea
 
 ## RE4 — Runtime-confirm the per-planet mode state and UI transition
 
-- **Status:** **Completed and verified** — exact-target runtime ownership and reversible Managed transition are confirmed; see [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md) and [`docs/experiments/RE4-runtime-ui-state.md`](./docs/experiments/RE4-runtime-ui-state.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** exact-target runtime ownership and reversible Managed transition are confirmed; see [`docs/re/auto-management-ui-state.md`](./docs/re/auto-management-ui-state.md) and [`docs/experiments/RE4-runtime-ui-state.md`](./docs/experiments/RE4-runtime-ui-state.md).
 - **Execution:** **CLOUD** — completed on the exact canonical target with the pinned maintainer-supplied retail fixture using `scripts/run_re4_runtime_state.py`; immutable retail inputs are verified by `tools/retail-runtime-manifest.json` and the resumed scenario separately pins its mutable save input.
 - **Priority:** Critical
 - **Category:** Reverse engineering / runtime state
@@ -825,7 +837,8 @@ RE4 does **not** runtime-confirm the per-turn decision/policy/action path. RE3's
 
 ## RE5 — Runtime-confirm the per-turn self-management call path
 
-- **Status:** **Completed and verified** — the 2026-08-14 read-only Manual override witness closes the ambiguity left by the perturbing marker follow-up. See [`docs/experiments/RE5-read-only-override-closure.md`](./docs/experiments/RE5-read-only-override-closure.md).
+- **Status:** Completed and verified
+- **Evidence / provenance:** the 2026-08-14 read-only Manual override witness closes the ambiguity left by the perturbing marker follow-up. See [`docs/experiments/RE5-read-only-override-closure.md`](./docs/experiments/RE5-read-only-override-closure.md).
 - **Execution:** **CLOUD**
 - **Priority:** Critical
 - **Category:** Reverse engineering / runtime turn processing
@@ -867,7 +880,8 @@ For the pinned M1 target, the compatibility handoff is established: preserve the
 
 ## A1 — Design the M1 per-planet profile state representation
 
-- **Status:** Investigation first — representation split selected; exact-target static identity census reviewed as Outcome C, reuse-safe sidecar identity/lifetime remains open.
+- **Status:** Investigation first
+- **Current state:** representation split selected; exact-target static identity census reviewed as Outcome C, reuse-safe sidecar identity/lifetime remains open.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / state
@@ -931,7 +945,8 @@ Until criterion 2 is met, A1 remains `Investigation first`; downstream tasks tha
 
 ## A2 — Select the patch/integration mechanism
 
-- **Status:** Investigation first — Stage 1 exact-target capacity inventory complete; reusable mapped capacity remains unestablished.
+- **Status:** Investigation first
+- **Current state:** Stage 1 exact-target capacity inventory complete; reusable mapped capacity remains unestablished.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / patching

@@ -1,0 +1,24 @@
+{
+  "schema": "ascendancy.agent-cycle-outcomes/v1",
+  "purpose": "Durable predecessor state for the unattended-cycle outcome contract. Missing subjects and null consecutive counts mean unknown; they never imply zero.",
+  "records": {
+    "roadmap:A1": {
+      "last_outcome": "unknown",
+      "consecutive_tooling_only": null,
+      "remaining_step": "Run the next evidence-producing A1 step once its current producer/integration blocker is resolved.",
+      "provenance": "Bootstrap entry: no provenance-bound per-item cycle outcome existed before this store was introduced."
+    },
+    "roadmap:A2": {
+      "last_outcome": "unknown",
+      "consecutive_tooling_only": null,
+      "remaining_step": "Produce and durably record evidence for A2's current open mechanism question rather than adding another producer.",
+      "provenance": "Bootstrap entry: no provenance-bound per-item cycle outcome existed before this store was introduced."
+    },
+    "issue:113": {
+      "last_outcome": "tooling only",
+      "consecutive_tooling_only": null,
+      "remaining_step": "Make evidence-producing workflows preserve safe derived results durably, then reconcile the historical A2 exact-target result as required by issue #113.",
+      "provenance": "Recorded by the initial durable-state slice for issue #113. The consecutive count remains unknown because no provenance-bound predecessor for issue #113 existed before this store."
+    }
+  }
+}

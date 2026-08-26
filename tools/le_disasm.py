@@ -42,6 +42,7 @@ import json
 import pathlib
 import re
 import shutil
+import inspect
 import subprocess
 import sys
 import tempfile
@@ -130,6 +131,38 @@ def normalize_shape(text: str) -> str:
     genuine thresholds, so the diff reports that class separately.
     """
     return HEX_RE.sub("IMM", normalize(text))
+
+
+def normalization_model() -> str:
+    """Identity of the normalize* pipeline, derived from its own source.
+
+    Recorded in every inventory so two inventories produced by different
+    normalization algorithms cannot claim the same identity. Derived rather than
+    written down on purpose: a hand-maintained identity string can be left stale
+    when the pipeline changes, and then inventories from two different
+    algorithms compare equal and get diffed against each other. Deriving it
+    removes the step a person can forget.
+    """
+    source = "".join(
+        inspect.getsource(fn)
+        for fn in (normalize, normalize_references, normalize_shape)
+    )
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()[:16]
+
+
+def normalization_description() -> str:
+    """The normalization identity recorded in every inventory.
+
+    Prose so a reader knows what the three signatures contain, plus the derived
+    model id so two different pipelines can never record the same identity. One
+    function so there is one copy: le_diff compares this value, and a test that
+    rebuilt the literal instead of calling this would not notice it drifting.
+    """
+    return (
+        "signature preserves every operand; reference_signature masks "
+        "hex operands inside image object ranges; shape_signature masks "
+        f"all hex operands [model {normalization_model()}]"
+    )
 
 
 def disassemble(
@@ -366,11 +399,7 @@ def analyse(
                       "direct call targets plus a seed at the entry point when "
                       "it lies in this object, otherwise the object base",
             "seed_address": seed,
-            "normalization": (
-                "signature preserves every operand; reference_signature masks "
-                "hex operands inside image object ranges; shape_signature masks "
-                "all hex operands"
-            ),
+            "normalization": normalization_description(),
         },
         **inventory,
     }

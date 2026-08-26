@@ -16,6 +16,9 @@ EXPECTED_SOURCE_SCHEMA = "ascendancy.a1-sidecar-expected-source/v1"
 MAX_METADATA_BYTES = 512
 PLANET_RECORD_SIZE = 0x7B
 PRESENTATION_NAME_OFFSET = 0x24
+# RE4 bounds presentation-name recognition to 32 bytes from +0x24. Excluding
+# that same observation window is conservative qualification policy, not a
+# claim that every byte in the window is part of an immutable target field.
 PRESENTATION_NAME_BYTES = 32
 ALLOWED_METADATA_BASES = frozenset({"bounded-record-metadata"})
 
@@ -163,7 +166,7 @@ def _validated_input(
                 )
             if _overlaps_presentation_name(record_offset, len(metadata)):
                 raise A1ScenarioQualificationError(
-                    f"{context} metadata range overlaps the established presentation-name field "
+                    f"{context} metadata range overlaps the bounded presentation-name observation window "
                     f"[0x{PRESENTATION_NAME_OFFSET:x}, 0x{PRESENTATION_NAME_OFFSET + PRESENTATION_NAME_BYTES:x})"
                 )
             rationale = _require_nonempty_string(entry.get("metadata_rationale"), f"{context}.metadata_rationale")

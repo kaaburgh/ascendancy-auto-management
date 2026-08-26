@@ -109,21 +109,21 @@ class A1ScenarioQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "presentation-name-only"):
             qual.build_manifest(raw, expected_source(raw))
 
-    def test_rejects_witness_inside_presentation_name_field(self):
+    def test_rejects_witness_inside_presentation_name_window(self):
         document = qualification_document(metadata_a=b"name-only")
         document["planets"][0]["record_offset"] = qual.PRESENTATION_NAME_OFFSET
         raw = encode(document)
-        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "overlaps the established presentation-name field"):
+        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "overlaps the bounded presentation-name observation window"):
             qual.build_manifest(raw, expected_source(raw))
 
-    def test_rejects_witness_partially_overlapping_presentation_name_field(self):
+    def test_rejects_witness_partially_overlapping_presentation_name_window(self):
         document = qualification_document(metadata_a=b"abcd")
         document["planets"][0]["record_offset"] = qual.PRESENTATION_NAME_OFFSET - 2
         raw = encode(document)
-        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "overlaps the established presentation-name field"):
+        with self.assertRaisesRegex(qual.A1ScenarioQualificationError, "overlaps the bounded presentation-name observation window"):
             qual.build_manifest(raw, expected_source(raw))
 
-    def test_accepts_witness_ranges_adjacent_to_presentation_name_field(self):
+    def test_accepts_witness_ranges_adjacent_to_presentation_name_window(self):
         document = qualification_document(metadata_a=b"abcd", metadata_b=b"efgh")
         document["planets"][0]["record_offset"] = qual.PRESENTATION_NAME_OFFSET - 4
         document["planets"][1]["record_offset"] = qual.PRESENTATION_NAME_OFFSET + qual.PRESENTATION_NAME_BYTES

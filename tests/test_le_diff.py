@@ -62,17 +62,28 @@ def function(
 
 TOOL_OBJDUMP = "GNU objdump (GNU Binutils) 2.42"
 TOOL_ARCH = "i386"
+TOOL_METHOD = "linear sweep of the whole object"
+TOOL_NORMALIZATION = "signature preserves every operand"
 
 
-def tool_block(objdump: str = TOOL_OBJDUMP, arch: str = TOOL_ARCH) -> dict:
-    """The decoder identity le_disasm records. Every match pass compares strings
-    this decoder produced, so two inventories are only comparable when it agrees.
+def tool_block(
+    objdump: str = TOOL_OBJDUMP,
+    arch: str = TOOL_ARCH,
+    method: str = TOOL_METHOD,
+    normalization: str = TOOL_NORMALIZATION,
+) -> dict:
+    """The analysis-model identity le_disasm records.
+
+    Every match pass compares strings this model produced -- objdump/arch decide
+    the rendering, method decides which functions are in the inventory at all,
+    and normalization decides what the signatures contain. Two inventories are
+    only comparable when all four agree.
     """
     return {
         "objdump": objdump,
         "arch": arch,
-        "method": "linear sweep of the whole object",
-        "normalization": "signature preserves every operand",
+        "method": method,
+        "normalization": normalization,
     }
 
 
@@ -82,6 +93,8 @@ def inventory(
     *,
     objdump: str = TOOL_OBJDUMP,
     arch: str = TOOL_ARCH,
+    method: str = TOOL_METHOD,
+    normalization: str = TOOL_NORMALIZATION,
 ) -> dict:
     return {
         "schema": le_disasm.INVENTORY_SCHEMA,
@@ -94,7 +107,7 @@ def inventory(
             "page_offset_header_offset": 0x80,
             "data_page_offset": 0x1000,
         },
-        "tool": tool_block(objdump, arch),
+        "tool": tool_block(objdump, arch, method, normalization),
         "functions": functions,
     }
 

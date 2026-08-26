@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`validate_inventory` must bind the decoder identity it claims to fail closed on.
+"""`validate_inventory` must bind the analysis-model identity it claims to fail closed on.
 
 Its docstring says it fails closed on "serialized inventories from incompatible
 analysis models", and it checks the schema, the source fingerprint, the parser
@@ -28,9 +28,23 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import le_diff  # noqa: E402
 from le_disasm import DisasmError  # noqa: E402
 
-from test_le_diff import TOOL_ARCH, TOOL_OBJDUMP, function, inventory  # noqa: E402
+from test_le_diff import (  # noqa: E402
+    TOOL_ARCH,
+    TOOL_METHOD,
+    TOOL_NORMALIZATION,
+    TOOL_OBJDUMP,
+    function,
+    inventory,
+)
 
 OTHER_OBJDUMP = "GNU objdump (GNU Binutils) 2.38"
+
+# The digest of the normalize* pipeline whose behaviour TOOL_NORMALIZATION and
+# le_disasm's own recorded prose describe. Bump both together -- see
+# test_recorded_normalization_prose_is_pinned_to_the_pipeline_source.
+NORMALIZATION_SOURCE_SHA256 = (
+    "e091646ed4cbc27f0214dec4e0a706b278abfafe619a7401de9aacc6fe7c7ee2"
+)
 
 
 def functions():
@@ -69,22 +83,25 @@ class ValidateInventoryBindsDecoder(unittest.TestCase):
     def test_accepts_an_inventory_that_records_its_decoder(self):
         le_diff.validate_inventory(inventory("left", functions()))
 
-    def test_decoder_identity_reports_the_recorded_decoder(self):
+    def test_decoder_identity_reports_the_whole_recorded_model(self):
         report = inventory("left", functions())
-        self.assertEqual(le_diff.decoder_identity(report), (TOOL_OBJDUMP, TOOL_ARCH))
+        self.assertEqual(
+            le_diff.decoder_identity(report),
+            (TOOL_OBJDUMP, TOOL_ARCH, TOOL_METHOD, TOOL_NORMALIZATION),
+        )
 
 
 class CompareRefusesMismatchedDecoders(unittest.TestCase):
     def test_compare_refuses_two_different_objdump_versions(self):
         left = inventory("left", functions())
         right = inventory("right", functions(), objdump=OTHER_OBJDUMP)
-        with self.assertRaisesRegex(DisasmError, "produced by different decoders"):
+        with self.assertRaisesRegex(DisasmError, "different analysis models"):
             le_diff.compare(left, right)
 
     def test_compare_refuses_two_different_architectures(self):
         left = inventory("left", functions())
         right = inventory("right", functions(), arch="x86-64")
-        with self.assertRaisesRegex(DisasmError, "produced by different decoders"):
+        with self.assertRaisesRegex(DisasmError, "different analysis models"):
             le_diff.compare(left, right)
 
     def test_the_error_names_both_sides_of_the_disagreement(self):
@@ -110,14 +127,65 @@ class CompareRefusesMismatchedDecoders(unittest.TestCase):
         )
         self.assertEqual(2, report["matched_function_count"])
 
-    def test_a_descriptive_tool_field_difference_does_not_block_comparison(self):
-        # method/normalization are prose. They must be present, but they do not
-        # decide comparability the way the decoder identity does.
+    def test_compare_refuses_two_different_normalization_models(self):
+        # The three signatures are hashes of strings the normalize* pipeline
+        # produced. A normalization change makes every signature incomparable
+        # even when objdump and arch are identical, so this must refuse.
         left = inventory("left", functions())
-        right = inventory("right", functions())
-        right["tool"]["method"] = "linear sweep, reworded"
-        report = le_diff.compare(left, right)
-        self.assertEqual(2, report["matched_function_count"])
+        right = inventory("right", functions(), normalization="shape_signature keeps hex")
+        with self.assertRaisesRegex(DisasmError, "different analysis models"):
+            le_diff.compare(left, right)
+
+    def test_compare_refuses_two_different_sweep_methods(self):
+        # method decides which functions enter the inventory at all, so a
+        # difference there changes only_in_left/right without any real delta.
+        left = inventory("left", functions())
+        right = inventory("right", functions(), method="entry-point recursive descent")
+        with self.assertRaisesRegex(DisasmError, "different analysis models"):
+            le_diff.compare(left, right)
+
+    def test_every_recorded_model_field_is_load_bearing(self):
+        # No field in the tool block is decorative. If one is ever demoted to
+        # prose, this fails and the demotion has to be argued for.
+        for field in ("objdump", "arch", "method", "normalization"):
+            with self.subTest(field=field):
+                left = inventory("left", functions())
+                right = inventory("right", functions())
+                right["tool"][field] = "something else entirely"
+                with self.assertRaisesRegex(DisasmError, "different analysis models"):
+                    le_diff.compare(left, right)
+
+    def test_recorded_normalization_prose_is_pinned_to_the_pipeline_source(self):
+        """The recorded model text must not be able to go stale silently.
+
+        Comparing the recorded prose only detects a normalization change if the
+        prose is updated when the pipeline is. That is a self-declared label,
+        and a label nobody checks is exactly the defect this module's guard
+        exists to close. So the prose is pinned to the source it describes: edit
+        normalize/normalize_references/normalize_shape and this fails until the
+        recorded text and this digest are updated together.
+        """
+        import hashlib
+        import inspect
+
+        import le_disasm
+
+        source = "".join(
+            inspect.getsource(fn)
+            for fn in (
+                le_disasm.normalize,
+                le_disasm.normalize_references,
+                le_disasm.normalize_shape,
+            )
+        )
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        self.assertEqual(
+            NORMALIZATION_SOURCE_SHA256,
+            digest,
+            "the normalize* pipeline changed. Update the tool.normalization text "
+            "le_disasm records, then update NORMALIZATION_SOURCE_SHA256 here. "
+            "Inventories produced before and after this change are not comparable.",
+        )
 
 
 class DiffMapPathBindsDecoderToo(unittest.TestCase):
@@ -139,7 +207,7 @@ class DiffMapPathBindsDecoderToo(unittest.TestCase):
         module = self.module()
         left = inventory("left", functions())
         right = inventory("right", functions(), objdump=OTHER_OBJDUMP)
-        with self.assertRaisesRegex(DisasmError, "produced by different decoders"):
+        with self.assertRaisesRegex(DisasmError, "different analysis models"):
             module.compare_with_pairs(left, right)
 
     def test_compare_with_pairs_still_runs_when_the_decoder_agrees(self):

@@ -15,6 +15,8 @@ LEGACY_OUTPUT_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
 EXPECTED_SOURCE_SCHEMA = "ascendancy.a1-sidecar-expected-source/v1"
 MAX_METADATA_BYTES = 512
 PLANET_RECORD_SIZE = 0x7B
+PRESENTATION_NAME_OFFSET = 0x24
+PRESENTATION_NAME_LENGTH = 32
 ALLOWED_METADATA_BASES = frozenset({"bounded-record-metadata"})
 
 
@@ -63,6 +65,17 @@ def _require_hex_bytes(value: Any, context: str) -> bytes:
     if len(raw) > MAX_METADATA_BYTES:
         raise A1ScenarioQualificationError(f"{context} exceeds {MAX_METADATA_BYTES} byte bound")
     return raw
+
+
+def _reject_presentation_name_overlap(offset: int, length: int, context: str) -> None:
+    """Reject a witness range by its geometry, not by the basis label it declares."""
+    name_end = PRESENTATION_NAME_OFFSET + PRESENTATION_NAME_LENGTH
+    if offset < name_end and offset + length > PRESENTATION_NAME_OFFSET:
+        raise A1ScenarioQualificationError(
+            f"{context} metadata range 0x{offset:x}..0x{offset + length:x} overlaps the established "
+            f"presentation-name window 0x{PRESENTATION_NAME_OFFSET:x}..0x{name_end:x}; "
+            "presentation name cannot establish record identity"
+        )
 
 
 def _load_json_bytes(raw: bytes, context: str) -> dict[str, Any]:
@@ -153,6 +166,7 @@ def _validated_input(
                 raise A1ScenarioQualificationError(
                     f"{context} metadata range must fit within the established 0x{PLANET_RECORD_SIZE:x}-byte planet record"
                 )
+            _reject_presentation_name_overlap(record_offset, len(metadata), context)
             rationale = _require_nonempty_string(entry.get("metadata_rationale"), f"{context}.metadata_rationale")
             witness_ranges[label] = {
                 "metadata_basis": basis,

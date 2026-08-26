@@ -45,7 +45,7 @@ def qualification_document(*, basis="bounded-record-metadata", metadata_a=b"plan
                 "logical_label": "scenario-planet-b",
                 "metadata_basis": "bounded-record-metadata",
                 "metadata_hex": metadata_b.hex(),
-                "record_offset": 0x20,
+                "record_offset": 0x50,
                 "metadata_rationale": "synthetic stable metadata distinct from presentation name",
             },
         ],

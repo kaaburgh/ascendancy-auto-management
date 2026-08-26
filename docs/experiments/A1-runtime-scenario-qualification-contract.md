@@ -22,9 +22,9 @@ Before the A1 lifetime runner starts, the qualification producer receives and ve
 - a finite set of exact logical planet labels used only for the bounded experiment;
 - for every v2 planet witness, a non-empty bounded metadata byte sequence, its record-relative offset, and a rationale for choosing that range.
 
-Logical labels are opaque identifiers. Producer, validator and lifetime consumer must not trim, case-fold, Unicode-normalize, locale-transform or otherwise rewrite them.
+Logical labels are opaque identifiers. Producer, validator and lifetime consumer must not trim, case-fold, Unicode-normalize, locale-transform or otherwise rewrite them. Their exact spelling and uniqueness are machine-checked; the semantic assertion that a label denotes the intended scenario planet is not established by the label itself. That assertion is supported only by the independently supplied qualification bytes and the later experiment controls.
 
-The independently supplied expected-source document remains `ascendancy.a1-sidecar-expected-source/v1`; it pins source identity, not witness layout.
+The independently supplied expected-source document remains `ascendancy.a1-sidecar-expected-source/v1`; it pins source identity, not witness layout. `scenario_identity` is likewise bound exactly to that independently supplied document, but its human-readable meaning is not inferred or validated from the string.
 
 ## Qualification schemas
 
@@ -33,9 +33,22 @@ The independently supplied expected-source document remains `ascendancy.a1-sidec
 `ascendancy.a1-sidecar-scenario-qualification-input/v2` adds two required fields to each planet entry:
 
 - `record_offset`: non-negative byte offset from the established start of the `0x7b` planet record;
-- `metadata_rationale`: non-empty explanation of why this bounded range is suitable for scenario qualification and is not merely presentation-name identity.
+- `metadata_rationale`: non-empty reviewer-facing explanation of why this bounded range is suitable for scenario qualification. The validator checks only that this field is present and non-empty; it cannot establish that the explanation is true.
 
-The supplied `metadata_hex` plus `record_offset` must fit entirely inside the established `0x7b` record. The existing 512-byte absolute witness bound remains in force.
+The supplied `metadata_hex` plus `record_offset` must fit entirely inside the established `0x7b` record. The existing 512-byte absolute witness bound remains in force. Qualification also rejects ranges that geometrically overlap the established presentation-name observation window. That structural check prevents the known name-only failure mode, but it does **not** prove that any other accepted range is stable, reuse-safe, or semantically sufficient to distinguish logical records.
+
+### Human-review boundary for rationale
+
+`metadata_rationale` is an operator claim, not machine-established evidence. Requiring a non-empty string makes the claim explicit and reviewable; it does not validate its substance. A reviewer is expected to check the rationale against the declared range and the evidence available for the scenario, in particular that:
+
+- the explanation matches the actual `record_offset`/`length` geometry and does not rely on presentation name as identity;
+- it states why the chosen bytes are useful for distinguishing the bounded scenario records rather than merely repeating a field label;
+- it does not claim immutability, lifetime, or reuse safety that the qualification step has not established;
+- it does not make the later identity/lifetime experiment circular by assuming the logical-record continuity that the experiment is meant to test.
+
+A populated rationale that fails those checks remains invalid as evidence even though `_validated_input` accepts its shape. The validator must not be described as proving the rationale.
+
+The same distinction applies to the opaque `logical_label`: exact bytes and uniqueness are validated, while the label's semantic correspondence to a scenario planet is not. `scenario_identity` is stronger in one respect because it is equality-bound to the independently supplied expected-source document, but the prose meaning of that identifier is still outside machine validation.
 
 ### Current observer-capable output: v2
 
@@ -59,7 +72,7 @@ The producer emits `ascendancy.a1-sidecar-scenario-qualification/v2`:
       "record_offset": 16,
       "length": 8,
       "sha256": "<same digest as planets[logical-label]>",
-      "rationale": "<predeclared rationale>"
+      "rationale": "<predeclared reviewer-facing rationale; substance not machine-validated>"
     }
   }
 }
@@ -75,13 +88,15 @@ The lifetime oracle's established scenario-input semantics remain v1. `scripts/a
 
 ## Bounded witness rule
 
-Each digest covers a deliberately selected, bounded metadata byte range sufficient to distinguish the scenario's known logical records during this experiment. Presentation name may be present as control/presentation evidence but may not be the sole metadata basis.
+Each digest covers a deliberately selected, bounded metadata byte range intended to distinguish the scenario's known logical records during this experiment. The validator establishes the range bounds, source binding, digest binding, allowed metadata-basis value, and exclusion of the established presentation-name observation window. Whether the accepted bytes are *actually sufficient* for the scenario is a reviewer judgement until corroborated by the experiment.
 
 These bytes are not claimed to be an immutable planet identity. They bind scenario labels to runtime observations so pointer/index reuse can be detected without circularly trusting labels emitted by the observer itself.
 
 ## Fail-closed requirements
 
-The producer/validator rejects unsupported schemas; malformed source identities; empty or duplicate exact logical labels; empty or oversized metadata; presentation-name-only qualification; a v2 range outside the established `0x7b` record; missing v2 range rationale; digest/input mismatches; and source identity differing from the independent expected-source document.
+The producer/validator rejects unsupported schemas; malformed source identities; empty or duplicate exact logical labels; empty or oversized metadata; unsupported metadata-basis labels; geometric overlap with the established presentation-name observation window; a v2 range outside the established `0x7b` record; missing/empty v2 range rationale; digest/input mismatches; and source identity differing from the independent expected-source document.
+
+The producer/validator does **not** establish that `metadata_rationale` is truthful or sufficient, that an opaque logical label semantically names the intended planet, or that an accepted non-name metadata range is immutable/reuse-safe. Those are human-review or later-experiment questions, not validation results.
 
 No positive A1 identity outcome is valid when qualification is missing or ambiguous. Exact-target observer work must use the v2 location-bearing contract, not the legacy v1 compatibility path.
 
@@ -91,7 +106,7 @@ Commit only producer/validator code, synthetic fixtures, range descriptors and c
 
 ## Validation slice
 
-Synthetic validation covers deterministic v2 generation, exact source binding, canonical metadata basis, empty/oversized metadata rejection, record-range bounds, required rationale, digest mismatch rejection, exact logical-label behavior, and projection of the resulting digest map to the unchanged lifetime-oracle contract. Existing v1 synthetic callers remain accepted as compatibility-only inputs.
+Synthetic validation covers deterministic v2 generation, exact source binding, canonical metadata basis, empty/oversized metadata rejection, record-range bounds, structural presentation-name-window rejection, required non-empty rationale shape, digest mismatch rejection, exact logical-label behavior, and projection of the resulting digest map to the unchanged lifetime-oracle contract. It does not validate the semantic truth of rationale text or opaque labels. Existing v1 synthetic callers remain accepted as compatibility-only inputs.
 
 This is tooling evidence. It does not establish a reuse-safe key, pointer/index lifetime, epoch/reset seam, Manual-transition invalidation, or A1 completion.
 

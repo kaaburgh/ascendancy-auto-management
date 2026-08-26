@@ -148,6 +148,9 @@ def _validated_input(
         context = f"qualification input planets[{index}]"
         if not isinstance(entry, dict):
             raise A1ScenarioQualificationError(f"{context} must be an object")
+        # Exact spelling and uniqueness are checked below, but logical_label is an
+        # opaque operator identifier; its semantic correspondence is not inferred
+        # from the string and must come from the qualified bytes/experiment controls.
         label = _require_nonempty_string(entry.get("logical_label"), f"{context}.logical_label", exact=True)
         if label in digests:
             raise A1ScenarioQualificationError(f"duplicate logical label {label!r}")
@@ -167,6 +170,9 @@ def _validated_input(
                     f"{context} metadata range must fit within the established 0x{PLANET_RECORD_SIZE:x}-byte planet record"
                 )
             _reject_presentation_name_overlap(record_offset, len(metadata), context)
+            # This is intentionally a shape check only. metadata_rationale is a
+            # reviewer-facing operator claim: code cannot establish that its prose
+            # is truthful, sufficient, or non-circular. See the qualification contract.
             rationale = _require_nonempty_string(entry.get("metadata_rationale"), f"{context}.metadata_rationale")
             witness_ranges[label] = {
                 "metadata_basis": basis,

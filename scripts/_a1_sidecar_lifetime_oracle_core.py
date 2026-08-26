@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Validate/classify detached A1 sidecar lifetime observations."""
 from __future__ import annotations
 
@@ -405,4 +404,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        "private module is not a CLI; use scripts/a1_sidecar_lifetime_oracle.py"
+    )

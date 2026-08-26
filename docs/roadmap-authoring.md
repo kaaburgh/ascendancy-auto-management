@@ -3,9 +3,41 @@
 
 `ROADMAP.md` is live project state, not a static wish list. It must let an agent select one bounded item, understand why it exists, execute it without rediscovering previous work, and leave the repository more informative even when a hypothesis is wrong.
 
-## Recommended status vocabulary
+## Status vocabulary
 
-Use a small explicit vocabulary such as `Open`, `Investigation first`, `Blocked on target evidence`, `Partially implemented`, `Implemented, validation incomplete`, `Completed and verified`, `Superseded`, and `Dropped`. Preserve the reason for superseded or dropped work.
+Status is a closed vocabulary, not a free-text field. A recommended list is not a checked list: a vocabulary offered with "such as" drifts item by item until the status column no longer answers any question.
+
+| Status | Meaning |
+| --- | --- |
+| `Open` | ready to select once dependencies are satisfied |
+| `Investigation first` | the next step is knowledge or a decision, not implementation |
+| `Blocked on target evidence` | waiting on evidence the project cannot currently produce |
+| `Blocked (<ID>)` | blocked by a named roadmap item |
+| `Partially implemented` | real work landed, the item is not finished |
+| `Implemented, validation incomplete` | the change exists; its acceptance evidence does not yet |
+| `Completed (contract scope)` | acceptance was a contract or tool, validated synthetically, with no target evidence |
+| `Completed and verified` | acceptance evidence exists and was reviewed |
+| `Superseded` | replaced by other work; preserve the reason |
+| `Dropped` | abandoned deliberately; preserve the reason |
+
+Two of these exist because projects reliably invent them:
+
+- `Completed (contract scope)` keeps "the contract is closed" distinct from "the behavior is confirmed". Without it, contract work is recorded as plain `Completed` and the distinction disappears — the same distinction the evidence rules exist to protect.
+- `Blocked (<ID>)` names the blocker. Bare `Blocked` hides a chokepoint that is then only visible by reading every dependency field at once; the named form makes it readable across every status line.
+
+Preserve the reason for superseded or dropped work.
+
+`agentic-repo check` validates membership. A project extends the list through `.agentic-repo.toml`:
+
+```toml
+[roadmap]
+extra_statuses = ["Awaiting legal review"]
+enforce_status_vocabulary = true
+```
+
+An extended value is accepted as valid, but only the shipped vocabulary carries workable/satisfying semantics, so extensions are invisible to the derived metrics below. By default a status outside the vocabulary is a warning, so adopting a newer kit cannot turn an existing structurally valid roadmap red without a repository change; `enforce_status_vocabulary` promotes it to a failure for projects that want the stricter contract.
+
+Any `[roadmap]` key is rejected fail-closed by kits older than the one that introduced it. A repository whose contract check runs a pinned older artifact must upgrade that pin in the same change that adds the table.
 
 ## Recommended item schema
 
@@ -27,10 +59,21 @@ Each active item should state enough of the following to avoid invention by the 
 - **Compatibility / safety:** ...
 - **Validation / acceptance:** ...
 - **Artifacts / docs:** ...
-- **Estimated scope:** Small / Medium
+- **Slice budget:** k/N plus the remaining slices, when the item spans several PRs
+- **Estimated scope:** Small / Medium / Large
 ```
 
 Investigation items should finish with knowledge or a decision. Implementation items should depend on established seams and state the observable behavior, compatibility boundary, and required validation.
+
+## Slice budget for multi-PR items
+
+An item that plainly will not fit in one PR declares `Slice budget: k/N` and lists the remaining slices. Without it an item can sit at `Partially implemented` across any number of PRs while every individual PR is correct and bounded — the state "this is already the eighth slice" is then recorded nowhere, and nothing can notice it.
+
+Exceeding the budget is not closed silently. The PR either splits the item into separate IDs, or re-budgets explicitly and says what changed to justify it. A budget that is incremented without that justification is the failure mode the field exists to catch, not a use of it.
+
+`Estimated scope: Large` means "requires a slice budget". Recording an eight-slice item as `Medium` because the vocabulary stops at `Medium` loses the estimate calibration that the field exists to provide.
+
+`agentic-repo check` warns when a `Partially implemented` item declares no `Slice budget`, and when the declared value is not `k/N`. Whether `k` has outgrown `N` is a review question, not a mechanical one.
 
 ## Execution environment
 
@@ -62,6 +105,33 @@ Project only current human actions. Use the roadmap to decide what is current, r
 The status may be a standalone `Status` field or part of a compact slash-separated field such as `Status / priority / execution`. Dependency values should be `none`/`None` or comma/semicolon-separated item IDs; ordinary Markdown links, code formatting, bold formatting, and short parenthetical annotations are accepted around an otherwise exact ID.
 
 This validation does not prove that a dependency is the right semantic dependency, that an item is truly ready, or that its acceptance criteria are sufficient. Those remain evidence-driven review questions.
+
+## Derived planning metrics
+
+A well-formed roadmap graph is not the same thing as a workable one. A roadmap can hold unique IDs, resolvable dependencies and an acyclic graph while offering almost nothing to select from, and every individual PR against it can be correct while the sequence of them grinds a single unblocked lane.
+
+`agentic-repo check` therefore reports the shape of the graph it already parses:
+
+```
+ready = 2/34 outstanding (5.9%); 34 item(s) total
+chokepoint: BB-ENV1 gates 31/34 outstanding (91.2%)
+```
+
+- **ready** counts items whose status is workable and whose dependencies are all satisfied. Closed work stays in the document forever, so the ratio is taken against outstanding items; measuring against every item ever written would decay towards zero on a healthy mature roadmap.
+- **chokepoint** names an item that more than a configured share of outstanding work transitively depends on. Only chokepoints that are not themselves behind another chokepoint are reported, so the output names the item to unblock rather than every link of the chain behind it.
+
+This matters more for an unattended agent than for a human reader: an agent faithfully keeps selecting from whatever the ready set contains, however small it is and however unbounded its members are.
+
+These are warnings and reported facts. They never fail the check. A small ready surface is sometimes the correct state for a project waiting on an external event, and a check that fails on it would teach people to work around the check. Thresholds are configurable:
+
+```toml
+[roadmap]
+ready_floor = 1
+ready_floor_fraction = 0.1
+chokepoint_fraction = 0.5
+```
+
+The kit does not judge whether an item *should* be blocked, does not reorder anything, and does not select work. It reports the shape of the graph and leaves the conclusion to the reader.
 
 ## Roadmap reconciliation
 

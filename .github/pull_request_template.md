@@ -37,7 +37,10 @@
 - [ ] Claims match validation actually performed.
 - [ ] New evidence that invalidated the plan is reflected in roadmap/docs rather than hidden by the implementation.
 - [ ] Structured roadmap IDs/dependencies remain valid and acyclic when this PR changes roadmap sequencing.
+- [ ] A producer/instrumentation/contract item's first slice produced one real end-to-end output, or the PR states why the narrow path was unavailable.
+- [ ] A multi-PR item carries `Slice budget: k/N`; exceeding it splits the item or re-budgets with a stated justification.
 - [ ] Evidence-producing CI/path filters cover the material producer/parser/schema/manifest/config dependencies that can change the validated result.
+- [ ] Rules this PR describes as enforced are checked against a property of the data, not against a self-declared label.
 
 ### Reverse-engineering evidence
 
@@ -50,6 +53,7 @@
 - [ ] Harness/control capability evidence is not presented as target-specific runtime evidence.
 - [ ] Negative results that prevent repeated dead ends are durable.
 - [ ] Runtime behavior is not claimed from static or synthetic evidence alone.
+- [ ] No new producer duplicates an already-tooled question whose previous result is still unrecorded.
 
 ### Blind-research provenance
 
@@ -66,6 +70,10 @@
 - [ ] The detached machine-readable run record has an explicit supported schema/version and captures target/fixture, scenario/config, harness/tool, material environment, termination, semantic oracle, and artifact provenance without embedding proprietary payloads.
 - [ ] Artifacts/logs are bounded and sanitize private paths, credentials, user identifiers, and unrelated host data.
 - [ ] Ambiguous target or fixture selection fails closed rather than choosing a candidate silently.
+- [ ] Gated items state `Operator cost` as `<sessions> × <minutes>` or `unknown (measured by <ID>)`; no estimate was invented to replace an unknown.
+- [ ] A first successful gated run recorded measured end-to-end operator time in its run record and durable docs.
+- [ ] A batched session established matching baselines, scenario/config identity, instrumentation build and run provenance, named every item it serves, and did not merge their acceptance.
+- [ ] A batched session established that no item's instrumentation materially changes what another item observes; where that was uncertain rather than established, the items ran separately and the reason is recorded.
 
 ### Binary compatibility and rollback
 

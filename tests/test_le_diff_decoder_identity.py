@@ -39,12 +39,7 @@ from test_le_diff import (  # noqa: E402
 
 OTHER_OBJDUMP = "GNU objdump (GNU Binutils) 2.38"
 
-# The digest of the normalize* pipeline whose behaviour TOOL_NORMALIZATION and
-# le_disasm's own recorded prose describe. Bump both together -- see
-# test_recorded_normalization_prose_is_pinned_to_the_pipeline_source.
-NORMALIZATION_SOURCE_SHA256 = (
-    "e091646ed4cbc27f0214dec4e0a706b278abfafe619a7401de9aacc6fe7c7ee2"
-)
+
 
 
 def functions():
@@ -155,15 +150,15 @@ class CompareRefusesMismatchedDecoders(unittest.TestCase):
                 with self.assertRaisesRegex(DisasmError, "different analysis models"):
                     le_diff.compare(left, right)
 
-    def test_recorded_normalization_prose_is_pinned_to_the_pipeline_source(self):
-        """The recorded model text must not be able to go stale silently.
+    def test_the_recorded_normalization_identity_is_derived_from_the_pipeline(self):
+        """The emitted identity must change with the code, with no human step.
 
-        Comparing the recorded prose only detects a normalization change if the
-        prose is updated when the pipeline is. That is a self-declared label,
-        and a label nobody checks is exactly the defect this module's guard
-        exists to close. So the prose is pinned to the source it describes: edit
-        normalize/normalize_references/normalize_shape and this fails until the
-        recorded text and this digest are updated together.
+        Pinning only a test constant leaves a hole: a normalization change fails
+        that test, the constant gets updated as instructed, and the recorded
+        prose can be left untouched -- so inventories from two different
+        algorithms carry the same normalization identity and are accepted as
+        comparable. Deriving the identity from the source removes the step that
+        can be skipped.
         """
         import hashlib
         import inspect
@@ -178,14 +173,45 @@ class CompareRefusesMismatchedDecoders(unittest.TestCase):
                 le_disasm.normalize_shape,
             )
         )
-        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
-        self.assertEqual(
-            NORMALIZATION_SOURCE_SHA256,
-            digest,
-            "the normalize* pipeline changed. Update the tool.normalization text "
-            "le_disasm records, then update NORMALIZATION_SOURCE_SHA256 here. "
-            "Inventories produced before and after this change are not comparable.",
-        )
+        expected = hashlib.sha256(source.encode("utf-8")).hexdigest()[:16]
+        self.assertEqual(expected, le_disasm.normalization_model())
+
+    def test_changing_the_pipeline_changes_the_recorded_identity(self):
+        # The binding is live, not a coincidence of two equal computations:
+        # swap one pipeline function and the identity must move.
+        import le_disasm
+
+        before = le_disasm.normalization_model()
+        original = le_disasm.normalize_shape
+
+        def replacement(text: str) -> str:
+            """A different masking model."""
+            return text
+
+        le_disasm.normalize_shape = replacement
+        try:
+            self.assertNotEqual(before, le_disasm.normalization_model())
+        finally:
+            le_disasm.normalize_shape = original
+        self.assertEqual(before, le_disasm.normalization_model())
+
+    def test_a_real_inventory_records_the_derived_identity(self):
+        # It has to reach the artifact, not just exist as a function.
+        import le_disasm
+
+        self.assertIn(le_disasm.normalization_model(), le_disasm.normalization_description())
+
+    def test_two_pipelines_cannot_share_one_recorded_identity(self):
+        # The property the whole guard rests on, stated directly.
+        import le_disasm
+
+        recorded = le_disasm.normalization_description()
+        original = le_disasm.normalize
+        le_disasm.normalize = lambda text: text
+        try:
+            self.assertNotIn(le_disasm.normalization_model(), recorded)
+        finally:
+            le_disasm.normalize = original
 
 
 class DiffMapPathBindsDecoderToo(unittest.TestCase):

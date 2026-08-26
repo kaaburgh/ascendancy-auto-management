@@ -45,12 +45,24 @@ from le_image import LEError  # noqa: E402
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
-# The decoder identity le_disasm records in every inventory it emits. Two
-# inventories are only comparable when these agree: the whole matcher works on
-# objdump's textual output, so a different decoder can render the same bytes
-# differently and turn an identical function into a structural difference.
-DECODER_IDENTITY_FIELDS = ("objdump", "arch")
-REQUIRED_TOOL_FIELDS = DECODER_IDENTITY_FIELDS + ("method", "normalization")
+# The analysis-model identity le_disasm records in every inventory it emits.
+# Two inventories are only comparable when all of these agree.
+#
+# objdump/arch decide how the bytes are rendered: a different decoder can render
+# the same bytes differently and turn an identical function into a structural
+# difference. method decides which functions enter the inventory at all.
+# normalization decides what the three signatures actually contain -- they are
+# hashes of strings the normalize* pipeline produced, so a normalization change
+# makes every signature incomparable even when the decoder is identical.
+#
+# All four are therefore identity, not description. le_disasm emits them as
+# literals, so two inventories from one le_disasm always agree; they diverge
+# exactly when the analysis model changed between the two runs, which is when
+# the comparison must refuse. tests/test_le_diff_decoder_identity.py pins the
+# normalize* source to a digest so the recorded text cannot fall out of step
+# with the code it describes.
+DECODER_IDENTITY_FIELDS = ("objdump", "arch", "method", "normalization")
+REQUIRED_TOOL_FIELDS = DECODER_IDENTITY_FIELDS
 
 
 def validate_inventory(report: dict, source_name: str = "inventory") -> None:
@@ -143,7 +155,7 @@ def validate_inventory(report: dict, source_name: str = "inventory") -> None:
 
 
 def decoder_identity(report: dict) -> tuple[str, ...]:
-    """The fields that decide whether two inventories may be compared at all."""
+    """The analysis-model fields that decide whether two inventories are comparable."""
     tool = report["tool"]
     return tuple(tool[key] for key in DECODER_IDENTITY_FIELDS)
 
@@ -151,11 +163,11 @@ def decoder_identity(report: dict) -> tuple[str, ...]:
 def require_matching_decoder(
     left: dict, right: dict, left_name: str = "left inventory", right_name: str = "right inventory"
 ) -> None:
-    """Fail closed when two inventories were decoded by different tools.
+    """Fail closed when two inventories came from different analysis models.
 
-    validate_inventory establishes that each side records its decoder. It cannot
+    validate_inventory establishes that each side records its model. It cannot
     establish that the two sides used the same one, and every match pass compares
-    strings produced by that decoder.
+    strings that model produced.
     """
     left_identity = decoder_identity(left)
     right_identity = decoder_identity(right)
@@ -168,9 +180,9 @@ def require_matching_decoder(
             if left_value != right_value
         )
         raise DisasmError(
-            f"{left_name} and {right_name} were produced by different decoders "
-            f"({differences}); signatures from different decoders are not comparable. "
-            "Regenerate both sides with one decoder instead of diffing across them."
+            f"{left_name} and {right_name} were produced by different analysis models "
+            f"({differences}); signatures from different models are not comparable. "
+            "Regenerate both sides with one le_disasm instead of diffing across them."
         )
 
 

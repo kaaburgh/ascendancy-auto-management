@@ -156,6 +156,7 @@ def compare_with_pairs(
     """Expose the exact pairings that le_diff.compare intentionally summarizes."""
     le_diff.validate_inventory(left, "left inventory")
     le_diff.validate_inventory(right, "right inventory")
+    le_diff.require_matching_decoder(left, right)
     exact, rest_left, rest_right = le_diff.match_pass(
         left["functions"], right["functions"], "signature"
     )

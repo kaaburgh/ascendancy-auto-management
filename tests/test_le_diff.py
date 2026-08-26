@@ -60,7 +60,29 @@ def function(
     }
 
 
-def inventory(name: str, functions: list[dict]) -> dict:
+TOOL_OBJDUMP = "GNU objdump (GNU Binutils) 2.42"
+TOOL_ARCH = "i386"
+
+
+def tool_block(objdump: str = TOOL_OBJDUMP, arch: str = TOOL_ARCH) -> dict:
+    """The decoder identity le_disasm records. Every match pass compares strings
+    this decoder produced, so two inventories are only comparable when it agrees.
+    """
+    return {
+        "objdump": objdump,
+        "arch": arch,
+        "method": "linear sweep of the whole object",
+        "normalization": "signature preserves every operand",
+    }
+
+
+def inventory(
+    name: str,
+    functions: list[dict],
+    *,
+    objdump: str = TOOL_OBJDUMP,
+    arch: str = TOOL_ARCH,
+) -> dict:
     return {
         "schema": le_disasm.INVENTORY_SCHEMA,
         "source": {
@@ -72,6 +94,7 @@ def inventory(name: str, functions: list[dict]) -> dict:
             "page_offset_header_offset": 0x80,
             "data_page_offset": 0x1000,
         },
+        "tool": tool_block(objdump, arch),
         "functions": functions,
     }
 

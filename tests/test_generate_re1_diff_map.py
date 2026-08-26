@@ -32,7 +32,7 @@ def function(
     }
 
 
-def inventory(functions):
+def inventory(functions, *, objdump="GNU objdump (GNU Binutils) 2.42", arch="i386"):
     return {
         "schema": module.le_diff.le_disasm.INVENTORY_SCHEMA,
         "source": {
@@ -43,6 +43,12 @@ def inventory(functions):
             "parser_layout": module.le_diff.le_disasm.PARSER_LAYOUT_ID,
             "page_offset_header_offset": module.le_diff.le_image.H_DATAPAGE,
             "data_page_offset": 0,
+        },
+        "tool": {
+            "objdump": objdump,
+            "arch": arch,
+            "method": "linear sweep of the whole object",
+            "normalization": "signature preserves every operand",
         },
         "functions": functions,
     }

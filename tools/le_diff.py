@@ -45,6 +45,13 @@ from le_image import LEError  # noqa: E402
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
+# The decoder identity le_disasm records in every inventory it emits. Two
+# inventories are only comparable when these agree: the whole matcher works on
+# objdump's textual output, so a different decoder can render the same bytes
+# differently and turn an identical function into a structural difference.
+DECODER_IDENTITY_FIELDS = ("objdump", "arch")
+REQUIRED_TOOL_FIELDS = DECODER_IDENTITY_FIELDS + ("method", "normalization")
+
 
 def validate_inventory(report: dict, source_name: str = "inventory") -> None:
     """Fail closed on serialized inventories from incompatible analysis models."""
@@ -114,6 +121,57 @@ def validate_inventory(report: dict, source_name: str = "inventory") -> None:
             raise DisasmError(
                 f"{source_name} function {index} is missing: {', '.join(missing)}"
             )
+
+    tool = report.get("tool")
+    if not isinstance(tool, dict):
+        raise DisasmError(
+            f"{source_name} carries no tool block, so the decoder that produced it "
+            "is unknown; regenerate it with the current le_disasm.py"
+        )
+    missing_tool = [key for key in REQUIRED_TOOL_FIELDS if key not in tool]
+    if missing_tool:
+        raise DisasmError(
+            f"{source_name} is missing tool provenance fields: "
+            f"{', '.join(missing_tool)}"
+        )
+    for key in REQUIRED_TOOL_FIELDS:
+        value = tool[key]
+        if not isinstance(value, str) or not value.strip():
+            raise DisasmError(
+                f"{source_name} has invalid tool.{key} provenance {value!r}"
+            )
+
+
+def decoder_identity(report: dict) -> tuple[str, ...]:
+    """The fields that decide whether two inventories may be compared at all."""
+    tool = report["tool"]
+    return tuple(tool[key] for key in DECODER_IDENTITY_FIELDS)
+
+
+def require_matching_decoder(
+    left: dict, right: dict, left_name: str = "left inventory", right_name: str = "right inventory"
+) -> None:
+    """Fail closed when two inventories were decoded by different tools.
+
+    validate_inventory establishes that each side records its decoder. It cannot
+    establish that the two sides used the same one, and every match pass compares
+    strings produced by that decoder.
+    """
+    left_identity = decoder_identity(left)
+    right_identity = decoder_identity(right)
+    if left_identity != right_identity:
+        differences = ", ".join(
+            f"{key}: {left_value!r} vs {right_value!r}"
+            for key, left_value, right_value in zip(
+                DECODER_IDENTITY_FIELDS, left_identity, right_identity
+            )
+            if left_value != right_value
+        )
+        raise DisasmError(
+            f"{left_name} and {right_name} were produced by different decoders "
+            f"({differences}); signatures from different decoders are not comparable. "
+            "Regenerate both sides with one decoder instead of diffing across them."
+        )
 
 
 def load_inventory(path: pathlib.Path, objdump: str | None = None) -> dict:
@@ -188,6 +246,7 @@ def compare(left: dict, right: dict) -> dict:
     """
     validate_inventory(left, "left inventory")
     validate_inventory(right, "right inventory")
+    require_matching_decoder(left, right)
 
     functions_left = left["functions"]
     functions_right = right["functions"]

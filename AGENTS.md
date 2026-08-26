@@ -17,6 +17,18 @@ For normalized roadmap items, keep IDs unique and dependency references valid an
 
 Keep work bounded. Do not opportunistically absorb adjacent roadmap items unless inseparable. A PR must be understandable without chat history.
 
+An item that plainly will not fit in one PR declares `Slice budget: k/N` and its remaining slices. Do not exceed that budget silently: either split the item into separate IDs, or re-budget explicitly and state what changed to justify it. Incrementing the budget without that justification is the failure it exists to catch.
+
+## Vertical slice before formalisation
+
+For any producer, instrumentation, or contract item, the first slice must produce one real end-to-end output on the narrowest path that can carry one. Schemas, conformance vectors, admission contracts, and cross-language checks come after there is something to conform to.
+
+This is an order of operations, not a lower bar. It does not weaken any evidence or provenance requirement, does not permit synthetic evidence to be presented as runtime evidence, and is never a reason to skip a contract — only a reason to sequence it after the first real output.
+
+It is also not a reason to idle. Where the narrow end-to-end path is genuinely gated on an operator or an unavailable capability, the handoff rules below apply and formalisation while properly blocked is legitimate work. The rule addresses the case where the narrow path was available and formalisation was chosen over it.
+
+Take that case seriously, because it is generated rather than accidental: when runtime access is missing and the bar for rigour is high, formalisation is the action that is always available and always passes review. A sequence of individually correct, bounded, honestly labelled contract slices that never emitted anything is the expected outcome of selecting the best available item every time, not evidence of bad judgement in any one of them. It is visible only in the sequence, so state which end-to-end output an item's first slice produces, and say so explicitly when the answer is none.
+
 ## Operator-facing derived projections
 
 The authoritative roadmap remains the single source of truth for planning state: project state, dependencies, readiness, evidence, acceptance criteria, and sequencing. A repository may also maintain a short operator-facing checklist or handoff document that projects the current actions a human needs to take. The projection may carry procedural detail from linked durable docs, scripts, or tooling, but those sources supply procedure rather than competing planning state. Treat the operator-facing document as a derived projection, never as a second source of truth.
@@ -32,6 +44,8 @@ The projection's path, format, and maintenance mechanism are project-specific an
 Run the narrowest meaningful checks first, then broader checks warranted by the change. State exactly what ran and what did not. Compilation, linting, or synthetic tests do not establish real-target behavior.
 
 When an evidence-producing CI job uses selective triggers, include every material producer, parser, schema, manifest, and configuration input that can change the validated output. Use broader triggering when a narrow dependency set cannot be maintained reliably.
+
+A rule described as enforced must be enforced by a property of the data, not by a field in which the producer declares its own compliance. Comparing a self-declared label reports conformance that was never checked, and reads to every later agent as though it had been. Where a rule can only be judged by a person, say so where the rule is written and wherever a validator would otherwise appear to cover it.
 
 Do not invent commands, targets, performance numbers, supported versions, or architecture details. If an important premise is unknown, turn it into an observation or experiment before implementation.
 
@@ -71,6 +85,8 @@ For runtime experiments, define success with an oracle that directly distinguish
 
 Keep harness capability separate from target-specific evidence. A synthetic fixture, redistributable control target, or mock can establish that input injection, breakpoint control, capture, decoding, or artifact generation works; it does not establish the corresponding behavior on the exact target until that target is run under the stated scenario and oracle.
 
+Do not build a second producer for a question the repository is already tooled for while the existing producer's result is unrecorded. Repeated instrumentation converts an evidence gap into a tooling backlog, and each new producer is individually defensible, so the duplication is visible only across the sequence. Where a producer's output is itself the evidence, that result must become durable rather than expire with a CI artifact: commit the safe derived artifact — sanitized run record, oracle results, digests — and where the raw output may not be committed under the repository's other rules, commit its digest plus the reference needed to locate the operator-held original. A retention window is not a record.
+
 Substantial findings belong under `docs/re/`; reproducible experiments and negative results belong under `docs/experiments/`. Save signatures, structures, call sequences, scripts, parsers, and other reusable RE outputs in the repository when licensing permits.
 
 ## Blind research provenance
@@ -103,6 +119,31 @@ Treat operator-supplied proprietary target trees as immutable evidence inputs. V
 When a target machine is required, prepare the smallest reproducible one-shot experiment. Prefer a script/tool that verifies the target/fixture identity, executes one bounded scenario, and emits a self-contained artifact containing only safe metadata, hashes/version identifiers, configuration, bounded logs, and the requested captures/dumps.
 
 The detached machine-readable run record should have an explicit schema/version and preserve enough provenance to replay and audit the evidence without redistributing the target: target/fixture identities, scenario/config identity, harness/tool versions or hashes, material environment facts, termination result, semantic oracle results, and artifact names/digests. Sanitize private host paths, user identifiers, credentials, and unrelated environment data. Do not embed proprietary payload bytes in the run record merely for convenience.
+
+## Operator attention is a budgeted resource
+
+Gated work spends a person's time. Compute is elastic; the operator who owns the proprietary target is not. Machinery for classifying, preparing and packaging gated work does not by itself ask how much of that person's time the plan requires in total, and a plan that never asks can accumulate to tens of hours of manual work that appears nowhere in it.
+
+Every gated item states an operator cost:
+
+- `Operator cost: <sessions> × <minutes>` — a measured or explicitly derived estimate, or
+- `Operator cost: unknown (measured by <ID>)` — naming the item that will establish it.
+
+`unknown` is a permitted and durable value. Do not replace it with a plausible-looking estimate: an invented operator cost is an invented number under the same rule that forbids inventing commands, targets, performance numbers, supported versions, and architecture details. Until a real measurement exists, every other gated estimate is a guess and the plan should say so rather than let confident-looking numbers accumulate.
+
+The first successful gated run measures the real cost. The feasibility item that establishes the route records actual end-to-end operator time — preparing the environment, launching, waiting, packaging, handing off the artifact — in its run record and in the durable docs, not only the machine-side runtime.
+
+Measuring sometimes shows that the plan is too expensive to execute. That is an expected outcome of measurement and a reason to replan, not a failure of the plan, of the operator, or of the item that measured it.
+
+Where a repository maintains an operator-facing derived projection, that projection is where the aggregate belongs: it already states the current human actions and is already reconciled whenever those actions change.
+
+## Batching gated captures
+
+One operator session may satisfy the capture needs of several gated items when all of the following match: source/target/host baselines, scenario/config identity, instrumentation build, and run provenance. A strict "one item, one run" reading of the one-shot contract is what otherwise pushes apart items that wanted evidence from the same run.
+
+Batching does not merge acceptance. Each artifact class still validates independently, and the run record names every roadmap item whose capture needs the session satisfied.
+
+Batching is forbidden where one item's instrumentation materially changes what another observes. When that is uncertain rather than established, run them separately and record why.
 
 ## Native binary patching
 

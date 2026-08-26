@@ -1,23 +1,23 @@
 {
   "distribution": {
-    "artifact": "agentic-repo-kit-0.1.13.pyz",
-    "release": "v0.1.13",
+    "artifact": "agentic-repo-kit-0.1.16.pyz",
+    "release": "v0.1.16",
     "repository": "kaaburgh/agentic-repo-kit",
-    "sha256": "b1b7b23f1082dd3998cf01f6335a571aa695eb422a99aa1809e8e5770317c985",
-    "tool_version": "0.1.13"
+    "sha256": "e630b5a9ea44a774ff91ac3e5fd43290a8ba195e9f7734ac0b3902ca0deb2416",
+    "tool_version": "0.1.16"
   },
   "format": 2,
   "generated": {
     ".github/copilot-instructions.md": "6fe72eca1eab8a997562d448c54a6bb8d4f7726186a07dfc6d328022a9b03bf2",
-    ".github/pull_request_template.md": "7fdab6cd0c22657f40ddf3759e6a49717b27f2d0d8088a3daf11fd3ff6272475",
+    ".github/pull_request_template.md": "2293fcd9110655e3555c3e27c48c58c0fd75208f9de819d805fae434d2b20910",
     ".github/workflows/agentic-repo-check.yml": "3851fb3a320ed3e7055dc42d2eca682491d1600e07aabba28ec03413d735a9c3",
-    "AGENTS.md": "15f7833d1a5737b34f4f63015506a6340f6a8d6eca7f8e71aa3f0c1c0dd47a84",
+    "AGENTS.md": "891241ee86af02b62cad8e95eb6fbc2afc9313f200228791d433cb2615429267",
     "CLAUDE.md": "e68ff4b91505b9ca79f6f6656439c0c73a3448581f92407f25ee20aba9320088",
-    "docs/agent-cycle-run.md": "41396e12f04190e7513a5573e692bf93158751e60ab41b83aa4a2f30be09eef0",
-    "docs/agent-playbook.md": "e6cb86a8924cf46a5292e6d29d9ca2506f66935ee12fdbf89e9f24be293b78cc",
+    "docs/agent-cycle-run.md": "5756a87cd3e7c0b450314021b170e25ef9432fb25a1ead822030c6e8365cf678",
+    "docs/agent-playbook.md": "77125b51b5ea7bfbf9b8522b52a002db6c17309a0d10358c2ea758350b90a482",
     "docs/experiments/README.md": "dccd1781eb4122aebbd63673790b6a6a362cb0f2a9d2f5f2050f7ff7edc025ef",
     "docs/re/README.md": "afbf798d9885bde2df709e8dc1437b88cd64e03c9afda833d6e2c5b58231518e",
-    "docs/roadmap-authoring.md": "43982a4c47b1fc3bab26a7acb544eb82ebe7bc3ff30eae1f9f09a00e0222a182"
+    "docs/roadmap-authoring.md": "a3375897dc2dbe254fe77a602ab4430b7f6f9c2c8d63a74958fb07d3b403f196"
   },
   "kit_version": 1,
   "profiles": [
@@ -33,5 +33,5 @@
     "name": "Ascendancy Auto-Management",
     "roadmap": "ROADMAP.md"
   },
-  "tool_version": "0.1.13"
+  "tool_version": "0.1.16"
 }

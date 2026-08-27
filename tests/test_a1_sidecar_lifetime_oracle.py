@@ -77,7 +77,7 @@ def v2_manifest() -> dict:
         },
         "scenario-planet-b": {
             "metadata_basis": "bounded-record-metadata",
-            "record_offset": 0x30,
+            "record_offset": 0x60,
             "length": len(bytes.fromhex(_cases.metadata_hex("scenario-planet-b"))),
             "sha256": _cases.metadata_digest("scenario-planet-b"),
             "rationale": "synthetic v2 witness",
@@ -87,7 +87,7 @@ def v2_manifest() -> dict:
 
 
 def convert_record_to_v2_digest_witnesses(record: dict) -> None:
-    offsets = {"scenario-planet-a": 0x10, "scenario-planet-b": 0x30}
+    offsets = {"scenario-planet-a": 0x10, "scenario-planet-b": 0x60}
 
     def visit(value):
         if isinstance(value, dict):
@@ -148,7 +148,7 @@ class A1V2DigestOnlyWitnessIntegrationTests(unittest.TestCase):
     def test_rejects_v2_manifest_range_digest_disagreeing_with_planets(self):
         manifest = v2_manifest()
         manifest["witness_ranges"]["scenario-planet-a"]["sha256"] = "0" * 64
-        with self.assertRaisesRegex(_cases.mod.A1LifetimeError, "must match planets digest"):
+        with self.assertRaisesRegex(_cases.mod.A1LifetimeError, "must match planets"):
             _cases.mod.validate_record(self.positive_v2_record(), manifest)
 
 

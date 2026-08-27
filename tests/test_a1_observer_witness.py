@@ -86,8 +86,14 @@ class ObserverWitnessTests(unittest.TestCase):
         self.assertEqual(witness_contract(manifest, " Planet A")["logical_record"], " Planet A")
 
     def test_rejects_non_exact_record_snapshot_size(self):
-        with self.assertRaisesRegex(A1ObserverWitnessError, "exactly 0x7b bytes"):
-            qualify_selected_record(self.manifest(), "Planet A", bytes(PLANET_RECORD_SIZE - 1))
+        records = (
+            bytes(PLANET_RECORD_SIZE - 1),
+            self.record() + b"\x00",
+        )
+        for record in records:
+            with self.subTest(record_size=len(record)):
+                with self.assertRaisesRegex(A1ObserverWitnessError, "exactly 0x7b bytes"):
+                    qualify_selected_record(self.manifest(), "Planet A", record)
 
 
 if __name__ == "__main__":

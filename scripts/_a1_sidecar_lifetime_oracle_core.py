@@ -7,6 +7,21 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
+    from scripts.a1_v2_witness_binding import (
+        A1V2WitnessBindingError,
+        SCENARIO_SCHEMA_V2,
+        validate_qualified_witness,
+    )
+except ImportError:
+    from a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
+    from a1_v2_witness_binding import (
+        A1V2WitnessBindingError,
+        SCENARIO_SCHEMA_V2,
+        validate_qualified_witness,
+    )
+
 SCHEMA = "ascendancy.a1-sidecar-runtime-lifetime/v1"
 SCENARIO_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v1"
 EXPECTED_SOURCE_SCHEMA = "ascendancy.a1-sidecar-expected-source/v1"
@@ -40,6 +55,12 @@ SCENARIO_SOURCE_FIELDS = (
 
 class A1LifetimeError(ValueError):
     pass
+
+
+class _ScenarioPlanets(dict[str, str]):
+    def __init__(self, values: dict[str, str], witness_ranges: dict[str, Any]) -> None:
+        super().__init__(values)
+        self.witness_ranges = witness_ranges
 
 
 def _require_bool(claims: dict[str, Any], key: str) -> bool:
@@ -104,7 +125,8 @@ def _scenario_planets(
         raise A1LifetimeError("unsupported or missing expected source schema")
     if not isinstance(scenario_manifest, dict):
         raise A1LifetimeError("positive outcome requires independent scenario qualification manifest")
-    if scenario_manifest.get("schema") != SCENARIO_SCHEMA:
+    scenario_schema = scenario_manifest.get("schema")
+    if scenario_schema not in {SCENARIO_SCHEMA, SCENARIO_SCHEMA_V2}:
         raise A1LifetimeError("unsupported or missing scenario qualification schema")
 
     inputs = record.get("inputs")
@@ -134,6 +156,14 @@ def _scenario_planets(
         validated[logical] = _require_sha256(
             digest, f"scenario qualification digest for {logical}"
         )
+
+    if scenario_schema == SCENARIO_SCHEMA_V2:
+        witness_ranges = scenario_manifest.get("witness_ranges")
+        if not isinstance(witness_ranges, dict) or not witness_ranges:
+            raise A1LifetimeError("scenario qualification v2 manifest requires witness_ranges")
+        if set(witness_ranges) != set(validated):
+            raise A1LifetimeError("scenario qualification v2 witness_ranges must exactly cover planets")
+        return _ScenarioPlanets(validated, witness_ranges)
     return validated
 
 
@@ -154,6 +184,21 @@ def _require_point(
         point.get("logical_record"), f"{label} observations.{name}.logical_record"
     )
     witness = point.get("qualified_witness")
+
+    if isinstance(scenario_planets, _ScenarioPlanets):
+        context = f"{label} observations.{name}"
+        try:
+            validate_qualified_witness(
+                witness,
+                logical_record,
+                scenario_planets,
+                scenario_planets.witness_ranges,
+                context=context,
+            )
+        except A1V2WitnessBindingError as exc:
+            raise A1LifetimeError(str(exc)) from exc
+        return point
+
     if not isinstance(witness, dict):
         raise A1LifetimeError(f"{label} observations.{name} requires qualified_witness")
     scenario_planet = _require_nonempty_string(
@@ -366,6 +411,10 @@ def validate_record(
             other = record.get("other_identity_contract")
             if not isinstance(other, dict) or not other.get("fails_closed_on_reuse"):
                 raise A1LifetimeError("positive-other requires an explicit fail-closed reuse contract")
+        try:
+            validate_selection_control(record, scenario_manifest or {})
+        except A1SelectionControlError as exc:
+            raise A1LifetimeError(str(exc)) from exc
     return {
         "schema": SCHEMA,
         "outcome": outcome,

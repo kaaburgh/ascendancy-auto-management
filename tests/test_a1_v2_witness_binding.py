@@ -2,10 +2,10 @@ import hashlib
 import unittest
 from unittest.mock import patch
 
+from scripts import _a1_sidecar_lifetime_oracle_core as lifetime_core
 from scripts import a1_observer_witness as observer
 from scripts import a1_selection_control_oracle as selection
 from scripts import a1_sidecar_evidence_bundle as bundle
-from scripts import a1_sidecar_lifetime_oracle as lifetime
 from scripts.a1_v2_witness_binding import A1V2WitnessBindingError, witness_contract
 
 
@@ -69,9 +69,9 @@ class A1V2WitnessBindingTests(unittest.TestCase):
             selection._point(observations, "first", planets, ranges)
         shared.assert_called_once()
 
-    def test_lifetime_path_delegates_to_shared_binding(self):
+    def test_lifetime_core_path_delegates_to_shared_binding(self):
         planets, ranges, witness = contract_parts()
-        scenario_planets = lifetime._ScenarioPlanets(planets, ranges)
+        scenario_planets = lifetime_core._ScenarioPlanets(planets, ranges)
         observations = {
             "pre": {
                 "seq": 1,
@@ -80,8 +80,12 @@ class A1V2WitnessBindingTests(unittest.TestCase):
                 "qualified_witness": witness,
             }
         }
-        with patch.object(lifetime, "validate_qualified_witness", wraps=lifetime.validate_qualified_witness) as shared:
-            lifetime._require_point(observations, "pre", "new-game-reset", scenario_planets)
+        with patch.object(
+            lifetime_core,
+            "validate_qualified_witness",
+            wraps=lifetime_core.validate_qualified_witness,
+        ) as shared:
+            lifetime_core._require_point(observations, "pre", "new-game-reset", scenario_planets)
         shared.assert_called_once()
 
     def test_bundle_path_delegates_to_shared_binding(self):

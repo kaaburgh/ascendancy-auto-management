@@ -218,6 +218,53 @@ class A1LifetimeObserverRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(A1RuntimeObserverError, "scenario manifest changed"):
                 run_observer(qualification, expected, observer, [], 5.0, root / "record.json")
 
+    def test_rejects_observer_mutation_during_execution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            qualification, expected = _write_qualification(root)
+            observer = _write_observer(
+                root,
+                r'''
+                import argparse
+                import json
+                from pathlib import Path
+
+                p = argparse.ArgumentParser()
+                p.add_argument("--scenario-manifest", type=Path, required=True)
+                p.add_argument("--record-output", type=Path, required=True)
+                args = p.parse_args()
+                self_path = Path(__file__)
+                self_path.write_text(self_path.read_text() + "\n# mutated during execution\n")
+                record = {
+                    "schema": "ascendancy.a1-sidecar-runtime-lifetime/v1",
+                    "outcome": "incomplete-harness",
+                    "claims": {
+                        "array_base_established": False,
+                        "array_count_established": False,
+                        "stable_index_established": False,
+                        "reuse_detector_established": False,
+                        "epoch_boundary_established": False,
+                        "manual_transition_invalidation_established": False,
+                    },
+                    "control": {"passed": False},
+                    "transitions": [],
+                }
+                args.record_output.write_text(json.dumps(record))
+                ''',
+            )
+
+            with self.assertRaisesRegex(
+                A1RuntimeObserverError, "observer executable changed during execution"
+            ):
+                run_observer(
+                    qualification,
+                    expected,
+                    observer,
+                    [],
+                    5.0,
+                    root / "record.json",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

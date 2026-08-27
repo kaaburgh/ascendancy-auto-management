@@ -4,11 +4,20 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-SCENARIO_SCHEMA = "ascendancy.a1-sidecar-scenario-qualification/v2"
-PLANET_RECORD_SIZE = 0x7B
-PRESENTATION_NAME_OFFSET = 0x24
-PRESENTATION_NAME_LENGTH = 32
-METADATA_BASIS = "bounded-record-metadata"
+try:
+    from .a1_v2_witness_binding import (
+        A1V2WitnessBindingError,
+        PLANET_RECORD_SIZE,
+        SCENARIO_SCHEMA_V2 as SCENARIO_SCHEMA,
+        witness_contract as _shared_witness_contract,
+    )
+except ImportError:
+    from a1_v2_witness_binding import (
+        A1V2WitnessBindingError,
+        PLANET_RECORD_SIZE,
+        SCENARIO_SCHEMA_V2 as SCENARIO_SCHEMA,
+        witness_contract as _shared_witness_contract,
+    )
 
 
 class A1ObserverWitnessError(ValueError):
@@ -23,82 +32,19 @@ def _nonempty_string(value: Any, context: str, *, exact: bool = False) -> str:
     return value
 
 
-def _sha256(value: Any, context: str) -> str:
-    text = _nonempty_string(value, context)
-    if len(text) != 64:
-        raise A1ObserverWitnessError(f"{context} must be a 64-hex SHA-256 digest")
-    try:
-        int(text, 16)
-    except ValueError as exc:
-        raise A1ObserverWitnessError(f"{context} must be a 64-hex SHA-256 digest") from exc
-    return text.lower()
-
-
-def _nonnegative_int(value: Any, context: str) -> int:
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise A1ObserverWitnessError(f"{context} must be a non-negative integer")
-    return value
-
-
-def _positive_int(value: Any, context: str) -> int:
-    result = _nonnegative_int(value, context)
-    if result == 0:
-        raise A1ObserverWitnessError(f"{context} must be positive")
-    return result
-
-
-def _reject_presentation_name_overlap(offset: int, length: int, logical_label: str) -> None:
-    end = offset + length
-    name_end = PRESENTATION_NAME_OFFSET + PRESENTATION_NAME_LENGTH
-    if offset < name_end and end > PRESENTATION_NAME_OFFSET:
-        raise A1ObserverWitnessError(
-            f"witness range for {logical_label!r} overlaps established presentation-name window "
-            f"0x{PRESENTATION_NAME_OFFSET:x}..0x{name_end:x}; presentation name cannot establish identity"
-        )
-
-
 def witness_contract(manifest: dict[str, Any], logical_label: str) -> dict[str, Any]:
     """Return the exact predeclared witness contract for one logical label."""
     if not isinstance(manifest, dict) or manifest.get("schema") != SCENARIO_SCHEMA:
         raise A1ObserverWitnessError("exact-target observer requires scenario qualification v2")
-
     label = _nonempty_string(logical_label, "logical label", exact=True)
     planets = manifest.get("planets")
     ranges = manifest.get("witness_ranges")
     if not isinstance(planets, dict) or not isinstance(ranges, dict):
         raise A1ObserverWitnessError("scenario manifest requires planets and witness_ranges objects")
-    if label not in planets or label not in ranges:
-        raise A1ObserverWitnessError(f"logical label {label!r} is not independently qualified")
-
-    expected = _sha256(planets[label], f"planets[{label!r}]")
-    entry = ranges[label]
-    if not isinstance(entry, dict):
-        raise A1ObserverWitnessError(f"witness_ranges[{label!r}] must be an object")
-    if entry.get("metadata_basis") != METADATA_BASIS:
-        raise A1ObserverWitnessError(
-            f"witness_ranges[{label!r}].metadata_basis must be {METADATA_BASIS!r}"
-        )
-    offset = _nonnegative_int(entry.get("record_offset"), f"witness_ranges[{label!r}].record_offset")
-    length = _positive_int(entry.get("length"), f"witness_ranges[{label!r}].length")
-    digest = _sha256(entry.get("sha256"), f"witness_ranges[{label!r}].sha256")
-    _nonempty_string(entry.get("rationale"), f"witness_ranges[{label!r}].rationale")
-    if digest != expected:
-        raise A1ObserverWitnessError(
-            f"witness_ranges[{label!r}].sha256 must match planets[{label!r}]"
-        )
-    if offset + length > PLANET_RECORD_SIZE:
-        raise A1ObserverWitnessError(
-            f"witness range for {label!r} exceeds established 0x{PLANET_RECORD_SIZE:x}-byte record"
-        )
-    _reject_presentation_name_overlap(offset, length, label)
-
-    return {
-        "logical_record": label,
-        "metadata_basis": METADATA_BASIS,
-        "record_offset": offset,
-        "length": length,
-        "sha256": digest,
-    }
+    try:
+        return _shared_witness_contract(planets, ranges, label)
+    except A1V2WitnessBindingError as exc:
+        raise A1ObserverWitnessError(str(exc)) from exc
 
 
 def qualify_selected_record(

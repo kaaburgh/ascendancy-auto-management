@@ -5,9 +5,20 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+try:
+    from .a1_v2_witness_binding import (
+        A1V2WitnessBindingError,
+        SCENARIO_SCHEMA_V2,
+        validate_qualified_witness,
+    )
+except ImportError:
+    from a1_v2_witness_binding import (
+        A1V2WitnessBindingError,
+        SCENARIO_SCHEMA_V2,
+        validate_qualified_witness,
+    )
+
 MAX_METADATA_BYTES = 512
-PLANET_RECORD_SIZE = 0x7B
-SCENARIO_SCHEMA_V2 = "ascendancy.a1-sidecar-scenario-qualification/v2"
 
 
 class A1SelectionControlError(ValueError):
@@ -17,12 +28,6 @@ class A1SelectionControlError(ValueError):
 def _nonnegative_int(value: Any, context: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise A1SelectionControlError(f"{context} must be a non-negative integer")
-    return value
-
-
-def _positive_int(value: Any, context: str) -> int:
-    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise A1SelectionControlError(f"{context} must be a positive integer")
     return value
 
 
@@ -43,6 +48,46 @@ def _sha256(value: Any, context: str) -> str:
     return text.lower()
 
 
+def _legacy_witness(
+    witness: dict[str, Any], logical: str, scenario_planets: dict[str, Any], context: str
+) -> str:
+    basis = _nonempty_string(
+        witness.get("metadata_basis"), f"{context}.qualified_witness.metadata_basis"
+    )
+    if basis == "presentation-name":
+        raise A1SelectionControlError("presentation name cannot qualify a selection-control witness")
+    metadata_hex = _nonempty_string(
+        witness.get("metadata_hex"), f"{context}.qualified_witness.metadata_hex"
+    )
+    if len(metadata_hex) % 2:
+        raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be even-length hex")
+    try:
+        metadata = bytes.fromhex(metadata_hex)
+    except ValueError as exc:
+        raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be hex") from exc
+    if not metadata:
+        raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must not be empty")
+    if len(metadata) > MAX_METADATA_BYTES:
+        raise A1SelectionControlError(
+            f"{context}.qualified_witness.metadata_hex exceeds {MAX_METADATA_BYTES} byte bound"
+        )
+    digest = hashlib.sha256(metadata).hexdigest()
+    declared = _sha256(
+        witness.get("metadata_sha256"), f"{context}.qualified_witness.metadata_sha256"
+    )
+    if declared != digest:
+        raise A1SelectionControlError(
+            f"{context}.qualified_witness.metadata_sha256 must match bounded metadata bytes"
+        )
+    expected = _sha256(scenario_planets.get(logical), f"scenario qualification digest for {logical}")
+    if expected != digest:
+        raise A1SelectionControlError(
+            f"{context} bounded metadata does not match independent scenario qualification"
+        )
+    witness["metadata_sha256"] = digest
+    return digest
+
+
 def _point(
     observations: dict[str, Any],
     name: str,
@@ -56,7 +101,6 @@ def _point(
     _nonnegative_int(point.get("seq"), f"{context}.seq")
     _nonnegative_int(point.get("record_pointer"), f"{context}.record_pointer")
     logical = _nonempty_string(point.get("logical_record"), f"{context}.logical_record")
-
     witness = point.get("qualified_witness")
     if not isinstance(witness, dict):
         raise A1SelectionControlError(f"{context} requires qualified_witness")
@@ -67,94 +111,21 @@ def _point(
         raise A1SelectionControlError(
             f"{context}.qualified_witness.scenario_planet must bind to logical_record"
         )
-    basis = _nonempty_string(
-        witness.get("metadata_basis"), f"{context}.qualified_witness.metadata_basis"
-    )
-    if basis == "presentation-name":
-        raise A1SelectionControlError("presentation name cannot qualify a selection-control witness")
 
     if witness_ranges is None:
-        metadata_hex = _nonempty_string(
-            witness.get("metadata_hex"), f"{context}.qualified_witness.metadata_hex"
-        )
-        if len(metadata_hex) % 2:
-            raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be even-length hex")
-        try:
-            metadata = bytes.fromhex(metadata_hex)
-        except ValueError as exc:
-            raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must be hex") from exc
-        if not metadata:
-            raise A1SelectionControlError(f"{context}.qualified_witness.metadata_hex must not be empty")
-        if len(metadata) > MAX_METADATA_BYTES:
-            raise A1SelectionControlError(
-                f"{context}.qualified_witness.metadata_hex exceeds {MAX_METADATA_BYTES} byte bound"
-            )
-        digest = hashlib.sha256(metadata).hexdigest()
-        declared = _sha256(
-            witness.get("metadata_sha256"), f"{context}.qualified_witness.metadata_sha256"
-        )
-        if declared != digest:
-            raise A1SelectionControlError(
-                f"{context}.qualified_witness.metadata_sha256 must match bounded metadata bytes"
-            )
-        expected = _sha256(
-            scenario_planets.get(logical), f"scenario qualification digest for {logical}"
-        )
-        if expected != digest:
-            raise A1SelectionControlError(
-                f"{context} bounded metadata does not match independent scenario qualification"
-            )
-        witness["metadata_sha256"] = digest
+        _legacy_witness(witness, logical, scenario_planets, context)
         return point
 
-    expected_range = witness_ranges.get(logical)
-    if not isinstance(expected_range, dict):
-        raise A1SelectionControlError(
-            f"{context} logical record is not independently qualified by v2 witness_ranges"
+    try:
+        validate_qualified_witness(
+            witness,
+            logical,
+            scenario_planets,
+            witness_ranges,
+            context=context,
         )
-    if "metadata_hex" in witness:
-        raise A1SelectionControlError(f"{context}.qualified_witness v2 witness must not contain metadata_hex")
-    expected_basis = _nonempty_string(
-        expected_range.get("metadata_basis"), f"scenario qualification witness range for {logical} metadata_basis"
-    )
-    if expected_basis == "presentation-name" or basis != expected_basis:
-        raise A1SelectionControlError(
-            f"{context}.qualified_witness.metadata_basis must match predeclared v2 witness range"
-        )
-    offset = _nonnegative_int(witness.get("record_offset"), f"{context}.qualified_witness.record_offset")
-    length = _positive_int(witness.get("length"), f"{context}.qualified_witness.length")
-    expected_offset = _nonnegative_int(
-        expected_range.get("record_offset"), f"scenario qualification witness range for {logical} record_offset"
-    )
-    expected_length = _positive_int(
-        expected_range.get("length"), f"scenario qualification witness range for {logical} length"
-    )
-    if expected_length > MAX_METADATA_BYTES or expected_offset + expected_length > PLANET_RECORD_SIZE:
-        raise A1SelectionControlError(
-            f"scenario qualification witness range for {logical} exceeds bounded planet record"
-        )
-    if offset != expected_offset:
-        raise A1SelectionControlError(
-            f"{context}.qualified_witness.record_offset must match predeclared v2 witness range"
-        )
-    if length != expected_length:
-        raise A1SelectionControlError(
-            f"{context}.qualified_witness.length must match predeclared v2 witness range"
-        )
-    declared = _sha256(witness.get("metadata_sha256"), f"{context}.qualified_witness.metadata_sha256")
-    range_digest = _sha256(
-        expected_range.get("sha256"), f"scenario qualification witness range for {logical} sha256"
-    )
-    planet_digest = _sha256(scenario_planets.get(logical), f"scenario qualification digest for {logical}")
-    if range_digest != planet_digest:
-        raise A1SelectionControlError(
-            f"scenario qualification witness range for {logical} must match planets digest"
-        )
-    if declared != range_digest:
-        raise A1SelectionControlError(
-            f"{context}.qualified_witness.metadata_sha256 must match predeclared v2 witness range"
-        )
-    witness["metadata_sha256"] = declared
+    except A1V2WitnessBindingError as exc:
+        raise A1SelectionControlError(str(exc)) from exc
     return point
 
 

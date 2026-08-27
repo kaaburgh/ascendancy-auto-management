@@ -11,10 +11,12 @@ try:
     from .a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
     from .a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
     from .a1_sidecar_lifetime_oracle import A1LifetimeError, SCENARIO_SCHEMA, validate_record
+    from .a1_v2_witness_binding import A1V2WitnessBindingError, validate_qualified_witness
 except ImportError:
     from a1_scenario_qualification import A1ScenarioQualificationError, build_manifest
     from a1_selection_control_oracle import A1SelectionControlError, validate_selection_control
     from a1_sidecar_lifetime_oracle import A1LifetimeError, SCENARIO_SCHEMA, validate_record
+    from a1_v2_witness_binding import A1V2WitnessBindingError, validate_qualified_witness
 
 
 def _read_json_object(path: Path, label: str) -> dict:
@@ -56,8 +58,11 @@ def _qualified_witnesses(value: Any) -> Iterator[dict[str, Any]]:
 def _validate_v2_witness_range_binding(record: dict[str, Any], scenario_manifest: dict[str, Any]) -> None:
     """Fail closed when a positive record is not bound to the v2 predeclared witness ranges."""
     witness_ranges = scenario_manifest.get("witness_ranges")
+    planets = scenario_manifest.get("planets")
     if not isinstance(witness_ranges, dict) or not str(record.get("outcome", "")).startswith("positive-"):
         return
+    if not isinstance(planets, dict) or not planets:
+        raise A1ScenarioQualificationError("scenario qualification v2 manifest requires planets")
 
     witnesses = list(_qualified_witnesses(record))
     if not witnesses:
@@ -67,19 +72,16 @@ def _validate_v2_witness_range_binding(record: dict[str, Any], scenario_manifest
         label = witness.get("scenario_planet")
         if not isinstance(label, str) or label not in witness_ranges:
             raise A1ScenarioQualificationError("qualified witness scenario_planet is not present in v2 witness_ranges")
-        expected = witness_ranges[label]
-        if witness.get("record_offset") != expected.get("record_offset"):
-            raise A1ScenarioQualificationError(
-                f"qualified witness {label!r} record_offset does not match predeclared v2 witness range"
+        try:
+            validate_qualified_witness(
+                witness,
+                label,
+                planets,
+                witness_ranges,
+                context=f"qualified witness {label!r}",
             )
-        if witness.get("length") != expected.get("length"):
-            raise A1ScenarioQualificationError(
-                f"qualified witness {label!r} length does not match predeclared v2 witness range"
-            )
-        if witness.get("metadata_sha256") != expected.get("sha256"):
-            raise A1ScenarioQualificationError(
-                f"qualified witness {label!r} metadata_sha256 does not match predeclared v2 witness range"
-            )
+        except A1V2WitnessBindingError as exc:
+            raise A1ScenarioQualificationError(str(exc)) from exc
 
 
 def validate_bundle(

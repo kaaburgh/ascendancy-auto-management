@@ -9,15 +9,34 @@ from scripts import a1_sidecar_evidence_bundle as bundle
 
 class A1EvidenceBundleWitnessRangeTests(unittest.TestCase):
     def setUp(self):
+        digest_a = hashlib.sha256(b"planet-a").hexdigest()
+        digest_b = hashlib.sha256(b"planet-b").hexdigest()
         self.manifest = {
             "schema": "ascendancy.a1-sidecar-scenario-qualification/v2",
+            "planets": {
+                "scenario-planet-a": digest_a,
+                "scenario-planet-b": digest_b,
+            },
             "witness_ranges": {
-                "scenario-planet-a": {"record_offset": 0x10, "length": 8},
-                "scenario-planet-b": {"record_offset": 0x20, "length": 8},
+                "scenario-planet-a": {
+                    "metadata_basis": "bounded-record-metadata",
+                    "record_offset": 0x10,
+                    "length": 8,
+                    "sha256": digest_a,
+                    "rationale": "synthetic non-name witness",
+                },
+                "scenario-planet-b": {
+                    "metadata_basis": "bounded-record-metadata",
+                    "record_offset": 0x60,
+                    "length": 8,
+                    "sha256": digest_b,
+                    "rationale": "synthetic non-name witness",
+                },
             },
         }
 
     def record(self, *, offset=0x10, length=8):
+        expected = self.manifest["witness_ranges"]["scenario-planet-a"]
         return {
             "outcome": "positive-epoch-index",
             "transitions": [
@@ -26,8 +45,10 @@ class A1EvidenceBundleWitnessRangeTests(unittest.TestCase):
                         "pre": {
                             "qualified_witness": {
                                 "scenario_planet": "scenario-planet-a",
+                                "metadata_basis": "bounded-record-metadata",
                                 "record_offset": offset,
                                 "length": length,
+                                "metadata_sha256": expected["sha256"],
                             }
                         }
                     }
@@ -39,17 +60,17 @@ class A1EvidenceBundleWitnessRangeTests(unittest.TestCase):
         bundle._validate_v2_witness_range_binding(self.record(), self.manifest)
 
     def test_rejects_wrong_record_offset(self):
-        with self.assertRaisesRegex(bundle.A1ScenarioQualificationError, "record_offset does not match"):
+        with self.assertRaisesRegex(bundle.A1ScenarioQualificationError, "record_offset must match"):
             bundle._validate_v2_witness_range_binding(self.record(offset=0x11), self.manifest)
 
     def test_rejects_wrong_length(self):
-        with self.assertRaisesRegex(bundle.A1ScenarioQualificationError, "length does not match"):
+        with self.assertRaisesRegex(bundle.A1ScenarioQualificationError, "length must match"):
             bundle._validate_v2_witness_range_binding(self.record(length=7), self.manifest)
 
     def test_rejects_missing_range_fields(self):
         record = self.record()
         del record["transitions"][0]["observations"]["pre"]["qualified_witness"]["record_offset"]
-        with self.assertRaisesRegex(bundle.A1ScenarioQualificationError, "record_offset does not match"):
+        with self.assertRaisesRegex(bundle.A1ScenarioQualificationError, "record_offset must be"):
             bundle._validate_v2_witness_range_binding(record, self.manifest)
 
     def test_legacy_or_nonpositive_records_remain_compatible(self):
@@ -103,6 +124,7 @@ class A1EvidenceBundleWitnessRangeTests(unittest.TestCase):
                             "pre": {
                                 "qualified_witness": {
                                     "scenario_planet": "scenario-planet-a",
+                                    "metadata_basis": "bounded-record-metadata",
                                     "record_offset": 0x11,
                                     "length": len(metadata),
                                     "metadata_sha256": hashlib.sha256(metadata).hexdigest(),
@@ -117,7 +139,7 @@ class A1EvidenceBundleWitnessRangeTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 bundle.A1ScenarioQualificationError,
-                "record_offset does not match predeclared v2 witness range",
+                "record_offset must match predeclared v2 witness range",
             ):
                 bundle.validate_bundle(qualification_path, expected_path, record_path)
 

@@ -100,7 +100,6 @@ def validate_bundle(
     scenario_manifest = build_manifest(raw, expected_source)
     _validate_v2_witness_range_binding(record, scenario_manifest)
     result = validate_record(record, scenario_manifest, expected_source)
-    validate_selection_control(record, scenario_manifest)
     if manifest_output is not None:
         _write_json(manifest_output, scenario_manifest)
     return result

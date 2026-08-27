@@ -8,6 +8,8 @@ try:
     from .a1_v2_witness_binding import (
         A1V2WitnessBindingError,
         PLANET_RECORD_SIZE,
+        PRESENTATION_NAME_LENGTH,
+        PRESENTATION_NAME_OFFSET,
         SCENARIO_SCHEMA_V2 as SCENARIO_SCHEMA,
         witness_contract as _shared_witness_contract,
     )
@@ -15,6 +17,8 @@ except ImportError:
     from a1_v2_witness_binding import (
         A1V2WitnessBindingError,
         PLANET_RECORD_SIZE,
+        PRESENTATION_NAME_LENGTH,
+        PRESENTATION_NAME_OFFSET,
         SCENARIO_SCHEMA_V2 as SCENARIO_SCHEMA,
         witness_contract as _shared_witness_contract,
     )

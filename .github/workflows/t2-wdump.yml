@@ -1,0 +1,51 @@
+name: T2 independent wdump oracle
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/t2-wdump.yml"
+      - "scripts/generate_t2_static_bundle.py"
+      - "tools/**"
+      - "docs/re/static-analysis/t2/**"
+
+jobs:
+  t2-wdump:
+    name: T2 wdump cross-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Open Watcom snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          watcom="$RUNNER_TEMP/watcom"
+          archive="$RUNNER_TEMP/ow-snapshot.tar.xz"
+          curl --fail --location --retry 3 \
+            --output "$archive" \
+            "https://github.com/open-watcom/open-watcom-v2/releases/download/2026-08-01-Build/ow-snapshot.tar.xz"
+          mkdir -p "$watcom"
+          tar -xJf "$archive" -C "$watcom"
+          oracle="$watcom/binl64/wdump"
+          test -x "$oracle"
+          echo "74282d0b263015636b9eb00172c5007e593155aaf829e788a80b4e3e0ccb815a  $oracle" | sha256sum --check -
+          echo "WATCOM=$watcom" >> "$GITHUB_ENV"
+          echo "$watcom/binl64" >> "$GITHUB_PATH"
+          echo "$watcom/binw" >> "$GITHUB_PATH"
+      - name: Verify required tools are available
+        run: |
+          objdump --version
+          command -v wdump
+      - name: Fetch and verify pinned targets
+        run: python tools/fetch_free_targets.py
+      - name: Regenerate T2 with independent wdump oracle
+        run: |
+          python scripts/generate_t2_static_bundle.py \
+            --binaries binaries \
+            --wdump "$(command -v wdump)"
+      - name: Require independent wdump record unchanged
+        run: git diff --exit-code -- docs/re/static-analysis/t2/wdump-comparison.json

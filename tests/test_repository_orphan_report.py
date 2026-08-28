@@ -44,11 +44,13 @@ class RepositoryOrphanReportTests(unittest.TestCase):
         )
         self.assertEqual(orphan_report.detect(root)["schema_orphans"], [])
 
-    def test_imported_module_and_standalone_cli_are_not_reported(self):
+    def test_imported_module_and_standalone_clis_are_not_reported(self):
         root = self._root()
         (root / "scripts" / "library.py").write_text("VALUE = 1\n", encoding="utf-8")
         (root / "scripts" / "consumer.py").write_text(
-            "import scripts.library\n", encoding="utf-8"
+            "import scripts.library\n"
+            'if __name__ == "__main__":\n    pass\n',
+            encoding="utf-8",
         )
         (root / "tools" / "cli.py").write_text(
             'if __name__ == "__main__":\n    pass\n', encoding="utf-8"

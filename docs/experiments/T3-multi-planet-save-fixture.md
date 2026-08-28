@@ -38,6 +38,8 @@ The runner then:
 8. requires unique names, at least two current-player-owned planets, and at least one player-owned planet with `+0x52 == 0xffff` and `+0x54 == 0xff`;
 9. verifies the source candidate bytes are still byte-identical after the run.
 
+The phrase “validated mapping” in step 4 has a narrower evidence boundary than the original record made explicit. The five initialized-data signatures establish one bias only through their highest span ending at static `0x998c8`; the independent live stardate cross-check extends runtime corroboration to `0xa2f6c`. The current-player byte at static `0x104bea` is another `0x61c7e` bytes (400,510 bytes, about 391 KiB) beyond that furthest corroborated point. Applying the same bias there is therefore an extrapolation. Its observed value `0` is also only a weak address-identity oracle because zero is common in process memory. See [`../re/re5-runtime-mapping-boundary.md`](../re/re5-runtime-mapping-boundary.md). This caveat does not alter the already-recorded artifact bytes or re-derive the historical run.
+
 No guest code or guest data is patched. The artifact output is preflighted before target launch: it may not alias the candidate, the fixture manifest, or any path inside the source game tree, and JSON replacement is atomic within the destination directory.
 
 ## Runtime/environment identity
@@ -67,6 +69,8 @@ The current player id was `0`. Exactly three records were owned by that player:
 | `Corpuscle I` | `0` | `ffff` | `ff` | `00000000` |
 | `Corpuscle II` | `0` | `ffff` | `ff` | `00000000` |
 | `Corpuscle III` | `0` | `ffff` | `ff` | `00000000` |
+
+The ownership labels in this table depend on the extrapolated `current_player_id @ 0x104bea` read described above. Static analysis independently identifies `0x104bea` as the current-player field, but the published runtime mapping has no independent cross-check at that distance, and `current_player_id == 0` is weakly discriminating as an address oracle. The observed record bytes and owner values remain exactly as published; this documentation correction narrows only the confidence of the runtime address-to-field mapping used to call owner `0` the current player.
 
 Thus all three player-owned planets satisfy the existing empty-current-action precondition at load. The planet-name-sequence digest was `92e8f0a56ff190c717d2ed8eea8964b38691cba385ec7635029f7ee332512fc0`; stardate at the coherent observation was `390`.
 
@@ -117,6 +121,6 @@ That negative result is now interpreted narrowly. It establishes that a later or
 
 ## Conclusion
 
-The declaration `resume-en-operator-multi-planet-2026-08-14` satisfies role `m1-multi-planet` under the reconciled T3 contract without changing its fixture id, bytes, or evidence labels. T3 directly observed player id `0`, the three player-owned `Corpuscle` planets, and their empty current-action state on the exact canonical target; the detached runtime artifact binds those observations to exact `resume.gam` `d2b8df5d…`. Historical authorship remains an explicit maintainer report rather than being relabeled as runtime evidence.
+The declaration `resume-en-operator-multi-planet-2026-08-14` satisfies role `m1-multi-planet` under the reconciled T3 contract without changing its fixture id, bytes, or evidence labels. T3 directly observed player id `0`, the three player-owned `Corpuscle` planets, and their empty current-action state on the exact canonical target; the detached runtime artifact binds those observations to exact `resume.gam` `d2b8df5d…`. The current-player ownership interpretation carries the runtime-mapping caveat above; historical authorship remains an explicit maintainer report rather than being relabeled as runtime evidence.
 
 T3 is therefore complete. V1 may use this fixture once its independent implementation dependencies are ready; this result does not itself validate Manual/Agricultural/Industrial feature behavior.

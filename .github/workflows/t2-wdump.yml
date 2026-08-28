@@ -40,7 +40,6 @@ jobs:
         run: |
           objdump --version
           command -v wdump
-          wdump
       - name: Fetch and verify pinned targets
         run: python tools/fetch_free_targets.py
       - name: Regenerate T2 with independent wdump oracle

@@ -19,12 +19,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Setup pinned Open Watcom snapshot
-        uses: open-watcom/setup-watcom@ccb20bafa51ccae40a02010c009946c44e2b9a89
-        with:
-          version: "2.0"
-          tag: "2026-08-01-Build"
-          target: "linux"
+      - name: Install pinned Open Watcom snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          watcom="$RUNNER_TEMP/watcom"
+          archive="$RUNNER_TEMP/ow-snapshot.tar.xz"
+          curl --fail --location --retry 3 \
+            --output "$archive" \
+            "https://github.com/open-watcom/open-watcom-v2/releases/download/2026-08-01-Build/ow-snapshot.tar.xz"
+          mkdir -p "$watcom"
+          tar -xJf "$archive" -C "$watcom"
+          test -x "$watcom/binl/wdump"
+          echo "WATCOM=$watcom" >> "$GITHUB_ENV"
+          echo "$watcom/binl" >> "$GITHUB_PATH"
+          echo "$watcom/binw" >> "$GITHUB_PATH"
       - name: Verify required tools are available
         run: |
           objdump --version

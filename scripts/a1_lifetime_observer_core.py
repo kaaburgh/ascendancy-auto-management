@@ -51,8 +51,10 @@ def _qualify(
 ) -> dict[str, Any]:
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
+        # The total observer deadline is a plan bound, not a retryable qualification
+        # failure. Check it outside the retry handler so expiry propagates directly.
+        timeout = _remaining(deadline, per_step, clock)
         try:
-            timeout = _remaining(deadline, per_step, clock)
             raw = backend.qualify(
                 step_id=step["id"],
                 logical_label=step["logical_label"],

@@ -946,7 +946,7 @@ Until criterion 2 is met, A1 remains `Investigation first`; downstream tasks tha
 ## A2 — Select the patch/integration mechanism
 
 - **Status:** Investigation first
-- **Current state:** Stage 1 exact-target capacity inventory complete; reusable mapped capacity remains unestablished.
+- **Current state:** Stage 1 exact-target capacity inventory and a historical exact-target literal-reference probe are complete; no existing mapped range is established reusable. The decoded-reference probe, bounded runtime-capacity observer, and Stage 2 LE-growth transformer are prepared, but their outstanding runs remain tooling/synthetic rather than current-head target evidence.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / patching
@@ -956,13 +956,25 @@ Until criterion 2 is met, A1 remains `Investigation first`; downstream tasks tha
 
 ### Current evidence and next experiment
 
-The bounded decision experiment is recorded in [`docs/experiments/A2-patch-mechanism-decision.md`](./docs/experiments/A2-patch-mechanism-decision.md), with the Stage 1 producer/result in [`docs/experiments/A2-stage1-capacity-inventory.md`](./docs/experiments/A2-stage1-capacity-inventory.md).
+The bounded decision experiment is recorded in [`docs/experiments/A2-patch-mechanism-decision.md`](./docs/experiments/A2-patch-mechanism-decision.md). The Stage 1 inventory and its follow-ups are preserved in [`docs/experiments/A2-stage1-capacity-inventory.md`](./docs/experiments/A2-stage1-capacity-inventory.md), [`docs/experiments/A2-literal-reference-probe.md`](./docs/experiments/A2-literal-reference-probe.md), [`docs/experiments/A2-decoded-memory-reference-triage.md`](./docs/experiments/A2-decoded-memory-reference-triage.md), and [`docs/experiments/A2-runtime-capacity-observation.md`](./docs/experiments/A2-runtime-capacity-observation.md). The prepared target-neutral fallback is documented in [`docs/experiments/A2-stage2-le-growth-transformer.md`](./docs/experiments/A2-stage2-le-growth-transformer.md).
 
-Stage 1 has now run on canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` (`static`, clean blind-RE provenance). It found 43 zero/padding candidate regions at the 16-byte threshold, 42 fully file-backed. The largest file-backed leads are object-2 VA `0x96c10` / 6206 bytes and `0x988dc` / 3052 bytes. Under the producer's GNU-objdump linear-sweep model, none of the 43 candidates has an incoming direct call/branch target.
+Stage 1 on canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` (`static`, clean blind-RE provenance) found 43 zero/padding candidate regions at the 16-byte threshold, 42 fully file-backed. The largest file-backed leads are object-2 VA `0x96c10` / 6206 bytes and `0x988dc` / 3052 bytes. Under the producer's GNU-objdump linear-sweep model, none of the 43 candidates has an incoming direct call/branch target. This establishes **zero reusable bytes so far**: zero/padding content and absence of incoming direct control flow do not exclude data references, indirect/runtime-computed access, initialization, scratch use, sentinel semantics, or other consumers.
 
-This establishes **zero reusable bytes so far**. Zero/padding content and absence of incoming direct control flow do not establish semantic inactivity: data references, indirect/runtime-computed access, initialization, scratch use, sentinel semantics, or other consumers remain possible. Every candidate therefore remains `reusable: false`; mechanism A (reuse existing mapped capacity) is not yet selected.
+A historical exact-target raw-literal run is already preserved in [`docs/experiments/A2-literal-reference-probe.md`](./docs/experiments/A2-literal-reference-probe.md), bound to PR #44 head `8c6ea2536eaf6c924fdf8a6143be7c20648a7fce`. It observed 1,983 raw little-endian u32 matches into the two candidate ranges: 1,162 into `0x96c10` and 821 into `0x988dc`. Those raw matches are leads, not proven runtime references or semantic consumers, and both candidates remain `reusable: false`. That historical result must not be silently rebound to current `main`.
 
-**Next bounded experiment:** independently investigate `0x96c10` and `0x988dc` with evidence that does not reuse the zero-run/direct-control-flow derivation as its oracle. Prefer structural/raw-reference analysis and bounded runtime read/write observation where practical. If neither range can be defensibly established reusable, proceed to the Stage 2 target-neutral LE-growth/loader control defined by the A2 decision experiment rather than forcing a code-cave conclusion.
+The current repository has stronger follow-up machinery prepared but not promoted beyond its evidence class. [`docs/experiments/A2-decoded-memory-reference-triage.md`](./docs/experiments/A2-decoded-memory-reference-triage.md) records the decoded absolute-memory probe as tooling/synthetic until an exact-target result is produced. [`docs/experiments/A2-runtime-capacity-observation.md`](./docs/experiments/A2-runtime-capacity-observation.md) provides a bounded read-only exact-target observer, validated synthetically, that can distinguish initial nonzero materialization or runtime mutation from a bounded no-write observation while the target progresses. [`docs/experiments/A2-stage2-le-growth-transformer.md`](./docs/experiments/A2-stage2-le-growth-transformer.md) is likewise target-neutral synthetic preparation: it deliberately rejects the canonical target and does not establish loader acceptance, runtime execution of appended pages, or mechanism B.
+
+Mechanisms A, B, and C therefore remain unselected. **Exactly one next bounded A2 evidence action is current:** run the already-prepared exact-target runtime capacity observation against canonical `ANTAG.EXE` with the verified retail fixture:
+
+```sh
+python scripts/run_a2_capacity_runtime_observation.py \
+  --game-dir /path/to/verified-retail-tree \
+  --fixture-manifest tools/retail-runtime-manifest.json \
+  --dosbox dosbox \
+  --output artifacts/a2-capacity-runtime-observation.json
+```
+
+Preserve the observer's asymmetric oracle. Initial nonzero materialization or observed mutation is evidence against treating that range as a simple unused cave. An unchanged bounded window is only a negative write observation and does **not** by itself establish that the bytes are reusable. If reconciliation after that run still cannot defensibly establish existing mapped capacity, proceed to the already-prepared Stage 2 independent-reader/runtime control rather than adding another Stage 1 probe merely because the historical literal evidence is head-bound.
 
 ### Evaluate based on established target facts
 

@@ -26,7 +26,7 @@ Use [`vanilla-antagonizer-diff.md`](./vanilla-antagonizer-diff.md) for the RE1 r
 
 Use [`auto-management-ui-state.md`](./auto-management-ui-state.md) for the RE2/RE4 static-plus-runtime Managed UI/state model, [`../experiments/RE2-auto-management-ui-state-static.md`](../experiments/RE2-auto-management-ui-state-static.md) for its static recovery, and [`../experiments/RE4-runtime-ui-state.md`](../experiments/RE4-runtime-ui-state.md) for the two-planet runtime ownership/transition confirmation.
 
-Use [`auto-management-turn-path.md`](./auto-management-turn-path.md) for the RE3 static per-turn state-gate/policy/action path and [`../experiments/RE3-static-turn-path.md`](../experiments/RE3-static-turn-path.md) for the reproducible byte-level evidence and bounded RE5 handoff.
+Use [`auto-management-turn-path.md`](./auto-management-turn-path.md) for the RE3 static per-turn state-gate/policy/action path and [`../experiments/RE3-static-turn-path.md`](../experiments/RE3-static-turn-path.md) for the reproducible byte-level evidence and bounded RE5 handoff. The evidence boundary for the RE5/T3 runtime data-object bias, including the extrapolated current-player read, is recorded separately in [`re5-runtime-mapping-boundary.md`](./re5-runtime-mapping-boundary.md).
 
 Use [`m1-profile-state-representation.md`](./m1-profile-state-representation.md) for the A1 architecture decision boundary: the selected binary `+0x5a` compatibility mirror plus mod-owned profile identity, the exact evidence it relies on, and the still-open reuse-safe identity/lifetime requirement.
 

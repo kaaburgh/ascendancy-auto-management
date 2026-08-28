@@ -349,7 +349,11 @@ def verify_candidate_save(root: Path, dosbox: Path, save_bytes: bytes) -> dict[s
             "runtime_mapping": mapping,
             "current_player_id_source": {
                 "static_va": f"0x{override_witness.CURRENT_PLAYER_ID_VA:x}",
-                "read_through_validated_data_object_bias": True,
+                "read_through_validated_data_object_bias": False,
+                "runtime_mapping_status": "extrapolated_beyond_independent_cross_check",
+                "independent_cross_check_static_va": "0xa2f6c",
+                "distance_beyond_cross_check_bytes": 0x61C7E,
+                "value_oracle": "weak_zero",
             },
             "stardate_at_observation": stardate,
             "process_stopped_for_coherent_snapshot": True,

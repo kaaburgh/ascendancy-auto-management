@@ -95,6 +95,14 @@ The detached record must also carry the orchestration provenance identities for 
 
 If the current schema cannot represent the required ordering or immutable-input provenance without ambiguity, extend and version that existing schema in a separate bounded tooling change before running the target. Do not overload unrelated fields or encode ordering in prose strings.
 
+## Transcript / lifetime-record relationship
+
+The implementation uses `ascendancy.a1-lifetime-observer-transcript/v1` only as a bounded intermediate execution trace. It is not a second oracle-facing evidence record. `scripts/a1_lifetime_record_adapter.py` deterministically derives the existing `ascendancy.a1-sidecar-runtime-lifetime/v1` record from that transcript, and the lifetime oracle validates only the derived lifetime record.
+
+`scripts/run_a1_lifetime_pipeline.py` is the committed integration boundary for this relationship: it builds or receives the plan inputs, calls `execute_observer_plan()`, adapts the resulting transcript exactly once, then calls `validate_record()` on the derived lifetime record. The committed `docs/experiments/A1-synthetic-lifetime-record.json` is generated through that path and is synthetic tooling evidence only. Its `incomplete-harness` outcome is intentional because the intermediate transcript omits the raw/oracle-shaped reuse evidence required for a positive lifetime claim.
+
+The exact-target orchestration path may replace the synthetic backend, but it must preserve this one-way relationship rather than treating transcript and lifetime record as competing result formats.
+
 ## Fail-closed bounds
 
 The observer must declare and enforce before launch:
@@ -118,15 +126,6 @@ Even a positive exact-target lifetime result leaves the separate lossless Manual
 
 ## Next bounded implementation slice
 
-Implement the observer as a thin adapter over the existing CF3/RE4 runtime primitives and A1 orchestration path, with synthetic coverage for:
+The synthetic plan → execute → adapt → validate chain is now committed and produces a durable repository-safe record without a test harness supplying the middle. The next bounded slice is to place the exact-target backend/orchestration under that same integration boundary, preserving all existing target identity, immutable-input provenance, timeout, cleanup, action-ordering, witness, and detached-output requirements.
 
-- valid A → B → A qualification;
-- witness mismatch;
-- ambiguous/short selected-record read;
-- missing replacement leg;
-- lifecycle signal first observed too late;
-- pointer reuse without a preceding accepted signal;
-- action-script/file-backed immutable-input provenance mutation before launch;
-- detached-record emission on incomplete termination.
-
-After those tests pass, execute the exact-target experiment without changing the predeclared witness contracts or action semantics in the same run.
+That target run must not change the predeclared witness contracts or action semantics merely to obtain a positive result. A target-produced result remains subject to the existing lifetime oracle and evidence bundle, and the separate Manual-transition invalidation requirement remains independent.

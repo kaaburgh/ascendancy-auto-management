@@ -1,0 +1,84 @@
+{
+  "adapter_limitation": "observer transcript omits the raw witness bytes and oracle-shaped reuse-event evidence required for a positive lifetime contract",
+  "claims": {
+    "array_base_established": false,
+    "array_count_established": false,
+    "epoch_boundary_established": false,
+    "manual_transition_invalidation_established": false,
+    "reuse_detector_established": false,
+    "stable_index_established": false
+  },
+  "control": {
+    "passed": true
+  },
+  "observer_transcript": {
+    "replacement_leg_count": 2,
+    "schema": "ascendancy.a1-lifetime-observer-transcript/v1",
+    "status": "complete",
+    "step_count": 9
+  },
+  "outcome": "incomplete-harness",
+  "schema": "ascendancy.a1-sidecar-runtime-lifetime/v1",
+  "transitions": [
+    {
+      "label": "selection-control",
+      "logical_records": [
+        "A",
+        "B",
+        "A"
+      ],
+      "record_pointers": [
+        100,
+        200,
+        100
+      ],
+      "replacement": false,
+      "source_steps": [
+        "control-a1",
+        "control-b",
+        "control-a2"
+      ],
+      "witness_sha256": [
+        "c34ab6abb7b2bb595bc25c3b388c872fd1d575819a8f55cc689510285e212385",
+        "2f858775d71cc4ece5f46f497c58c01167cd6fc301e56e935070f5e81bfe5890",
+        "c34ab6abb7b2bb595bc25c3b388c872fd1d575819a8f55cc689510285e212385"
+      ]
+    },
+    {
+      "label": "new-game-reset",
+      "lifecycle_signal": {
+        "after": 2,
+        "before": 1,
+        "changed_before_post_qualification": true,
+        "name": "epoch"
+      },
+      "pointer_reused_after_replacement": false,
+      "post_logical_record": "C",
+      "pre_logical_record": "A",
+      "replacement": true,
+      "source_steps": [
+        "ng-pre",
+        "ng",
+        "ng-post"
+      ]
+    },
+    {
+      "label": "save-load-replacement",
+      "lifecycle_signal": {
+        "after": 3,
+        "before": 2,
+        "changed_before_post_qualification": true,
+        "name": "epoch"
+      },
+      "pointer_reused_after_replacement": false,
+      "post_logical_record": "D",
+      "pre_logical_record": "C",
+      "replacement": true,
+      "source_steps": [
+        "sl-pre",
+        "sl",
+        "sl-post"
+      ]
+    }
+  ]
+}

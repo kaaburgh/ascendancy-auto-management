@@ -21,6 +21,7 @@ from typing import Iterable
 REPORT_SCHEMA = "ascendancy.repository-orphan-report/v1"
 ALLOWLIST_SCHEMA = "ascendancy.repository-orphan-allowlist/v1"
 SCHEMA_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]+/v[0-9]+$")
+SCHEMA_OUTPUT_KEYS = {"schema", "schema_id", "schema_version"}
 
 
 @dataclass(frozen=True)
@@ -90,7 +91,7 @@ def _produced_schema_symbols(files: Iterable[Path]) -> tuple[set[str], set[str]]
                 for key, value in zip(node.keys, node.values):
                     if not (
                         isinstance(key, ast.Constant)
-                        and key.value in {"schema", "schema_id"}
+                        and key.value in SCHEMA_OUTPUT_KEYS
                     ):
                         continue
                     if isinstance(value, ast.Name):
@@ -108,7 +109,7 @@ def _produced_schema_symbols(files: Iterable[Path]) -> tuple[set[str], set[str]]
                     index = target.slice
                     if not (
                         isinstance(index, ast.Constant)
-                        and index.value in {"schema", "schema_id"}
+                        and index.value in SCHEMA_OUTPUT_KEYS
                     ):
                         continue
                     if isinstance(node.value, ast.Name):
@@ -147,6 +148,21 @@ def _has_main_guard(tree: ast.AST) -> bool:
     return False
 
 
+def _resolved_import_from_module(path: Path, root: Path, node: ast.ImportFrom) -> str:
+    if node.level == 0:
+        return node.module or ""
+
+    package = list(path.relative_to(root).with_suffix("").parts[:-1])
+    ascend = node.level - 1
+    if ascend > len(package):
+        return ""
+    if ascend:
+        package = package[:-ascend]
+    if node.module:
+        package.extend(node.module.split("."))
+    return ".".join(package)
+
+
 def _imports_from_non_tests(root: Path) -> set[str]:
     imported: set[str] = set()
     for path in sorted(root.rglob("*.py")):
@@ -159,9 +175,11 @@ def _imports_from_non_tests(root: Path) -> set[str]:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 imported.update(alias.name for alias in node.names)
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                imported.add(node.module)
-                imported.update(f"{node.module}.{alias.name}" for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                module = _resolved_import_from_module(path, root, node)
+                if module:
+                    imported.add(module)
+                    imported.update(f"{module}.{alias.name}" for alias in node.names)
     return imported
 
 

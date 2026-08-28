@@ -44,6 +44,15 @@ class RepositoryOrphanReportTests(unittest.TestCase):
         )
         self.assertEqual(orphan_report.detect(root)["schema_orphans"], [])
 
+    def test_schema_version_written_to_document_is_not_reported(self):
+        root = self._root()
+        (root / "scripts" / "example.py").write_text(
+            'OUTPUT_SCHEMA = "ascendancy.example/v1"\n'
+            'def emit():\n    return {"schema_version": OUTPUT_SCHEMA}\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(orphan_report.detect(root)["schema_orphans"], [])
+
     def test_imported_module_and_standalone_clis_are_not_reported(self):
         root = self._root()
         (root / "scripts" / "library.py").write_text("VALUE = 1\n", encoding="utf-8")
@@ -54,6 +63,16 @@ class RepositoryOrphanReportTests(unittest.TestCase):
         )
         (root / "tools" / "cli.py").write_text(
             'if __name__ == "__main__":\n    pass\n', encoding="utf-8"
+        )
+        self.assertEqual(orphan_report.detect(root)["module_orphans"], [])
+
+    def test_relative_import_counts_as_non_test_importer(self):
+        root = self._root()
+        (root / "scripts" / "library.py").write_text("VALUE = 1\n", encoding="utf-8")
+        (root / "scripts" / "consumer.py").write_text(
+            "from .library import VALUE\n"
+            'if __name__ == "__main__":\n    raise SystemExit(VALUE)\n',
+            encoding="utf-8",
         )
         self.assertEqual(orphan_report.detect(root)["module_orphans"], [])
 

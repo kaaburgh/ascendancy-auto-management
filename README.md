@@ -1,8 +1,22 @@
 # Ascendancy Auto-Management
 
-Experimental modding and reverse-engineering project for the 1995 DOS strategy game Ascendancy.
+Experimental modding and reverse-engineering project for the 1995 DOS strategy game [Ascendancy](https://en.wikipedia.org/wiki/Ascendancy_(video_game)).
 
-The project aims to reduce late-game planetary micromanagement by extending the game's existing planet self-management with explicit strategic profiles such as **Agricultural**, **Industrial**, and later other useful specializations.
+The project aims to reduce late-game planetary micromanagement by extending the game's existing planet self-management with explicit strategic profiles such as **Agricultural**, **Industrial**, and later **Scientific** or other useful specializations.
+
+## Product idea
+
+A player-owned planet may be placed under a selected auto-management profile. On each turn, the planet should make construction and development decisions according to that profile until the player changes the profile or returns the planet to manual control.
+
+The intended behavior is deliberately policy-driven rather than a general-purpose AI governor: a profile should be predictable enough that a player can use it as a strategic tool.
+
+Examples of eventual profiles:
+
+- **Agricultural** — prioritize population/prosperity capacity and the infrastructure needed to sustain growth.
+- **Industrial** — prioritize production capacity and infrastructure that accelerates construction.
+- **Scientific** — prioritize research output while maintaining enough growth and production to remain functional.
+
+The exact policy rules are intentionally out of scope for the first milestone.
 
 ## First milestone
 
@@ -12,54 +26,93 @@ The first milestone proves that the game can represent and expose multiple per-p
 
 At this milestone Agricultural and Industrial may still execute identical behavior. Differentiated build policies, per-turn policy execution, and save-game persistence are later work.
 
-`README.md` is an overview, not an operator-facing projection or a source of current planning/evidence state. See [`ROADMAP.md`](./ROADMAP.md) for live project state and [`docs/re/`](./docs/re/) plus [`docs/experiments/`](./docs/experiments/) for current evidence.
+See [`ROADMAP.md`](./ROADMAP.md) for the executable task plan and current project state.
 
-## Repository workflow
+## Target and analysis workflow
+
+`README.md` is a stable project overview, not an operator-facing projection or a source of current planning/evidence state. Exact target identities, parser/layout corrections, comparison counts, and other mutable findings live in [`ROADMAP.md`](./ROADMAP.md), [`docs/re/`](./docs/re/), and [`docs/experiments/`](./docs/experiments/) rather than being duplicated here.
 
 Freely distributed candidate executables can be fetched and verified through the repository's pinned acquisition tool:
 
 ```sh
-python3 tools/fetch_free_targets.py
-python3 tools/fetch_free_targets.py --list
-python3 tools/fetch_free_targets.py --verify
+python3 tools/fetch_free_targets.py          # fetch and verify every candidate
+python3 tools/fetch_free_targets.py --list   # ids, sizes and pinned hashes
+python3 tools/fetch_free_targets.py --verify # re-verify offline
 ```
 
-The static-analysis entry points are:
+Files land in the git-ignored `binaries/`. The tool verifies the pinned archive and executable identities before writing. Only freely distributed artifacts may be added to the acquisition manifest; never add retail game images or full-game distributions.
+
+The repository's static-analysis entry points are:
 
 ```sh
-python3 tools/le_image.py info binaries/ANTAG_EN.EXE
-python3 tools/le_image.py strings binaries/ANTAG_EN.EXE
-python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary
+python3 tools/le_image.py info binaries/ANTAG_EN.EXE       # container and load map
+python3 tools/le_image.py strings binaries/ANTAG_EN.EXE    # strings with virtual addresses
+python3 tools/le_disasm.py binaries/ANTAG_EN.EXE --summary # candidate regions and call graph
 python3 tools/le_diff.py binaries/ANTAG_EN.EXE binaries/PATCH_EN.EXE --summary
 ```
 
-Exact target identities, parser/layout corrections, comparison counts, and other mutable findings intentionally live in the canonical evidence records rather than being duplicated here.
+Follow the canonical evidence records for the current parser model, independent-layout corroboration, target identities, differential results, and analysis limits instead of copying mutable values from this overview or repository history.
+
+## Cloud-first development
+
+This repository is intentionally organized so that as much work as possible can be performed by coding agents in **Codex cloud** or **Claude cloud**.
+
+Closed-source game modification creates three likely friction points: access to target files, running/debugging the DOS game, and visually validating UI behavior. The roadmap does not mark those steps local-only by default; it first creates explicit cloud-feasibility investigations.
+
+Every active roadmap item has an execution classification:
+
+- **CLOUD** — a cloud coding agent may take and complete the item.
+- **CLOUD RESEARCH** — a cloud agent investigates whether a gated target step can be made cloud-executable and records the result.
+- **GATED** — do not take the task until its named feasibility dependency resolves the execution environment.
+- **LOCAL ONLY** — a cloud agent must not take the task; use only after a feasibility investigation documents the blocker.
+
+If a step truly requires a local machine, the preferred pattern is still cloud-first: the cloud agent prepares the smallest possible one-shot local experiment, the maintainer runs it, and a subsequent CLOUD task consumes the resulting safe artifacts.
 
 ## Development model
 
-The project uses an evidence-first reverse-engineering loop:
+The game is closed-source, so the project uses an evidence-first reverse-engineering loop:
 
 **observe → hypothesize → instrument → test → update model → patch**
 
-Before taking work, read [`AGENTS.md`](./AGENTS.md), the live [`ROADMAP.md`](./ROADMAP.md), and the relevant durable evidence. For the detailed workflow see [`docs/agent-playbook.md`](./docs/agent-playbook.md).
+Important rules are documented in [`AGENTS.md`](./AGENTS.md):
 
-The repository is cloud-first: active roadmap items declare whether they are cloud-executable, cloud-feasibility research, gated, or local-only. A missing capability in one runner is not by itself evidence that the project requires local execution.
+- distinguish established evidence from assumptions;
+- tie binary-specific facts to exact target hashes;
+- prefer reversible and fail-closed patch mechanisms;
+- keep negative RE results because they prevent repeated dead ends;
+- never claim target-game validation when only synthetic or static checks ran;
+- keep proprietary binaries and raw target-machine artifacts out of the repository.
+
+For the detailed agent workflow see [`docs/agent-playbook.md`](./docs/agent-playbook.md).
 
 ## Repository layout
 
 - [`ROADMAP.md`](./ROADMAP.md) — live backlog, dependencies, execution environment and milestone state.
 - [`AGENTS.md`](./AGENTS.md) — canonical repository-wide rules for coding agents.
-- [`docs/agent-playbook.md`](./docs/agent-playbook.md) — operational workflow.
-- [`docs/roadmap-authoring.md`](./docs/roadmap-authoring.md) — roadmap-maintenance rules.
+- [`CLAUDE.md`](./CLAUDE.md) — Claude-specific entry point that delegates to `AGENTS.md`.
+- [`docs/agent-playbook.md`](./docs/agent-playbook.md) — operational reverse-engineering workflow.
+- [`docs/roadmap-authoring.md`](./docs/roadmap-authoring.md) — rules for keeping roadmap items agent-sized and evidence-driven.
 - `docs/re/` — durable reverse-engineering findings.
-- `docs/experiments/` — reproducible experiments and negative results.
-- `tools/` — reusable analysis and diagnostic tooling.
-- `scripts/` — automation for validation and evidence handling.
-- `tests/` — synthetic and repository-level regression tests.
-- `binaries/`, `reference/`, `artifacts/`, `captures/` — local or ephemeral material; ignored and not committed.
+- `docs/experiments/` — reproducible experiments, including negative results.
+- `tools/` — reusable analysis, diffing, patching and diagnostic tooling.
+- `scripts/` — automation for builds, validation, target capture and local handoff experiments.
+- `tests/` — tests and synthetic fixtures for logic that can be validated without the game.
+- `binaries/`, `reference/`, `artifacts/`, `captures/` — local/ephemeral material; ignored and not committed.
 
-## Scope
+## For coding agents
 
-The project focuses on player-facing planetary automation. It is not an attempt to rewrite the whole game, replace all game AI, rebalance the game, or build a generic mod framework unless later evidence makes that necessary.
+Before taking work:
 
-The repository does not redistribute proprietary game executables or copyrighted game assets. Reverse-engineering outputs should contain only the minimal information needed to reproduce and review the work.
+1. Read [`AGENTS.md`](./AGENTS.md).
+2. Read the current milestone and task-selection rules in [`ROADMAP.md`](./ROADMAP.md).
+3. Choose only a task whose dependencies are satisfied and whose execution classification allows your environment.
+4. Read the linked RE notes and experiments.
+5. Keep the task bounded. If new evidence changes the plan, update the roadmap in the same PR instead of silently continuing under invalid assumptions.
+
+A cloud agent must never pick a **GATED** or **LOCAL ONLY** item.
+
+## Scope and non-goals
+
+The project currently focuses on player-facing planetary automation. It is not an attempt to rewrite Ascendancy, replace the entire game AI, rebalance the game, or build a generic mod framework unless later evidence shows that one of those is necessary for the feature.
+
+The repository must not redistribute proprietary game executables or copyrighted game assets. Reverse-engineering outputs should contain only the minimal information needed to reproduce and review the work.

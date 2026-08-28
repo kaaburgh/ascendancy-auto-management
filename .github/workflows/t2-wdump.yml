@@ -47,4 +47,5 @@ jobs:
           python scripts/generate_t2_static_bundle.py \
             --binaries binaries \
             --wdump "$(command -v wdump)"
-          git diff --exit-code -- docs/re/static-analysis/t2
+      - name: Require independent wdump record unchanged
+        run: git diff --exit-code -- docs/re/static-analysis/t2/wdump-comparison.json

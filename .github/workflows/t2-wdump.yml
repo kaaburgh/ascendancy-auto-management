@@ -1,10 +1,13 @@
 name: T2 independent wdump oracle
 
 on:
-  # Keep this independent format-oracle regression explicit rather than adding
-  # a large Open Watcom download to every pull request. Run it when the LE
-  # parser, T2 producer, or format assumptions change.
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/t2-wdump.yml"
+      - "scripts/generate_t2_static_bundle.py"
+      - "tools/**"
+      - "docs/re/static-analysis/t2/**"
 
 jobs:
   t2-wdump:

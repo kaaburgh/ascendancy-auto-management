@@ -33,7 +33,7 @@ def _actions() -> dict:
     return {
         "schema": ACTION_SCRIPT_SCHEMA,
         "bounds": {
-            "max_action_count": 1,
+            "max_action_count": 9,
             "max_qualification_attempts_per_step": 2,
             "per_step_timeout_seconds": 10,
             "total_timeout_seconds": 120,
@@ -44,7 +44,53 @@ def _actions() -> dict:
                 "action": "qualify",
                 "phase": "selection-control",
                 "logical_label": "A",
-            }
+            },
+            {
+                "id": "control-b",
+                "action": "qualify",
+                "phase": "selection-control",
+                "logical_label": "B",
+            },
+            {
+                "id": "control-a2",
+                "action": "qualify",
+                "phase": "selection-control",
+                "logical_label": "A",
+            },
+            {
+                "id": "reset-pre",
+                "action": "qualify",
+                "phase": "pre-replacement",
+                "logical_label": "A",
+            },
+            {
+                "id": "reset",
+                "action": "replace",
+                "mechanism": "new-game-reset",
+            },
+            {
+                "id": "reset-post",
+                "action": "qualify",
+                "phase": "post-replacement",
+                "logical_label": "A",
+            },
+            {
+                "id": "load-pre",
+                "action": "qualify",
+                "phase": "pre-replacement",
+                "logical_label": "A",
+            },
+            {
+                "id": "load",
+                "action": "replace",
+                "mechanism": "save-load-replacement",
+            },
+            {
+                "id": "load-post",
+                "action": "qualify",
+                "phase": "post-replacement",
+                "logical_label": "A",
+            },
         ],
     }
 

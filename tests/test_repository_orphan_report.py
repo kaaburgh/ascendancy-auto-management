@@ -53,6 +53,30 @@ class RepositoryOrphanReportTests(unittest.TestCase):
         )
         self.assertEqual(orphan_report.detect(root)["schema_orphans"], [])
 
+    def test_artifact_schema_written_to_document_is_not_reported(self):
+        root = self._root()
+        (root / "scripts" / "example.py").write_text(
+            'ARTIFACT_SCHEMA = "ascendancy.example/v1"\n'
+            'def emit():\n    return {"artifact_schema": ARTIFACT_SCHEMA}\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(orphan_report.detect(root)["schema_orphans"], [])
+
+    def test_schema_alias_is_not_reported_when_same_identifier_is_produced(self):
+        root = self._root()
+        (root / "scripts" / "producer.py").write_text(
+            'OUTPUT_SCHEMA = "ascendancy.example/v1"\n'
+            'def emit():\n    return {"schema": OUTPUT_SCHEMA}\n'
+            'if __name__ == "__main__":\n    pass\n',
+            encoding="utf-8",
+        )
+        (root / "scripts" / "consumer.py").write_text(
+            'EXPECTED_SCHEMA = "ascendancy.example/v1"\n'
+            'if __name__ == "__main__":\n    pass\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(orphan_report.detect(root)["schema_orphans"], [])
+
     def test_imported_module_and_standalone_clis_are_not_reported(self):
         root = self._root()
         (root / "scripts" / "library.py").write_text("VALUE = 1\n", encoding="utf-8")

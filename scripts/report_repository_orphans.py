@@ -21,7 +21,7 @@ from typing import Iterable
 REPORT_SCHEMA = "ascendancy.repository-orphan-report/v1"
 ALLOWLIST_SCHEMA = "ascendancy.repository-orphan-allowlist/v1"
 SCHEMA_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]+/v[0-9]+$")
-SCHEMA_OUTPUT_KEYS = {"schema", "schema_id", "schema_version"}
+SCHEMA_OUTPUT_KEYS = {"schema", "schema_id", "schema_version", "artifact_schema"}
 
 
 @dataclass(frozen=True)
@@ -206,10 +206,14 @@ def detect(root: Path) -> dict[str, object]:
     files = _python_files(root)
     constants = _schema_constants(root, files)
     produced_symbols, produced_literals = _produced_schema_symbols(files)
+    produced_identifiers = set(produced_literals)
+    produced_identifiers.update(
+        item.identifier for item in constants if item.symbol in produced_symbols
+    )
     schema_orphans = [
         {"id": item.identifier, "path": item.path, "symbol": item.symbol}
         for item in constants
-        if item.identifier not in produced_literals and item.symbol not in produced_symbols
+        if item.identifier not in produced_identifiers
     ]
 
     imported = _imports_from_non_tests(root)

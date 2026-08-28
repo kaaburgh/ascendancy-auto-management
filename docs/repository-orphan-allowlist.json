@@ -1,0 +1,15 @@
+{
+  "entries": {
+    "experiment:docs/experiments/README.md": "Directory index and guidance file; it is not an experiment record owned by a roadmap item.",
+    "experiment:docs/experiments/project-guidance.md": "Shared experiment-authoring guidance; it is intentionally not owned by one roadmap item.",
+    "module:tools/le_fixture.py": "Synthetic LE fixture helper is intentionally imported only by tests.",
+    "schema:ascendancy.a1-manual-transition-coverage-evidence/v1": "Independent coverage evidence is supplied to the oracle as input; repository tooling does not emit it.",
+    "schema:ascendancy.a1-manual-transition-expected-coverage/v1": "Expected-coverage data is caller-supplied oracle input, not an emitted repository document.",
+    "schema:ascendancy.a1-sidecar-expected-source/v1": "Expected-source identity is caller-supplied qualification/oracle input, not an emitted repository document.",
+    "schema:ascendancy.a1-sidecar-scenario-qualification-input/v1": "Legacy qualification input is consumed for compatibility; it is not an emitted repository document.",
+    "schema:ascendancy.a1-sidecar-scenario-qualification-input/v2": "Qualification input is supplied by the caller and consumed to build evidence; it is not emitted as output.",
+    "schema:ascendancy.repository-orphan-allowlist/v1": "This schema describes the committed detector configuration consumed by the script itself.",
+    "schema:ascendancy.validation-fixture-producer/v1": "Detached exact-target producer artifacts are supplied to fixture validation from operator runtime runs, not emitted by CI tooling."
+  },
+  "schema_version": "ascendancy.repository-orphan-allowlist/v1"
+}

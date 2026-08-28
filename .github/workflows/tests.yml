@@ -34,6 +34,10 @@ jobs:
       # The suite must stay network-free: download paths are exercised against
       # synthetic file:// fixtures, and LE parsing against synthetic images.
       - run: python -m unittest discover -s tests -v
+      # Repository-level orphan detection is advisory for now. It prints the
+      # current report into the CI log but deliberately does not gate merges.
+      - name: Report repository orphans
+        run: python scripts/report_repository_orphans.py --allowlist docs/repository-orphan-allowlist.json
 
   cf3-debugger:
     name: CF3 debugger capability

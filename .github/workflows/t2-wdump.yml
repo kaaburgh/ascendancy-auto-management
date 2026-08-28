@@ -30,14 +30,17 @@ jobs:
             "https://github.com/open-watcom/open-watcom-v2/releases/download/2026-08-01-Build/ow-snapshot.tar.xz"
           mkdir -p "$watcom"
           tar -xJf "$archive" -C "$watcom"
-          test -x "$watcom/binl/wdump"
+          oracle="$watcom/binl64/wdump"
+          test -x "$oracle"
+          echo "74282d0b263015636b9eb00172c5007e593155aaf829e788a80b4e3e0ccb815a  $oracle" | sha256sum --check -
           echo "WATCOM=$watcom" >> "$GITHUB_ENV"
-          echo "$watcom/binl" >> "$GITHUB_PATH"
+          echo "$watcom/binl64" >> "$GITHUB_PATH"
           echo "$watcom/binw" >> "$GITHUB_PATH"
       - name: Verify required tools are available
         run: |
           objdump --version
           command -v wdump
+          wdump
       - name: Fetch and verify pinned targets
         run: python tools/fetch_free_targets.py
       - name: Regenerate T2 with independent wdump oracle

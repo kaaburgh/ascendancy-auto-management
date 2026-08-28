@@ -1,0 +1,37 @@
+{
+  "experiment_orphans": [
+    {"allowlist_reason": "", "path": "docs/experiments/A1-managed-field-writer-inventory.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/A1-planet-array-indexing-probe.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/A1-sidecar-identity-lifetime-next-probe.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/A1-sidecar-runtime-lifetime-experiment.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/A1-static-evidence-bundle.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/A2-candidate-raw-reference-probe.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/A2-raw-literal-probe-evaluation.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/A2-raw-literal-reference-probe.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/CF2-wdump-layout-correction.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/RE5-runtime-turn-path.md"},
+    {"allowlist_reason": "Directory index and guidance file; it is not an experiment record owned by a roadmap item.", "path": "docs/experiments/README.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/T3-target-written-replacement-fixture.md"},
+    {"allowlist_reason": "", "path": "docs/experiments/V1-validation-state-handoff.md"},
+    {"allowlist_reason": "Shared experiment-authoring guidance; it is intentionally not owned by one roadmap item.", "path": "docs/experiments/project-guidance.md"}
+  ],
+  "module_orphans": [
+    {"allowlist_reason": "", "module": "scripts.a1_exact_target_runtime_backend", "path": "scripts/a1_exact_target_runtime_backend.py"},
+    {"allowlist_reason": "", "module": "scripts.a1_replacement_command_driver", "path": "scripts/a1_replacement_command_driver.py"},
+    {"allowlist_reason": "", "module": "scripts.a1_selection_command_driver", "path": "scripts/a1_selection_command_driver.py"},
+    {"allowlist_reason": "", "module": "scripts.re5_followup_model", "path": "scripts/re5_followup_model.py"},
+    {"allowlist_reason": "Synthetic LE fixture helper is intentionally imported only by tests.", "module": "tools.le_fixture", "path": "tools/le_fixture.py"}
+  ],
+  "schema_orphans": [
+    {"allowlist_reason": "Independent coverage evidence is supplied to the oracle as input; repository tooling does not emit it.", "id": "ascendancy.a1-manual-transition-coverage-evidence/v1", "path": "scripts/a1_manual_transition_oracle.py", "symbol": "COVERAGE_EVIDENCE_SCHEMA"},
+    {"allowlist_reason": "Expected-coverage data is caller-supplied oracle input, not an emitted repository document.", "id": "ascendancy.a1-manual-transition-expected-coverage/v1", "path": "scripts/a1_manual_transition_oracle.py", "symbol": "EXPECTED_COVERAGE_SCHEMA"},
+    {"allowlist_reason": "Expected-source identity is caller-supplied qualification/oracle input, not an emitted repository document.", "id": "ascendancy.a1-sidecar-expected-source/v1", "path": "scripts/_a1_sidecar_lifetime_oracle_core.py", "symbol": "EXPECTED_SOURCE_SCHEMA"},
+    {"allowlist_reason": "Expected-source identity is caller-supplied qualification/oracle input, not an emitted repository document.", "id": "ascendancy.a1-sidecar-expected-source/v1", "path": "scripts/a1_scenario_qualification.py", "symbol": "EXPECTED_SOURCE_SCHEMA"},
+    {"allowlist_reason": "Legacy qualification input is consumed for compatibility; it is not an emitted repository document.", "id": "ascendancy.a1-sidecar-scenario-qualification-input/v1", "path": "scripts/a1_scenario_qualification.py", "symbol": "LEGACY_INPUT_SCHEMA"},
+    {"allowlist_reason": "Qualification input is supplied by the caller and consumed to build evidence; it is not emitted as output.", "id": "ascendancy.a1-sidecar-scenario-qualification-input/v2", "path": "scripts/a1_scenario_qualification.py", "symbol": "INPUT_SCHEMA"},
+    {"allowlist_reason": "This schema describes the committed detector configuration consumed by the script itself.", "id": "ascendancy.repository-orphan-allowlist/v1", "path": "scripts/report_repository_orphans.py", "symbol": "ALLOWLIST_SCHEMA"},
+    {"allowlist_reason": "Detached exact-target producer artifacts are supplied to fixture validation from operator runtime runs, not emitted by CI tooling.", "id": "ascendancy.validation-fixture-producer/v1", "path": "scripts/validate_validation_fixtures.py", "symbol": "PRODUCTION_RUN_ARTIFACT_SCHEMA"}
+  ],
+  "schema_version": "ascendancy.repository-orphan-report/v1",
+  "stale_allowlist_entries": []
+}

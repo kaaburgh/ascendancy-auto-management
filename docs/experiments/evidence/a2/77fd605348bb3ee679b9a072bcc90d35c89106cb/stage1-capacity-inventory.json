@@ -1,0 +1,984 @@
+{
+  "candidate_zero_regions": [
+    {
+      "address": 343272,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 58,
+      "file_spans": [
+        {
+          "address": 343272,
+          "file_offset": 376040,
+          "size": 58
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 277736,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 58
+    },
+    {
+      "address": 467459,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 57,
+      "file_spans": [
+        {
+          "address": 467459,
+          "file_offset": 500227,
+          "size": 57
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 401923,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 57
+    },
+    {
+      "address": 467531,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 467531,
+          "file_offset": 500299,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 401995,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 467563,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 467563,
+          "file_offset": 500331,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402027,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 467603,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 41,
+      "file_spans": [
+        {
+          "address": 467603,
+          "file_offset": 500371,
+          "size": 41
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402067,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 41
+    },
+    {
+      "address": 467715,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 57,
+      "file_spans": [
+        {
+          "address": 467715,
+          "file_offset": 500483,
+          "size": 57
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402179,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 57
+    },
+    {
+      "address": 467787,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 467787,
+          "file_offset": 500555,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402251,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 467819,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 467819,
+          "file_offset": 500587,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402283,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 467859,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 41,
+      "file_spans": [
+        {
+          "address": 467859,
+          "file_offset": 500627,
+          "size": 41
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402323,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 41
+    },
+    {
+      "address": 468283,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 65,
+      "file_spans": [
+        {
+          "address": 468283,
+          "file_offset": 501051,
+          "size": 65
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402747,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 65
+    },
+    {
+      "address": 468411,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 65,
+      "file_spans": [
+        {
+          "address": 468411,
+          "file_offset": 501179,
+          "size": 65
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 1,
+      "object_kind": "code",
+      "object_offset": 402875,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 65
+    },
+    {
+      "address": 615089,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 131,
+      "file_spans": [
+        {
+          "address": 615089,
+          "file_offset": 594609,
+          "size": 131
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 25265,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 131
+    },
+    {
+      "address": 615611,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 615611,
+          "file_offset": 595131,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 25787,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 615631,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 615631,
+          "file_offset": 595151,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 25807,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 616018,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 22,
+      "file_spans": [
+        {
+          "address": 616018,
+          "file_offset": 595538,
+          "size": 22
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 26194,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 22
+    },
+    {
+      "address": 616073,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 227,
+      "file_spans": [
+        {
+          "address": 616073,
+          "file_offset": 595593,
+          "size": 227
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 26249,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 227
+    },
+    {
+      "address": 616556,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 112,
+      "file_spans": [
+        {
+          "address": 616556,
+          "file_offset": 596076,
+          "size": 112
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 26732,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 112
+    },
+    {
+      "address": 617139,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 617139,
+          "file_offset": 596659,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 27315,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 617172,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 56,
+      "file_spans": [
+        {
+          "address": 617172,
+          "file_offset": 596692,
+          "size": 56
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 27348,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 56
+    },
+    {
+      "address": 617262,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 62,
+      "file_spans": [
+        {
+          "address": 617262,
+          "file_offset": 596782,
+          "size": 62
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 27438,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 62
+    },
+    {
+      "address": 617427,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 53,
+      "file_spans": [
+        {
+          "address": 617427,
+          "file_offset": 596947,
+          "size": 53
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 27603,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 53
+    },
+    {
+      "address": 617488,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 6206,
+      "file_spans": [
+        {
+          "address": 617488,
+          "file_offset": 597008,
+          "size": 1008
+        },
+        {
+          "address": 618496,
+          "file_offset": 598016,
+          "size": 4096
+        },
+        {
+          "address": 622592,
+          "file_offset": 602112,
+          "size": 1102
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 27664,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 6206
+    },
+    {
+      "address": 623711,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 821,
+      "file_spans": [
+        {
+          "address": 623711,
+          "file_offset": 603231,
+          "size": 821
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 33887,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 821
+    },
+    {
+      "address": 624718,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 130,
+      "file_spans": [
+        {
+          "address": 624718,
+          "file_offset": 604238,
+          "size": 130
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 34894,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 130
+    },
+    {
+      "address": 624860,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 3052,
+      "file_spans": [
+        {
+          "address": 624860,
+          "file_offset": 604380,
+          "size": 1828
+        },
+        {
+          "address": 626688,
+          "file_offset": 606208,
+          "size": 1224
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 35036,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 3052
+    },
+    {
+      "address": 627926,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 813,
+      "file_spans": [
+        {
+          "address": 627926,
+          "file_offset": 607446,
+          "size": 813
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 38102,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 813
+    },
+    {
+      "address": 628821,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 23,
+      "file_spans": [
+        {
+          "address": 628821,
+          "file_offset": 608341,
+          "size": 23
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 38997,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 23
+    },
+    {
+      "address": 628939,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 146,
+      "file_spans": [
+        {
+          "address": 628939,
+          "file_offset": 608459,
+          "size": 146
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39115,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 146
+    },
+    {
+      "address": 629125,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 63,
+      "file_spans": [
+        {
+          "address": 629125,
+          "file_offset": 608645,
+          "size": 63
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39301,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 63
+    },
+    {
+      "address": 629212,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 16,
+      "file_spans": [
+        {
+          "address": 629212,
+          "file_offset": 608732,
+          "size": 16
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39388,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 16
+    },
+    {
+      "address": 629229,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 25,
+      "file_spans": [
+        {
+          "address": 629229,
+          "file_offset": 608749,
+          "size": 25
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39405,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 25
+    },
+    {
+      "address": 629259,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 21,
+      "file_spans": [
+        {
+          "address": 629259,
+          "file_offset": 608779,
+          "size": 21
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39435,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 21
+    },
+    {
+      "address": 629285,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 21,
+      "file_spans": [
+        {
+          "address": 629285,
+          "file_offset": 608805,
+          "size": 21
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39461,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 21
+    },
+    {
+      "address": 629311,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 21,
+      "file_spans": [
+        {
+          "address": 629311,
+          "file_offset": 608831,
+          "size": 21
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39487,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 21
+    },
+    {
+      "address": 629337,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 399,
+      "file_spans": [
+        {
+          "address": 629337,
+          "file_offset": 608857,
+          "size": 399
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39513,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 399
+    },
+    {
+      "address": 629751,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 17,
+      "file_spans": [
+        {
+          "address": 629751,
+          "file_offset": 609271,
+          "size": 17
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39927,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 17
+    },
+    {
+      "address": 629777,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 27,
+      "file_spans": [
+        {
+          "address": 629777,
+          "file_offset": 609297,
+          "size": 27
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39953,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 27
+    },
+    {
+      "address": 629813,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 19,
+      "file_spans": [
+        {
+          "address": 629813,
+          "file_offset": 609333,
+          "size": 19
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 39989,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 19
+    },
+    {
+      "address": 629847,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 28,
+      "file_spans": [
+        {
+          "address": 629847,
+          "file_offset": 609367,
+          "size": 28
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 40023,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 28
+    },
+    {
+      "address": 629878,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 28,
+      "file_spans": [
+        {
+          "address": 629878,
+          "file_offset": 609398,
+          "size": 28
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 40054,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 28
+    },
+    {
+      "address": 629927,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 129,
+      "file_spans": [
+        {
+          "address": 629927,
+          "file_offset": 609447,
+          "size": 129
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 40103,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 129
+    },
+    {
+      "address": 630190,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 1023,
+      "file_spans": [
+        {
+          "address": 630190,
+          "file_offset": 609710,
+          "size": 594
+        },
+        {
+          "address": 630784,
+          "file_offset": 610304,
+          "size": 429
+        }
+      ],
+      "fully_file_backed": true,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 40366,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 1023
+    },
+    {
+      "address": 631343,
+      "classification": "candidate-zero-capacity-only",
+      "file_backed_size": 0,
+      "file_spans": [],
+      "fully_file_backed": false,
+      "incoming_direct_control_flow": [],
+      "object": 2,
+      "object_kind": "data",
+      "object_offset": 41519,
+      "reusable": false,
+      "reuse_evidence": "not established",
+      "size": 647153
+    }
+  ],
+  "detached_evidence_provenance": {
+    "checkout_sha": "77fd605348bb3ee679b9a072bcc90d35c89106cb",
+    "material_input_sha256": {
+      ".github/workflows/a2-real-target.yml": "a5c331cec35bf1586460be7f5d9cd22d6e5a26197330217ae170db7b9d8bf196",
+      "scripts/generate_a2_capacity_inventory.py": "e658b26a76a1ec7ee4b8e23a42637b858d0c3c0fed2df8222a3191cabfbeb482",
+      "tools/fetch_free_targets.py": "3b81d9220ae8ade30a46830921b627fb1521bab476c90f07ac7d2d01b327160a",
+      "tools/free-target-sources.json": "19088c1aa51cfa0793f5879678be0e12bc7e4e1a8bf9d04e0cbe59688baf5318",
+      "tools/le_disasm.py": "4554284f740791064de6dacac16af697da9559eced0c94a0f5a55e694a19a07c",
+      "tools/le_image.py": "925cc72645a4b1a6dd9bcbeffe7d11e6b11dd38253e9413112084bb4408877d7"
+    },
+    "schema": "a2-stage1-detached-provenance:v1"
+  },
+  "direct_control_flow_reference_count": 23477,
+  "known_seams": [
+    {
+      "address": 226664,
+      "file_offset": 259432,
+      "id": "planet-window-handler",
+      "object": 1,
+      "object_offset": 161128,
+      "provenance": "docs/re/auto-management-ui-state.md"
+    },
+    {
+      "address": 227615,
+      "file_offset": 260383,
+      "id": "managed-mirror-write",
+      "object": 1,
+      "object_offset": 162079,
+      "provenance": "docs/re/auto-management-ui-state.md"
+    },
+    {
+      "address": 241610,
+      "file_offset": 274378,
+      "id": "managed-render-check",
+      "object": 1,
+      "object_offset": 176074,
+      "provenance": "docs/re/auto-management-ui-state.md"
+    },
+    {
+      "address": 243128,
+      "file_offset": 275896,
+      "id": "player-automation-gate",
+      "object": 1,
+      "object_offset": 177592,
+      "provenance": "docs/re/auto-management-turn-path.md"
+    },
+    {
+      "address": 252144,
+      "file_offset": 284912,
+      "id": "automation-policy-candidate",
+      "object": 1,
+      "object_offset": 186608,
+      "provenance": "docs/re/auto-management-turn-path.md"
+    }
+  ],
+  "method": {
+    "capacity_semantics": "zero/padding runs are investigation candidates only; absence of a direct reference is not evidence that bytes are semantically unused",
+    "control_flow_model": "GNU objdump i386 linear sweep; direct call/branch targets only",
+    "minimum_zero_run": 16
+  },
+  "objects": [
+    {
+      "base_address": 65536,
+      "end_address": 534326,
+      "first_page": 1,
+      "flag_names": [
+        "readable",
+        "executable",
+        "preload",
+        "big32"
+      ],
+      "flags": 8261,
+      "index": 1,
+      "kind": "code",
+      "page_count": 115,
+      "virtual_size": 468790
+    },
+    {
+      "base_address": 589824,
+      "end_address": 1278496,
+      "first_page": 116,
+      "flag_names": [
+        "readable",
+        "writable",
+        "preload",
+        "big32"
+      ],
+      "flags": 8259,
+      "index": 2,
+      "kind": "data",
+      "page_count": 11,
+      "virtual_size": 688672
+    }
+  ],
+  "producer": {
+    "disassembler": "GNU objdump (GNU Binutils for Ubuntu) 2.42",
+    "le_parser_layout": "open-watcom-os2-flat-header-page-off-0x80/v1",
+    "path": "scripts/generate_a2_capacity_inventory.py",
+    "sha256": "e658b26a76a1ec7ee4b8e23a42637b858d0c3c0fed2df8222a3191cabfbeb482"
+  },
+  "schema": "ascendancy.a2-capacity-inventory/v1",
+  "target": {
+    "file_size": 610863,
+    "name": "ANTAG_EN.EXE",
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
+  }
+}

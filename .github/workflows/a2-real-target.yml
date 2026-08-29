@@ -5,7 +5,7 @@ on:
   create:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   a2-stage1-real-target:
@@ -130,6 +130,27 @@ jobs:
                   f"source_file_offset=0x{hit['source_file_offset']:x}"
               )
           PY
+      - name: Commit derived evidence to evidence branch
+        if: >-
+          github.event_name == 'create' &&
+          github.event.ref_type == 'branch' &&
+          startsWith(github.event.ref, 'evidence/a2-real-target/')
+        env:
+          EVIDENCE_BRANCH: ${{ github.event.ref }}
+        run: |
+          case "$EVIDENCE_BRANCH" in
+            evidence/a2-real-target/*) ;;
+            *) echo "Refusing to persist evidence to non-evidence branch: $EVIDENCE_BRANCH" >&2; exit 1 ;;
+          esac
+          evidence_dir="docs/experiments/evidence/a2/$A2_CHECKOUT_SHA"
+          mkdir -p "$evidence_dir"
+          cp artifacts/a2-stage1-capacity-inventory.json "$evidence_dir/stage1-capacity-inventory.json"
+          cp artifacts/a2-raw-literal-reference-probe.json "$evidence_dir/raw-literal-reference-probe.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$evidence_dir"
+          git commit -m "Evidence: persist A2 real-target results for $A2_CHECKOUT_SHA"
+          git push origin "HEAD:refs/heads/$EVIDENCE_BRANCH"
       - name: Upload derived inventory
         uses: actions/upload-artifact@v4
         with:

@@ -275,8 +275,8 @@ Limits that downstream work must retain:
 - linear sweep can decode embedded data;
 - candidate starts are direct-call-derived regions, not verified functions; indirect-only callees are folded into preceding spans;
 - 11 EN / 12 INTL structural Antagonizer-only spans exceed 2000 bytes, so the structural count is not a changed-function count;
-- reference-only differences mix benign relocation with possible callee/global/table retargets;
-- constant-only differences mix DS-relative layout movement with genuine thresholds/flags and are the largest unresolved English bucket;
+- reference-only differences mix benign relocation with possible callee/global/state/table retargets;
+- constant-only differences mix DS-relative layout movement with genuine thresholds/biases/flags and are the largest unresolved English bucket;
 - structural matched-byte fraction ignores both unresolved middle buckets;
 - despite T1's strong direct-lineage evidence, whole-image differences may still contain unrelated bug-fix/configuration drift and need cross-locale or semantic corroboration.
 
@@ -946,7 +946,7 @@ Until criterion 2 is met, A1 remains `Investigation first`; downstream tasks tha
 ## A2 — Select the patch/integration mechanism
 
 - **Status:** Investigation first
-- **Current state:** Stage 1 exact-target capacity inventory and a historical exact-target literal-reference probe are complete; no existing mapped range is established reusable. The decoded-reference probe, bounded runtime-capacity observer, and Stage 2 LE-growth transformer are prepared, but their outstanding runs remain tooling/synthetic rather than current-head target evidence.
+- **Current state:** Stage 1 exact-target capacity inventory and a current-head exact-target raw-absolute-literal probe are complete; no existing mapped range is established reusable. The current producer, bound to checkout `77fd605348bb3ee679b9a072bcc90d35c89106cb`, found 10 raw absolute little-endian u32 hits into the two large candidate ranges; this is a narrower analysis model than the historical 1,983-hit probe and does not establish semantic consumers. The decoded-reference probe, bounded runtime-capacity observer, and Stage 2 LE-growth transformer remain prepared, but their outstanding runs are still tooling/synthetic rather than current-head target evidence.
 - **Execution:** CLOUD
 - **Priority:** Critical
 - **Category:** Architecture / patching
@@ -961,6 +961,8 @@ The bounded decision experiment is recorded in [`docs/experiments/A2-patch-mecha
 Stage 1 on canonical `ANTAG_EN.EXE` SHA-256 `8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00` (`static`, clean blind-RE provenance) found 43 zero/padding candidate regions at the 16-byte threshold, 42 fully file-backed. The largest file-backed leads are object-2 VA `0x96c10` / 6206 bytes and `0x988dc` / 3052 bytes. Under the producer's GNU-objdump linear-sweep model, none of the 43 candidates has an incoming direct call/branch target. This establishes **zero reusable bytes so far**: zero/padding content and absence of incoming direct control flow do not exclude data references, indirect/runtime-computed access, initialization, scratch use, sentinel semantics, or other consumers.
 
 A historical exact-target raw-literal run is already preserved in [`docs/experiments/A2-literal-reference-probe.md`](./docs/experiments/A2-literal-reference-probe.md), bound to PR #44 head `8c6ea2536eaf6c924fdf8a6143be7c20648a7fce`. It observed 1,983 raw little-endian u32 matches into the two candidate ranges: 1,162 into `0x96c10` and 821 into `0x988dc`. Those raw matches are leads, not proven runtime references or semantic consumers, and both candidates remain `reusable: false`. That historical result must not be silently rebound to current `main`.
+
+Current-head exact-target static artifacts are preserved under [`docs/experiments/evidence/a2/77fd605348bb3ee679b9a072bcc90d35c89106cb/`](./docs/experiments/evidence/a2/77fd605348bb3ee679b9a072bcc90d35c89106cb/). The raw-literal producer is bound to checkout `77fd605348bb3ee679b9a072bcc90d35c89106cb` and found 10 raw absolute little-endian u32 hits into the same two large candidate ranges. Its analysis model scans raw absolute values landing directly inside those ranges; the historical producer also tested an LE-object-relative interpretation. The 10-hit and 1,983-hit counts therefore come from different analysis models and must not be compared as though one reproduced or superseded the other. Both are investigation leads only, and both candidates remain `reusable: false`.
 
 The current repository has stronger follow-up machinery prepared but not promoted beyond its evidence class. [`docs/experiments/A2-decoded-memory-reference-triage.md`](./docs/experiments/A2-decoded-memory-reference-triage.md) records the decoded absolute-memory probe as tooling/synthetic until an exact-target result is produced. [`docs/experiments/A2-runtime-capacity-observation.md`](./docs/experiments/A2-runtime-capacity-observation.md) provides a bounded read-only exact-target observer, validated synthetically, that can distinguish initial nonzero materialization or runtime mutation from a bounded no-write observation while the target progresses. [`docs/experiments/A2-stage2-le-growth-transformer.md`](./docs/experiments/A2-stage2-le-growth-transformer.md) is likewise target-neutral synthetic preparation: it deliberately rejects the canonical target and does not establish loader acceptance, runtime execution of appended pages, or mechanism B.
 

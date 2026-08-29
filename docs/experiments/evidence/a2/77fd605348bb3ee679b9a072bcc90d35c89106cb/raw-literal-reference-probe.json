@@ -1,0 +1,133 @@
+{
+  "candidates": [
+    {
+      "id": "object2-0x96c10",
+      "size": 6206,
+      "start": 617488
+    },
+    {
+      "id": "object2-0x988dc",
+      "size": 3052,
+      "start": 624860
+    }
+  ],
+  "detached_evidence_provenance": {
+    "checkout_sha": "77fd605348bb3ee679b9a072bcc90d35c89106cb",
+    "material_input_sha256": {
+      ".github/workflows/a2-real-target.yml": "a5c331cec35bf1586460be7f5d9cd22d6e5a26197330217ae170db7b9d8bf196",
+      "scripts/generate_a2_raw_literal_reference_probe.py": "ba140f7d03c8fe7eac3c980fad1292b0ff6cfb549f30391dc0707bea9c365eb5",
+      "tools/fetch_free_targets.py": "3b81d9220ae8ade30a46830921b627fb1521bab476c90f07ac7d2d01b327160a",
+      "tools/free-target-sources.json": "19088c1aa51cfa0793f5879678be0e12bc7e4e1a8bf9d04e0cbe59688baf5318",
+      "tools/le_image.py": "925cc72645a4b1a6dd9bcbeffe7d11e6b11dd38253e9413112084bb4408877d7"
+    },
+    "schema": "a2-raw-literal-detached-provenance:v1"
+  },
+  "literal_hit_count": 10,
+  "literal_hits": [
+    {
+      "candidate_id": "object2-0x96c10",
+      "candidate_offset": 1962,
+      "literal_value": 619450,
+      "site_address": 116741,
+      "source_file_offset": 149509,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x96c10",
+      "candidate_offset": 5034,
+      "literal_value": 622522,
+      "site_address": 116844,
+      "source_file_offset": 149612,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x988dc",
+      "candidate_offset": 734,
+      "literal_value": 625594,
+      "site_address": 116870,
+      "source_file_offset": 149638,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x988dc",
+      "candidate_offset": 1244,
+      "literal_value": 626104,
+      "site_address": 116880,
+      "source_file_offset": 149648,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x96c10",
+      "candidate_offset": 3699,
+      "literal_value": 621187,
+      "site_address": 133130,
+      "source_file_offset": 165898,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x96c10",
+      "candidate_offset": 5336,
+      "literal_value": 622824,
+      "site_address": 145427,
+      "source_file_offset": 178195,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x96c10",
+      "candidate_offset": 5080,
+      "literal_value": 622568,
+      "site_address": 153620,
+      "source_file_offset": 186388,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x96c10",
+      "candidate_offset": 1662,
+      "literal_value": 619150,
+      "site_address": 243523,
+      "source_file_offset": 276291,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x988dc",
+      "candidate_offset": 2527,
+      "literal_value": 627387,
+      "site_address": 355005,
+      "source_file_offset": 387773,
+      "source_object": 1,
+      "source_object_kind": "code"
+    },
+    {
+      "candidate_id": "object2-0x96c10",
+      "candidate_offset": 6104,
+      "literal_value": 623592,
+      "site_address": 519775,
+      "source_file_offset": 552543,
+      "source_object": 1,
+      "source_object_kind": "code"
+    }
+  ],
+  "method": {
+    "scan": "all overlapping file-backed little-endian 32-bit words in mapped LE objects",
+    "semantics": "a hit is only a raw literal lead; it does not establish an executed/read reference. absence of hits does not exclude computed, narrower, indirect, or runtime references"
+  },
+  "producer": {
+    "le_parser": "tools/le_image.py",
+    "path": "scripts/generate_a2_raw_literal_reference_probe.py",
+    "sha256": "ba140f7d03c8fe7eac3c980fad1292b0ff6cfb549f30391dc0707bea9c365eb5"
+  },
+  "schema": "ascendancy.a2-raw-literal-reference-probe/v1",
+  "target": {
+    "file_size": 610863,
+    "name": "ANTAG_EN.EXE",
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00"
+  }
+}

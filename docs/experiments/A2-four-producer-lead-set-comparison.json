@@ -1,0 +1,117 @@
+{
+  "schema": "ascendancy.a2-four-producer-lead-set-comparison/v1",
+  "issue": 119,
+  "roadmap_item": "A2",
+  "date": "2026-09-04",
+  "blind_re_provenance": "clean",
+  "checkout_sha": "5e361ff05165c5c91ec8aa7a29160867081c963c",
+  "target": {
+    "name": "ANTAG_EN.EXE",
+    "file_size": 610863,
+    "sha256": "8d91e89e978a4e39970f30b790c9c55adde59079c6108a34cdd286882e117b00",
+    "acquisition": "tools/fetch_free_targets.py antagonizer-en via repository-approved archive.org source"
+  },
+  "comparison": {
+    "lead_identity": "candidate range plus candidate-relative offset",
+    "duplicate_rows_collapsed_for_sets": true,
+    "candidate_id_normalization": "object2-0x96c10 -> object2-96c10; object2-0x988dc -> object2-988dc",
+    "all_four_intersection_count": 0,
+    "pairwise_intersection_counts": {
+      "mapped_linear_raw__decoded_memory": 0,
+      "mapped_linear_raw__mapped_literal": 10,
+      "mapped_linear_raw__full_file_raw": 10,
+      "decoded_memory__mapped_literal": 40,
+      "decoded_memory__full_file_raw": 40,
+      "mapped_literal__full_file_raw": 713
+    },
+    "subset_relations": [
+      ["mapped_linear_raw", "mapped_literal"],
+      ["mapped_linear_raw", "full_file_raw"],
+      ["decoded_memory", "mapped_literal"],
+      ["decoded_memory", "full_file_raw"],
+      ["mapped_literal", "full_file_raw"]
+    ],
+    "decoded_mapped_literal_full_file_raw_intersection_count": 40,
+    "all_four_intersection": []
+  },
+  "producers": {
+    "mapped_linear_raw": {
+      "output": "artifacts/a2-cycle-generate-raw.json",
+      "schema": "ascendancy.a2-raw-literal-reference-probe/v1",
+      "producer": "scripts/generate_a2_raw_literal_reference_probe.py",
+      "producer_sha256": "ba140f7d03c8fe7eac3c980fad1292b0ff6cfb549f30391dc0707bea9c365eb5",
+      "output_sha256": "bf5ae7c9627e0a2df07019e1f3dfe060439a1ff524e6817eb5cb271d1cc34ee7",
+      "hit_rows": 10,
+      "unique_leads": 10,
+      "candidate_hit_rows": {"object2-0x96c10": 7, "object2-0x988dc": 3},
+      "candidate_unique_leads": {"object2-0x96c10": 7, "object2-0x988dc": 3},
+      "address_model": "linear-va"
+    },
+    "decoded_memory": {
+      "output": "artifacts/a2-cycle-decoded.json",
+      "schema": "ascendancy.a2-decoded-memory-reference-probe/v1",
+      "producer": "scripts/probe_a2_decoded_memory_references.py",
+      "producer_sha256": "0a6c83b0768919f3fe89ce28df6adc9e0eaf050e27f8c6fb7647af5049f85773",
+      "output_sha256": "283d8c9d4e2149235942f143274b29a35f745db3bda3ca12a30dbcebd8fba47d",
+      "hit_rows": 340,
+      "unique_leads": 40,
+      "candidate_hit_rows": {"object2-96c10": 74, "object2-988dc": 266},
+      "candidate_unique_leads": {"object2-96c10": 10, "object2-988dc": 30},
+      "address_model": "target-object-relative"
+    },
+    "mapped_literal": {
+      "output": "artifacts/a2-cycle-literal.json",
+      "schema": "ascendancy.a2-literal-reference-probe/v1",
+      "producer": "scripts/probe_a2_literal_references.py",
+      "producer_sha256": "650623100dd601e6ca156c8adca779bdfc7d4c55ea9edf4bad44957246bc1afb",
+      "output_sha256": "bf40c3f0e4cfb4c687a62a91669764cd2d9327d95af9bf44bade2610cdecaf78",
+      "hit_rows": 1983,
+      "unique_leads": 713,
+      "candidate_hit_rows": {"object2-96c10": 1162, "object2-988dc": 821},
+      "candidate_unique_leads": {"object2-96c10": 413, "object2-988dc": 300},
+      "address_models": ["linear-va", "target-object-relative"]
+    },
+    "full_file_raw": {
+      "output": "artifacts/a2-cycle-candidate-raw.json",
+      "schema": "ascendancy.a2-candidate-raw-references/v1",
+      "producer": "scripts/analyze_a2_candidate_raw_references.py",
+      "producer_sha256": "b5df3ea84d60dfee55a7b475537a513a9690a073742289617d3b882fbf78215f",
+      "output_sha256": "3e0943821a3f7cdbc45ee009c988a2e58fc46bbbdab5b4de51c9f32296ceebe7",
+      "hit_rows": 2021,
+      "unique_leads": 738,
+      "candidate_hit_rows": {"object2-96c10": 1195, "object2-988dc": 826},
+      "candidate_unique_leads": {"object2-96c10": 436, "object2-988dc": 302},
+      "address_models": ["linear-va", "object-relative"]
+    }
+  },
+  "ranking": {
+    "first_ranked_by_hit_rows": {
+      "mapped_linear_raw": "object2-96c10",
+      "decoded_memory": "object2-988dc",
+      "mapped_literal": "object2-96c10",
+      "full_file_raw": "object2-96c10"
+    },
+    "first_ranked_by_unique_leads": {
+      "mapped_linear_raw": "object2-96c10",
+      "decoded_memory": "object2-988dc",
+      "mapped_literal": "object2-96c10",
+      "full_file_raw": "object2-96c10"
+    },
+    "majority_agreement": "3/4",
+    "pairwise_order_agreement": "3/6",
+    "unanimous": false
+  },
+  "claim_boundary": {
+    "reusable_capacity_established": false,
+    "mechanism_selected": false,
+    "new_producer_added": false,
+    "new_instrumentation_added": false
+  },
+  "validation": {
+    "execution_level": "reconstructed-local",
+    "target_machine_validation": "not applicable",
+    "focused_producer_tests": "25 passed",
+    "previous_cycle_outcome": "unknown",
+    "cycle_outcome": "evidence for A2 open question"
+  }
+}
